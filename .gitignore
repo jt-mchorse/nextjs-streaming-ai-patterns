@@ -11,3 +11,6 @@ build/
 *.log
 logs/
 .pytest_cache/
+
+# TypeScript incremental build cache
+*.tsbuildinfo
