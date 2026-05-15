@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+:root {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  --accent: #38bdf8;
+  --muted: #71717a;
+  --panel: #18181b;
+  --border: #27272a;
+}
+
+html,
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Shiki injects inline styles per token; this just keeps the wrapper sized. */
+pre.shiki {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  background: var(--panel) !important;
+}
+
+.token-blink::after {
+  content: "▍";
+  margin-left: 0.1rem;
+  animation: token-blink 1s steps(2, end) infinite;
+  color: var(--accent);
+}
+
+@keyframes token-blink {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 1; }
+}
