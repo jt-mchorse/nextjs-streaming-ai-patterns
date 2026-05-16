@@ -21,8 +21,8 @@ const PATTERNS: Pattern[] = [
     slug: "/tool-use",
     title: "Tool-use UI with interruption",
     description:
-      "Render the tool call, the result, and the resumed reasoning. Operator can interrupt mid-stream.",
-    status: "pending",
+      "Render the tool call, the streaming JSON args, the result, and the resumed reasoning. End-to-end AbortController interrupt produces a clean transcript.",
+    status: "shipped",
     issue: 2,
   },
   {
