@@ -45,3 +45,21 @@
   reversibility: cheap
   related_issues: [#1, #2]
   superseded_by: null
+
+- id: D-006
+  date: 2026-05-16
+  decision: tool_use_streaming_uses_same_sse_format_as_text_only_additional_event_types
+  rationale: one_protocol_for_all_patterns_client_renderer_unions_over_event_types_dispatches_in_one_place
+  alternatives_rejected: [separate_json_endpoint_for_tool_use, websocket_for_tool_use_only_inconsistent_with_text_pattern]
+  reversibility: cheap
+  related_issues: [#2]
+  superseded_by: null
+
+- id: D-007
+  date: 2026-05-16
+  decision: interrupt_uses_abort_controller_end_to_end_client_fetch_to_route_handler_to_stream_source
+  rationale: standard_browser_primitive_propagates_naturally_through_next_request_signal_no_custom_cancellation_token_required
+  alternatives_rejected: [server_side_cancellation_token, websocket_close, separate_endpoint_to_signal_interrupt]
+  reversibility: cheap
+  related_issues: [#2]
+  superseded_by: null

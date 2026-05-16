@@ -67,3 +67,30 @@ Strategic decisions for this repo, with reasoning. Append-only — superseded de
 **Reversibility:** Cheap. If a future React/Next release lands true per-token RSC streaming, swap the implementation under the same `<StreamingTextClient />` interface.
 
 **Related issues:** #1, #2
+
+## D-006 — Tool-use streaming uses the same SSE frame format as text-only (2026-05-16)
+**Decision:** The `/api/tool-use` endpoint emits SSE frames using the same shape as `/api/stream-text` (D-002 + D-005), just with additional `event:` types: `text_delta`, `tool_use_start`, `tool_use_delta`, `tool_use_stop`, `tool_result`, `message_stop`. The wire format is one protocol for all streaming patterns in this repo.
+
+**Why:** A single SSE protocol means the client-side renderer unions over event types and dispatches in one place. A future pattern that adds `citation_delta` or `reasoning_block` events just adds an `event:` name; the transport, the framing, and the abort semantics stay identical. Splitting into separate endpoints (or a WebSocket for tool-use-only) would force the client to maintain two parallel readers and diverge over time.
+
+**Alternatives considered:**
+- Separate JSON endpoint for tool-use — rejected: would force a non-streaming render path for tool calls, which exactly defeats the point of this repo.
+- WebSocket for tool-use-only — rejected: inconsistent transport with the text pattern, no benefit since HTTP/2 streaming covers the use case.
+
+**Reversibility:** Cheap. The wire-format choice is one constant in the route handler and a switch statement in the client.
+
+**Related issues:** #2
+
+## D-007 — Interrupt is `AbortController` end-to-end (2026-05-16)
+**Decision:** The tool-use UI's "interrupt" button calls `AbortController.abort()` on the same controller it passed to `fetch('/api/tool-use', { signal })`. Next.js exposes the client's abort on `req.signal`; the route handler passes it into `mockToolStream({ signal })`; the streamer checks `signal.aborted` at every yield boundary and yields a final `message_stop` with `stop_reason: "interrupted"` before returning. One `AbortSignal` propagates through three layers.
+
+**Why:** `AbortController` is the standard browser primitive for cancellation. Reusing it end-to-end means no custom token/handshake/cancellation-id system to maintain, and the same primitive a developer already uses for `fetch` timeouts also handles interrupt for streaming. The clean-transcript guarantee (an explicit `message_stop` rather than a broken-pipe error) is what makes the UI feel deliberate rather than crashed.
+
+**Alternatives considered:**
+- Server-side cancellation token via a separate channel — rejected: extra surface for the same outcome.
+- WebSocket close — rejected: same as D-006; we're not on WebSocket.
+- Separate "cancel" endpoint by stream id — rejected: forces server-side state tracking we don't otherwise need.
+
+**Reversibility:** Cheap. The abort plumbing is a single `signal` parameter through three layers; replacing it is mechanical.
+
+**Related issues:** #2
