@@ -37,3 +37,21 @@ Chronological log of work sessions. Most recent first below the divider.
 **Open questions / blockers:** None. The remaining three patterns (partial-JSON parsing, optimistic-rollback, error-recovery) are filed as priority:med follow-ups (or will be once the issue tracker is reviewed).
 
 **Next session:** All v0.1-critical work is shipped; the remaining issue tracker is priority:med polish.
+
+
+## 2026-05-17 — Issue #3: Partial JSON parsing and progressive rendering
+**Duration:** ~60 min · **Branch:** `session/2026-05-17-1925-issue-03`
+
+- Shipped `lib/partial-json.ts` (D-008) — a dep-free incremental JSON parser. Strategy: per-frame state machine (`expecting: 'key' | 'colon' | 'value' | 'comma_or_close'`, plus `committedAny` flag and `lastSafeEnd` boundary) walks the buffer once, tracks where each frame can be safely truncated, then closes open frames with the appropriate `]` / `}` to produce a valid JSON repair. The fast path (`JSON.parse` directly) wins when the buffer is already complete; otherwise the repaired prefix runs through `JSON.parse`. Returns `{ value, isComplete }` and never throws.
+- `lib/mock-json-stream.ts` — emits the canned "trip itinerary" payload (top-level fields + `daily_plan[]` of 3 nested objects + budget) chunked on a pseudo-random 8-15-char schedule so the realistic mid-key, mid-value, and mid-array failure modes all surface in the demo. Uses the same SSE envelope shape every other pattern in this repo uses (D-006).
+- `app/api/partial-json/route.ts` — SSE handler that propagates `req.signal` to the streamer for clean interrupt (D-007), same as #1/#2.
+- `components/partial-json-client.tsx` — accumulates `json_delta` deltas into a buffer, runs `parsePartialJson` on each accumulation, renders a structured itinerary view where every field shows a skeleton placeholder until parsed. The skeleton-then-content swap means the UI never jumps; users see fields fill in progressively. Interrupt button is wired end-to-end.
+- `app/partial-json/page.tsx` — same shape as `app/tool-use/page.tsx` (title, demo client, source pane reading disk per D-004 with parser, streamer, route, and client all shown).
+- Homepage card for partial-json flipped from `pending` → `shipped`, issue 3 set.
+- 23 new tests: 20 in `test/partial-json.test.ts` (happy-path complete-JSON, incomplete-object with trailing key/value/comma/literal-fragment, incomplete-array variants, nested structures with the half-typed last entry dropped, escaped quotes inside strings both open and closed, malformed-input never-throws fuzz, monotonic-improvement across an incremental sequence) + 3 in `test/mock-json-stream.test.ts` (deltas reconstruct the full payload, abort signal yields `stop_reason: "interrupted"`, the parser reaches `isComplete: true` on the final accumulated buffer). Suite total: 36/36 pass. Build, typecheck, lint all clean.
+
+**Why this work, this session:** Issue #3 was the lowest-numbered open `priority:med` for this repo and the natural next pattern to ship — it's a foundational building block for the remaining two patterns (optimistic rollback can show optimistic JSON, error recovery needs partial state). The 60-min budget was enough for the parser to be honest (a ~120-line state machine with committedAny semantics rather than a quick regex-repair) plus the full demo wire-up. Writing the parser in-repo (D-008) keeps the demo page educational — the source pane shows exactly the technique a reader would otherwise have to reverse-engineer from a vendored library.
+
+**Open questions / blockers:** None. Issues #4 (optimistic rollback) and #5 (error recovery) remain — both can land on top of `parsePartialJson` plus the existing route/client patterns.
+
+**Next session:** Either #4 or #5 here, or move to ai-app-integration-tests / another repo per the multi-issue session rotation.

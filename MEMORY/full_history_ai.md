@@ -48,3 +48,28 @@ context_for_next_session:
 decisions_made: [D-006, D-007]
 followups: []
 ---
+
+---
+session: 2026-05-17T19:25Z
+duration_min: 60
+issue: 3
+focus: partial_json_parser_plus_progressive_rendering_demo
+delta:
+  files_added: 5  # lib/partial-json.ts, lib/mock-json-stream.ts, app/api/partial-json/route.ts, components/partial-json-client.tsx, app/partial-json/page.tsx + 2 test files
+  files_changed: 1  # app/page.tsx homepage card
+  tests_added: 23  # 20 partial-json + 3 mock-json-stream
+  test_pass_rate: "36/36"
+  build_pass: true
+  lint_pass: true
+context_for_next_session:
+  - partial_json_parser_in_lib_partial_json_ts_dep_free_d_008_state_machine_per_frame_object_or_array_with_committed_any_flag
+  - parser_handles_open_strings_open_arrays_open_objects_trailing_commas_mid_token_primitives_never_throws
+  - mock_json_stream_in_lib_mock_json_stream_ts_emits_chunked_trip_itinerary_payload_uses_d_006_sse_envelope
+  - chunks_are_8_15_chars_so_real_failure_modes_are_exercised_mid_key_mid_value_mid_array
+  - route_handler_app_api_partial_json_route_ts_propagates_abort_signal_d_007
+  - client_component_components_partial_json_client_tsx_accumulates_json_delta_buffer_parses_on_each_chunk_renders_skeletons_for_unfilled_fields
+  - homepage_card_partial_json_now_status_shipped_issue_3
+  - issue_3_acceptance_partial_parser_done_form_fields_populate_progressively_done_malformed_json_tolerated_with_never_throws_test
+decisions_made: [D-008]
+followups: []
+---
