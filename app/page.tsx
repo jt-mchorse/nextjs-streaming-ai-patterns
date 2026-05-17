@@ -29,9 +29,9 @@ const PATTERNS: Pattern[] = [
     slug: "/partial-json",
     title: "Partial JSON parsing",
     description:
-      "Progressive rendering of a structured response as the model emits it, with incomplete-key recovery.",
-    status: "pending",
-    issue: 0,
+      "Progressive rendering of a structured response as the model emits it. Dep-free incremental parser tolerates open strings, open arrays/objects, trailing commas, mid-token primitives.",
+    status: "shipped",
+    issue: 3,
   },
   {
     slug: "/optimistic-rollback",

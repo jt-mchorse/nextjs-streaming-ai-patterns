@@ -94,3 +94,18 @@ Strategic decisions for this repo, with reasoning. Append-only — superseded de
 **Reversibility:** Cheap. The abort plumbing is a single `signal` parameter through three layers; replacing it is mechanical.
 
 **Related issues:** #2
+
+
+## D-008 — Partial-JSON parser is a dep-free in-repo implementation, not a vendored npm package (2026-05-17)
+**Decision:** The partial-JSON parser used by the `/partial-json` pattern (#3) is `lib/partial-json.ts`, a ~120-line dep-free state machine written in this repo. We do not import `partial-json`, `json-parse-stream`, or any other vendored library for this functionality.
+
+**Why:** The repo's mission per the portfolio handoff §2 is "reference patterns for AI features in Next.js" — readers come here to learn the *pattern*. A vendored library hides exactly the technique the page is supposed to teach: how to walk a streaming buffer, track per-frame state, decide what to drop versus keep, and produce a syntactically valid repair. The source pane shows the actual parser alongside the demo (D-004); a black-box import would make the source pane a thin wrapper that doesn't teach anything. Secondary motivation: zero runtime deps for the demo path stays consistent with `mock-stream` and `mock-tool-stream` for the other patterns.
+
+**Alternatives considered:**
+- Vendored `partial-json` npm package — rejected: hides the pattern, adds a runtime dep for a demo page that's specifically about explaining the technique.
+- Vendored `json-parse-stream` — same issues.
+- Ad-hoc regex-based repair (no state machine) — rejected: fragile at the edges that matter most (escaped quotes inside strings, mid-token primitives, distinguishing a key in `key` state from a value in `value` state). The committedAny + per-frame state machine is the simplest correct version.
+
+**Reversibility:** Cheap. The parser is one file with a stable `parsePartialJson(buffer) → { value, isComplete }` interface and 20 tests pinning the semantics. Swapping to a library later is one import change.
+
+**Related issues:** #3

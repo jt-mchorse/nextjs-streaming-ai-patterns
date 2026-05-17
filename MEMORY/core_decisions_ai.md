@@ -63,3 +63,12 @@
   reversibility: cheap
   related_issues: [#2]
   superseded_by: null
+
+- id: D-008
+  date: 2026-05-17
+  decision: partial_json_parser_is_dep_free_in_repo_implementation_not_a_vendored_npm_package
+  rationale: repo_is_a_reference_for_patterns_a_vendored_library_hides_the_technique_an_in_repo_120_line_state_machine_shows_it_transparently_and_keeps_runtime_dep_count_at_zero
+  alternatives_rejected: [vendor_partial_json_npm_package_hides_pattern_adds_runtime_dep, vendor_json_parse_stream_same_issues, ad_hoc_regex_repair_fragile_at_edge_cases_no_committedAny_concept]
+  reversibility: cheap
+  related_issues: [#3]
+  superseded_by: null
