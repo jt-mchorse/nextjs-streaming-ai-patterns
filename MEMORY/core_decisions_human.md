@@ -127,3 +127,18 @@ This is the same posture as the earlier deterministic-demo decisions: D-003 (the
 **Reversibility:** Cheap. The oracle is one ~80-line file. Swapping it for a network round-trip to Anthropic is a one-export change.
 
 **Related issues:** #4
+
+## D-011 — Error-recovery checkpoints are token-position integers, not opaque server-state blobs (2026-05-18)
+
+**Decision:** The `/error-recovery` pattern's checkpoints are simple 1-indexed integers carrying the index of the most-recently-emitted text token. The wire shape is `{ kind: "checkpoint", last_token: N }`. The client records the latest `last_token` it has seen and, on disconnect, reconnects with `?checkpoint=N` in the query string. The server resumes by passing `startAfter: N` to the generator — which silently skips the first N tokens.
+
+**Why:** An integer-index checkpoint lets the *whole protocol* be stateless. The server doesn't need a per-session map; the generator is a pure function of `(startAfter, dropAfter)`. The drop branch stays deterministic — every first request drops at token 12, every resume request completes — which is the load-bearing property for an observable demo (a visitor sees the resumed pill on the first run, not by chance). The shape also composes naturally with the existing SSE event format from `streaming-text` (D-005): `data: {text}` for text, `data: {last_token: N}` for checkpoints, no protocol divergence to learn.
+
+**Alternatives considered:**
+- Opaque cursor strings (`{ checkpoint: "abc123..." }`) — rejected: forces a server-side state map keyed on the cursor; the route handler must look up "what does abc123 mean for this client?" before resuming. Defeats the deterministic-drop property because state is now a function of past requests, not of current inputs.
+- Per-session backing store (Redis / database) — rejected: overkill for a demo that's supposed to run on a fresh clone without infra. The pattern's teaching point is the *protocol*, not the durability layer.
+- Client-side hashing of received text — rejected: brittle. Client and server tokenization can diverge under any future refactor of the fixture; a hash mismatch leaves the resume request without an answer.
+
+**Reversibility:** Cheap. The wire format is one integer field; swapping it for an opaque cursor would touch three files (`lib/checkpoint-stream.ts`, `app/api/error-recovery/route.ts`, `components/error-recovery-client.tsx`) and the tests that pin the shape.
+
+**Related issues:** #5

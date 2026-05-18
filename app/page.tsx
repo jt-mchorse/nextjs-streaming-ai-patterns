@@ -45,9 +45,9 @@ const PATTERNS: Pattern[] = [
     slug: "/error-recovery",
     title: "Error recovery mid-stream",
     description:
-      "Stream interrupted? Resume from the last token. Render the recovery transparently.",
-    status: "pending",
-    issue: 0,
+      "Checkpoint protocol over SSE: server emits a checkpoint event every few tokens, client records the most-recent one, reconnects with it on drop. Accumulating text never resets; a brief 'resumed at token N' pill makes the recovery observable. Drop is deterministic so the recovery branch is reproducible.",
+    status: "shipped",
+    issue: 5,
   },
 ];
 

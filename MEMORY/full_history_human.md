@@ -68,3 +68,17 @@ Chronological log of work sessions. Most recent first below the divider.
 **Open questions / blockers:** PR body explicitly flags that the in-browser animation walkthrough was not performed on this branch — unit tests + a successful production build cover the logic, but the frame-by-frame animation needs a human reviewer's eyes. Surfacing this honestly rather than claiming a verification I didn't do.
 
 **Next session:** ai-app-integration-tests #5 (CI suite under 5 minutes), then circle back to error-recovery mid-stream (#5 here) if time.
+
+## 2026-05-18 — Issue #5: Error recovery mid-stream
+**Duration:** ~35 min · **Branch:** `session/2026-05-18-issue-05` (stacked on PR #9) · **PR:** #10
+
+- Shipped the sixth and final pattern page (`/error-recovery`). The protocol: server emits a `checkpoint` event every 5 tokens carrying the index of the most-recent text token (D-011 — integer index, not opaque cursor); client records it; on disconnect the client reconnects with `?checkpoint=N` and the server resumes by skipping the first N tokens. The route handler is deterministic: the first request always drops after 12 text tokens; every resume request streams cleanly to `event: done`.
+- The client accumulates text *without resetting* on drops — chunks before the drop stay rendered while the reconnect fires, then new chunks append in place. A `resumed at token N` pill renders for 2s after each reconnect; a `N recoveries` counter chip stays until done; a phase dot transitions idle → streaming → recovering → streaming → done.
+- 13 new tests (9 on the checkpoint generator, 4 on the route handler). Suite total 66 (was 53). Lint + typecheck + production build all clean.
+- The home page's pattern catalog flips this entry from `pending` → `shipped`. All five originally-pending patterns are now built.
+
+**Why this work, this session:** With #4 (optimistic-rollback) shipped earlier in the night and this entry the natural follow-on, knocking out both lets the repo cross "all five patterns shipped" inside one night. The two PRs touch adjacent entries in `app/page.tsx`, so the PR body explicitly flags the stacking + rebase order to make review easy.
+
+**Open questions / blockers:** As with #4, in-browser walkthrough not performed inside this PR — unit tests + production build cover the logic, but the resumed-pill timing + cursor-through-reconnect feel needs a human reviewer's eye. Surfacing this honestly rather than claiming a verification I didn't do.
+
+**Next session:** All med-priority issues in this repo are now closed. Loop continues against other repos or the low-priority backlog.

@@ -81,3 +81,12 @@
   reversibility: cheap
   related_issues: [4]
   superseded_by: null
+
+- id: D-011
+  date: 2026-05-18
+  decision: error_recovery_checkpoints_are_token_position_integers_not_opaque_server_state_blobs
+  rationale: integer_index_lets_route_handler_resume_by_skipping_first_n_tokens_no_per_session_server_state_to_manage_keeps_drop_path_deterministic_matches_existing_sse_text_event_shape_client_logic_stays_trivial_single_number_to_record
+  alternatives_rejected: [opaque_cursor_strings_forces_server_side_state_map_defeats_deterministic_drop, per_session_backing_store_overkill_for_demo_without_database, client_side_hashing_of_received_text_brittle_loses_sync_with_server_tokenization]
+  reversibility: cheap
+  related_issues: [5]
+  superseded_by: null
