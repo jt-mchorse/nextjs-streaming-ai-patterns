@@ -110,3 +110,28 @@ context_for_next_session:
 decisions_made: [D-011]
 followups: []
 ---
+
+---
+session: 2026-05-18T23:11Z
+duration_min: 35
+issue: 11
+focus: readme_truth_pass_all_five_patterns_shipped_plus_snapshot_test
+delta:
+  files_changed: 1   # README.md
+  files_added: 1     # test/readme-patterns-table.test.ts
+  tests_added: 3
+  test_pass_rate: "69/69"
+  typecheck_pass: true
+  lint_pass: true
+  build_pass: true
+context_for_next_session:
+  - readme_now_reflects_actual_state_all_five_patterns_shipped_rows_2_5_flipped_pending_to_shipped_with_issue_refs
+  - what_this_is_section_describes_full_set_with_one_bullet_per_pattern_plus_sse_envelope_d005_d006_and_abort_d007_threading
+  - demo_section_no_longer_claims_capture_exists_pending_60s_gif_video_now_tracked_in_followup_12
+  - new_snapshot_test_test_readme_patterns_table_test_ts_3_tests_parses_readme_and_app_page_tsx_patterns_array_asserts_match_row_for_row_plus_pages_exist_on_disk
+  - parallels_today_snapshot_pattern_landed_in_cost_optimizer_prompt_regression_rag_kit_phase_a_merges
+  - homepage_app_page_tsx_was_already_correct_only_readme_was_stale
+  - failure_path_verified_by_tampering_streaming_text_status_pending_test_fired_then_reverted
+decisions_made: []
+followups: [#12]
+---
