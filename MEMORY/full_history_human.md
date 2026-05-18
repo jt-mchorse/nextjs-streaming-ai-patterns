@@ -55,3 +55,16 @@ Chronological log of work sessions. Most recent first below the divider.
 **Open questions / blockers:** None. Issues #4 (optimistic rollback) and #5 (error recovery) remain — both can land on top of `parsePartialJson` plus the existing route/client patterns.
 
 **Next session:** Either #4 or #5 here, or move to ai-app-integration-tests / another repo per the multi-issue session rotation.
+
+## 2026-05-18 — Issue #4: Optimistic updates with rollback
+**Duration:** ~35 min · **Branch:** `session/2026-05-18-issue-04` · **PR:** #9
+
+- Shipped the fifth pattern page (`/optimistic-rollback`): React 19 `useOptimistic` overlays `(improving…)` on the pending row; a server route POSTs `{id, click_count}` to a deterministic 50/50 oracle (`lib/optimistic-decision.ts`); the optimistic update commits or rolls back depending on the Decision. The rollback path runs a 900 ms pure-CSS `rollback-flash` keyframe with the LLM's refusal reason rendered under the item.
+- The oracle is keyed by `(id, click_count)` with first-click bias to success, so the happy path leads and both branches are reproducible by construction. The property test pins the 50/50 split over 5 × 199 = 995 inputs (D-010).
+- 17 new tests across two files (10 on the oracle, 7 on the route). Suite total 53 (was 36). Lint + typecheck + production build all clean; the home page's pattern catalog flips this entry from `pending` → `shipped`.
+
+**Why this work, this session:** #4 was the lower-numbered of the two open med-priority issues in the repo and the natural fifth page in the catalog (the home page had already advertised it as pending). #5 (error recovery mid-stream) is the natural follow-on but didn't fit in the night session's remaining budget alongside other repos.
+
+**Open questions / blockers:** PR body explicitly flags that the in-browser animation walkthrough was not performed on this branch — unit tests + a successful production build cover the logic, but the frame-by-frame animation needs a human reviewer's eyes. Surfacing this honestly rather than claiming a verification I didn't do.
+
+**Next session:** ai-app-integration-tests #5 (CI suite under 5 minutes), then circle back to error-recovery mid-stream (#5 here) if time.

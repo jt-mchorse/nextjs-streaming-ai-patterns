@@ -109,3 +109,21 @@ Strategic decisions for this repo, with reasoning. Append-only — superseded de
 **Reversibility:** Cheap. The parser is one file with a stable `parsePartialJson(buffer) → { value, isComplete }` interface and 20 tests pinning the semantics. Swapping to a library later is one import change.
 
 **Related issues:** #3
+
+## D-010 — Optimistic-rollback demo uses a deterministic decision oracle keyed by `(id, click_count)` (2026-05-18)
+
+**Decision:** The `/optimistic-rollback` pattern's commit/rollback split is driven by `lib/optimistic-decision.ts`'s `decide({ id, click_count })` — a pure function that returns a deterministic `{ ok: true, improved_name } | { ok: false, reason }`. First click on each item always commits (happy path leads); subsequent clicks split exact 50/50 via an FNV-1a hash low-bit.
+
+**Why:** The rollback path is the *load-bearing UX* for this pattern. If it fires randomly, three things break: (1) tests can't pin the rollback branch without flake, (2) a visitor demoing the page might never see a rollback in a short session and conclude the feature is half-built, (3) when a reviewer asks "what does the rollback look like?" there's no reproducible repro to point at. A deterministic oracle keyed by inputs the user supplies (the id they click, the count of clicks) gives every branch a stable address: the property test in `optimistic-decision.test.ts` proves the 50/50 split holds over 5 × 199 = 995 inputs, and a reviewer can hit "improve" twice on `untitled-4.txt` and observe a specific rolled-back outcome. The first-click bias is a small UX courtesy — visitors see the optimistic-commit pattern work *before* they see it roll back.
+
+This is the same posture as the earlier deterministic-demo decisions: D-003 (the mock streamer is committed bytes, not network), D-005 (the streaming pattern uses a route handler + client reader, not a magic abstraction), D-008 (the partial-JSON parser is dep-free in-repo so the technique is visible). Each tells the same story: the demo is real source code running deterministic logic, not a closed-loop "trust me" black box.
+
+**Alternatives considered:**
+- `Math.random()` at the route handler — rejected: the rollback path becomes flaky in CI and unreproducible in dev. A reviewer can't ask the demo to show them a specific outcome.
+- Seeded RNG with a single static seed — rejected: every click on every item gives the same outcome forever. The demo loses its "click again, see what happens" interactivity.
+- Seeded RNG keyed only by `id` — same as above: same item always succeeds or always fails. Visitors never observe the *change*-of-outcome the pattern is about.
+- Round-robin per `id` (success, then fail, then success, ...) — rejected: predictable in a way that doesn't reflect the LLM-disagrees-sometimes UX the pattern teaches.
+
+**Reversibility:** Cheap. The oracle is one ~80-line file. Swapping it for a network round-trip to Anthropic is a one-export change.
+
+**Related issues:** #4
