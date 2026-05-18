@@ -72,3 +72,12 @@
   reversibility: cheap
   related_issues: [#3]
   superseded_by: null
+
+- id: D-010
+  date: 2026-05-18
+  decision: optimistic_rollback_demo_uses_deterministic_decision_oracle_keyed_by_id_plus_click_count_not_random_rng
+  rationale: rollback_path_is_load_bearing_ux_for_this_pattern_needs_to_fire_reproducibly_for_visitors_and_be_pinnable_by_tests_first_click_bias_keeps_happy_path_visible_first_subsequent_clicks_split_5050_via_fnv1a_low_bit
+  alternatives_rejected: [math_random_at_route_handler_flaky_in_ci_no_repro, seeded_rng_with_static_seed_every_click_same_outcome_defeats_demo, seeded_rng_keyed_only_by_id_same_item_always_succeeds_or_always_fails]
+  reversibility: cheap
+  related_issues: [4]
+  superseded_by: null

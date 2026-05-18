@@ -40,3 +40,20 @@ pre.shiki {
   0%, 100% { opacity: 0; }
   50% { opacity: 1; }
 }
+
+/* Optimistic-rollback (#4): brief border + translate flash when a
+   previously-optimistic update reverts. Pure CSS — no JS animation
+   loop. The class is cleared automatically the next time the item
+   becomes pending (a fresh click). */
+.animate-rollback {
+  animation: rollback-flash 900ms ease-out 1;
+}
+
+@keyframes rollback-flash {
+  0%   { transform: translateX(0);    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+  10%  { transform: translateX(-3px); box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.20); }
+  20%  { transform: translateX(3px); }
+  30%  { transform: translateX(-2px); }
+  40%  { transform: translateX(2px); }
+  100% { transform: translateX(0);    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}

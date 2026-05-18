@@ -73,3 +73,21 @@ context_for_next_session:
 decisions_made: [D-008]
 followups: []
 ---
+
+---
+session: 2026-05-18T04:00Z
+duration_min: 35
+issue: 4
+focus: optimistic_rollback_pattern_fifth_page_react_19_use_optimistic
+delta:
+  files_changed: 8
+  tests_added: 17
+context_for_next_session:
+  - fifth_pattern_optimistic_rollback_ships_d_010
+  - deterministic_decision_oracle_pinned_50_50_over_995_inputs_in_property_test
+  - rollback_animation_pure_css_keyframes_rollback_flash_900ms_shake_plus_border_flash
+  - home_page_pattern_4_pending_to_shipped
+  - pr_body_explicitly_flags_browser_verification_as_not_done_in_this_pr
+decisions_made: [D-010]
+followups: []
+---
