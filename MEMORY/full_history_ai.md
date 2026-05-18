@@ -91,3 +91,22 @@ context_for_next_session:
 decisions_made: [D-010]
 followups: []
 ---
+
+---
+session: 2026-05-18T04:20Z
+duration_min: 35
+issue: 5
+focus: error_recovery_mid_stream_sixth_pattern_page
+delta:
+  files_changed: 7
+  tests_added: 13
+context_for_next_session:
+  - sixth_pattern_error_recovery_ships_d_011
+  - checkpoint_protocol_integer_token_position_not_opaque_cursor
+  - drop_deterministic_first_request_after_12_tokens_resume_always_completes
+  - client_accumulates_text_without_reset_on_drop_resumed_pill_renders_2s
+  - pr_stacked_on_pr_9_optimistic_rollback
+  - all_5_pattern_pages_now_shipped_streaming_text_tool_use_partial_json_optimistic_rollback_error_recovery
+decisions_made: [D-011]
+followups: []
+---
