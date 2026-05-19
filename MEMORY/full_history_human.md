@@ -82,3 +82,17 @@ Chronological log of work sessions. Most recent first below the divider.
 **Open questions / blockers:** As with #4, in-browser walkthrough not performed inside this PR — unit tests + production build cover the logic, but the resumed-pill timing + cursor-through-reconnect feel needs a human reviewer's eye. Surfacing this honestly rather than claiming a verification I didn't do.
 
 **Next session:** All med-priority issues in this repo are now closed. Loop continues against other repos or the low-priority backlog.
+
+## 2026-05-18 — Issue #11: README truth pass — all five patterns shipped
+
+**Duration:** ~35 min · **Branch:** `session/2026-05-18-2311-issue-11`
+
+- Repaired a real drift in the README. Five patterns are shipped (closed issues #1–#5, every page lives under `app/<slug>/page.tsx`, homepage `PATTERNS` array describes all five correctly), but the README still framed only streaming-text as shipped and the Demo section claimed a 60s capture was "pending until at least three patterns ship". Both stale. Rewrote the Patterns table so rows 2–5 read `shipped` with issue refs, rewrote "What this is" to describe the full set (one bullet per pattern + the SSE-envelope contract and AbortController threading that tie them together), and rewrote Demo to be honest about today's state (live demo via `npm run dev`; captured GIF still pending, now tracked in follow-up #12).
+- Added `test/readme-patterns-table.test.ts` (3 tests). Parses both the README's Patterns table and `app/page.tsx`'s `PATTERNS` array and asserts they match row-for-row (title, slug, status, issue number) plus every README-referenced `app/<slug>/page.tsx` exists on disk. Same hygiene pattern as today's snapshot tests across the portfolio (`llm-cost-optimizer`, `prompt-regression-suite`, `rag-production-kit`). Verified the failure path by flipping streaming-text's status to `pending` — test fired with the expected/received diff; reverted.
+- 66 → 69 tests. `npm test`, `npm run lint`, `npm run typecheck`, `npm run build` all clean. Curl-smoked every pattern page (200 OK on `/` plus the five slugs) and the deterministic SSE routes (`/api/error-recovery` emits checkpoint frames on cue) on a fresh dev server.
+
+**Why this work, this session:** A repo whose README disagrees with its own homepage and its own closed-issue history is the failure mode this portfolio's `phase:shipped` posture is supposed to prevent. With the homepage already correct, the README was a 35-min concrete fix that also extends today's portfolio-wide snapshot-test pattern to the front-end repo.
+
+**Open questions / blockers:** Captured 60s demo asset still doesn't exist — explicitly handed off as #12 (priority:low, low-effort follow-up with screen-capture tooling) rather than silently leaving the gap.
+
+**Next session:** Loop into another repo's gaps. This repo's open-issue board now contains only #12 (low) — substantive feature work for this repo is done.
