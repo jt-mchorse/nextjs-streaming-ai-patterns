@@ -135,3 +135,26 @@ context_for_next_session:
 decisions_made: []
 followups: [#12]
 ---
+
+---
+session: 2026-05-20T03:47Z
+duration_min: 25
+issue: 14
+focus: ts_public_surface_pattern_second_typescript_variant_adapted_for_nextjs_app_shape
+delta:
+  files_added: 1   # test/public-surface.test.ts (vitest)
+  files_changed: 0
+  tests_added: 12   # 2 standalone + 8 lib modules + 2 README paths after it.each
+  test_pass_rate: "81/81"
+  typecheck_pass: true
+  lint_pass: true
+context_for_next_session:
+  - second_ts_variant_after_agent_orchestration_platform_pr_19_template
+  - nextjs_app_shape_means_no_src_index_ts_aggregator_no_package_json_bin_axes_adapted
+  - three_axes_pkg_version_semver_lib_modules_dynamic_import_with_defined_exports_readme_mermaid_quoted_paths_exist
+  - lib_modules_listed_at_test_time_via_readdirsync_so_new_modules_auto_included
+  - tamper_verified_three_axes_bad_version_rename_mock_stream_empty_shiki
+  - portable_to_last_ts_only_repo_ai_app_integration_tests_likely_similar_shape
+decisions_made: []
+followups: []
+---

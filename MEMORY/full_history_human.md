@@ -96,3 +96,17 @@ Chronological log of work sessions. Most recent first below the divider.
 **Open questions / blockers:** Captured 60s demo asset still doesn't exist — explicitly handed off as #12 (priority:low, low-effort follow-up with screen-capture tooling) rather than silently leaving the gap.
 
 **Next session:** Loop into another repo's gaps. This repo's open-issue board now contains only #12 (low) — substantive feature work for this repo is done.
+
+## 2026-05-20 — Issue #14: lock public surface (TS variant for Next.js app)
+**Duration:** ~25 min · **Branch:** `session/2026-05-20-0347-issue-14`
+
+- Added `test/public-surface.test.ts` (vitest, 3 test definitions → 12 test items after `it.each` over 8 `lib/*.ts` modules and 2 README-quoted file paths). Adapted from the `agent-orchestration-platform#19` TS template for a Next.js app shape: no `src/index.ts` aggregator, no `package.json#bin`. Three axes: `package.json#version` semver, every `lib/*.ts` imports cleanly with at least one defined value export (dynamically imported via `pathToFileURL`), README's mermaid-diagram-quoted file paths (`lib/mock-stream.ts`, `app/streaming-text/page.tsx`) exist on disk.
+- `lib/*.ts` modules are listed at test time via `readdirSync` so adding a new module auto-onboards into the test (no hard-coded set to drift).
+- Tamper-verified three axes: bad `package.json#version`, rename `lib/mock-stream.ts` (fires README-path test), empty `lib/shiki.ts` (fires parametrized lib-module test with "exports nothing defined at runtime").
+- Full suite 81/81 (was 69; +12 new), typecheck + lint clean.
+
+**Why this work, this session:** Eleventh strike of the portfolio-wide public-surface hygiene pattern, second TS variant. Orthogonal to the existing `test/readme-patterns-table.test.ts` (PATTERNS ↔ homepage ↔ page.tsx); this PR fills the gaps that test doesn't cover.
+
+**Open questions / blockers:** None — PR ready for review.
+
+**Next session:** Apply this TS-Next.js variant (or the agent-orchestration TS-library variant) to `ai-app-integration-tests`, the last pure-TS portfolio repo without the pattern.
