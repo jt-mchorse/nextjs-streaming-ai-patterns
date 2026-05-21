@@ -110,3 +110,20 @@ Chronological log of work sessions. Most recent first below the divider.
 **Open questions / blockers:** None — PR ready for review.
 
 **Next session:** Apply this TS-Next.js variant (or the agent-orchestration TS-library variant) to `ai-app-integration-tests`, the last pure-TS portfolio repo without the pattern.
+
+## 2026-05-21 — Issue #12: 60-second demo capture (script + smoke test; binary deferred to #16)
+**Duration:** ~35 min · **Branch:** `session/2026-05-21-2311-issue-12` · **PR:** to be opened
+
+- Added `scripts/capture_demo.ts` — a Playwright-driven deterministic 60-second tour of the homepage and the five pattern pages, with per-page interactions where the pattern needs them (Run+Interrupt on `/tool-use`, two clicks on the first item of `/optimistic-rollback` to fire D-010's deterministic 50/50 rollback, auto-start everywhere else). Hermetic by design: no API key, mock-mode pill (D-003) visible by default in every page header.
+- Added `test/capture-demo-smoke.test.ts` (6 tests) — imports the `TIMELINE` constant from the capture script and asserts: starts on `/`, the other 5 slugs match `app/page.tsx`'s `PATTERNS` array, every referenced `page.tsx` exists on disk, no duplicate stops, every stop has a non-empty label and a `durationMs ≥ holdMs`, total duration in [30s, 90s]. Mirrors the drift-prevention shape of `test/readme-patterns-table.test.ts`. Tamper-verified: changing `/tool-use` to `/toy-use` fires two assertions; reverted clean.
+- Added `playwright.config.ts` (minimal; `outputDir: ./docs`, `video: 'on'`, 1280x720 viewport, deviceScaleFactor 2) as the canonical viewport shape; the capture script's `newContext({...})` mirrors it.
+- Added `playwright`, `@playwright/test`, and `tsx` as devDeps. Critically: `playwright` does NOT auto-install browsers on `npm install` (postinstall hook was removed years ago), so CI stays fast and the ~150 MB browser install is explicit (`npx playwright install chromium`) — only the recording engineer pays that cost. The vitest smoke test never launches a browser.
+- README "Demo" section: replaced the `pending #12` placeholder paragraph with the `npm run capture` walkthrough plus an explanation of the tour stops, the mock-mode pill, and the split to #16 for the binary commit.
+- Filed follow-up #16 — "run the script, ffmpeg-optimize the output, commit `docs/demo.{webm,mp4,gif}`, embed in README." Estimated 30 min, ridden by D-012.
+- New decision **D-012** — capture-via-deterministic-script-binary-deferred-to-followup. Mirrors what landed across the five sister repos today. Full suite 87/87, typecheck + lint clean.
+
+**Why this work, this session:** Sixth and final repo today to land the `scripts/capture_demo.*` pattern. Closes the script-side of the only "demo" gap on this repo's six-item quality bar. The repo's PR was the last `priority:low` open item; with this it can join the 36+-hour rotation as a "fully built, no engineering open" repo.
+
+**Open questions / blockers:** None for the engineering. #16 is a 30-min operational task gated on local Playwright browsers + ffmpeg.
+
+**Next session:** Pick the next stale repo per Phase A selection rules. `ai-app-integration-tests` is now the only one 36+ hours untouched.

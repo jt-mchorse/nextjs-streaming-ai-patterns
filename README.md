@@ -127,13 +127,36 @@ honest, the source matches the demo, and the no-key fallback works."
 
 ## Demo
 
-A captured 60-second demo (GIF or video) is **pending** — tracked in
-[#12](https://github.com/jt-mchorse/nextjs-streaming-ai-patterns/issues/12).
-Today the live demo is the dev server itself: `npm run dev` and visit
-`http://localhost:3000/` for the index, then any of the five pattern
-slugs. Every demo runs in mock mode out of the box; setting
-`ANTHROPIC_API_KEY` flips the same UI to live mode and the page header
-surfaces which mode is active (D-003).
+```bash
+npm run dev                       # in one terminal
+npx playwright install chromium   # once
+npm run capture                   # records ~60s of video under docs/
+```
+
+`scripts/capture_demo.ts` ([#12], D-012) is a Playwright-driven
+deterministic tour of the homepage and the five pattern pages. The
+tour's `TIMELINE` constant is the source of truth for what each
+recording covers: homepage → `/streaming-text` → `/tool-use`
+(with a mid-stream Interrupt click) → `/partial-json` →
+`/optimistic-rollback` (two clicks on the first item — the second
+hits the deterministic 50/50 oracle D-010 and triggers the rollback
+animation) → `/error-recovery` (the route handler always drops the
+first request, so the auto-resume pill is guaranteed). The mode pill
+in every page header makes the no-key mock mode (D-003) visible in
+the recording. `test/capture-demo-smoke.test.ts` runs in CI and
+asserts the tour's slugs match `app/page.tsx`'s `PATTERNS` array
+and that every referenced `page.tsx` exists on disk, so the capture
+can't link to a 404'd pattern.
+
+The actual binary commit (`docs/demo.{webm,mp4,gif}` + README embed)
+is split into [#16] — that's a "run the script once, optimize the
+output, commit it" step gated on Playwright browsers being installed
+locally and on ffmpeg for size/format optimization. Re-record any
+time a pattern UX changes; the script is hermetic and the output is
+reproducible.
+
+[#12]: https://github.com/jt-mchorse/nextjs-streaming-ai-patterns/issues/12
+[#16]: https://github.com/jt-mchorse/nextjs-streaming-ai-patterns/issues/16
 
 ## Why these decisions
 

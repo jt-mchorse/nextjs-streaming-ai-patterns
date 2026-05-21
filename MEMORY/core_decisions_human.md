@@ -142,3 +142,18 @@ This is the same posture as the earlier deterministic-demo decisions: D-003 (the
 **Reversibility:** Cheap. The wire format is one integer field; swapping it for an opaque cursor would touch three files (`lib/checkpoint-stream.ts`, `app/api/error-recovery/route.ts`, `components/error-recovery-client.tsx`) and the tests that pin the shape.
 
 **Related issues:** #5
+
+## D-012 — `scripts/capture_demo.ts` is the demo's source of truth; binary recording is a separate follow-up (2026-05-21)
+
+**Decision:** The 60-second demo for this repo is engineered as a deterministic Playwright driver script (`scripts/capture_demo.ts`) plus a vitest smoke test (`test/capture-demo-smoke.test.ts`) that pins the tour's slugs against `app/page.tsx`'s `PATTERNS` array. The actual `docs/demo.{webm,mp4,gif}` binary commit is split into a separate issue (#16) that runs the script and commits its output. The script lands now; the binary lands when someone has 30 min and the local tooling installed.
+
+**Why:** What makes the demo durable is reproducibility — a pattern UX changing must not silently leave the recording lying. The Playwright script + the smoke test together are the reproducibility mechanism: the script encodes the click sequence; the smoke test fails if a slug drifts away from the homepage `PATTERNS` array or a `page.tsx` is removed. A committed binary without that infrastructure is a museum piece — it rots on the first pattern rename. So the script is the load-bearing artifact and the binary is downstream. Splitting also keeps this PR's diff focused on engineering CI can verify, and lets the binary step (which requires `npx playwright install chromium` ~150 MB, a running dev server, and `ffmpeg` for size optimization) ride to a separate operational session that doesn't need to fit inside a remote autonomous run. Pattern mirrors what landed today across `embedding-model-shootout`, `chunking-strategies-lab`, `vector-search-at-scale`, `python-async-llm-pipelines`, and `agent-orchestration-platform`.
+
+**Alternatives considered:**
+- Record the video inside this PR — rejected: requires Playwright browsers + ffmpeg + dev-server lifecycle to be orchestrated during a remote autonomous session; not reproducible in CI; and the actual artifact is a binary, which makes the PR's diff opaque to reviewers.
+- Ship only the binary, no script, recapture by hand on each pattern change — rejected: the click sequence becomes oral tradition; the recording silently goes stale when a pattern UX shifts; no test surface to catch drift.
+- Use a screen-recorder macro instead of Playwright — rejected: no repository-of-truth for the tour; no smoke-testable shape; first pattern rename breaks it without warning.
+
+**Reversibility:** Cheap. If we later want the binary committed in this same PR's pattern, it's one `npm run capture` + `git add docs/demo.webm` + README embed away. The decision documents the *split*, not a hard line against binaries in the repo.
+
+**Related issues:** #12, #16

@@ -158,3 +158,30 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-05-21T23:11Z
+duration_min: 35
+issue: 12
+focus: scripts_capture_demo_ts_playwright_driver_plus_smoke_test_binary_deferred_to_followup
+delta:
+  files_added: 3   # scripts/capture_demo.ts, playwright.config.ts, test/capture-demo-smoke.test.ts
+  files_changed: 2 # package.json (devDeps + capture script), README.md (Demo section)
+  tests_added: 6
+  test_pass_rate: "87/87"
+  typecheck_pass: true
+  lint_pass: true
+context_for_next_session:
+  - sixth_repo_to_land_capture_demo_pattern_after_embedding_chunking_vector_python_async_agent_orchestration_today
+  - playwright_browsers_NOT_auto_installed_on_npm_install_npx_playwright_install_chromium_is_explicit_smoke_test_does_not_launch_browser_so_ci_stays_fast
+  - tsx_added_as_devdep_for_npm_run_capture_invocation
+  - capture_demo_ts_exports_timeline_constant_imported_by_smoke_test_same_pattern_as_readme_patterns_table_test_ts_for_drift_prevention
+  - binary_recording_split_to_followup_16_30min_operational_step_requires_browsers_plus_ffmpeg
+  - tamper_verified_smoke_test_fires_on_slug_drift_tool_use_to_toy_use_two_assertions_fired
+  - new_d_012_capture_via_deterministic_script_binary_downstream_mirrors_pattern_across_5_sister_repos
+  - mode_pill_d_003_visible_by_design_on_every_page_header_so_no_extra_capture_step_needed
+  - optimistic_rollback_two_click_sequence_relies_on_d_010_deterministic_oracle_so_rollback_animation_lands_predictably
+  - error_recovery_drop_after_tokens_route_handler_property_means_resumed_pill_guaranteed_in_first_run_no_flaky_recapture
+decisions_made: [D-012]
+followups: [#16]
+---
