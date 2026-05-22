@@ -100,7 +100,7 @@ Production build + tests + lint:
 ```bash
 npm run typecheck
 npm run lint
-npm test                           # 7 hermetic tests on the mock streamer
+npm test                           # hermetic vitest suite (no Anthropic API key)
 npm run build
 ```
 
