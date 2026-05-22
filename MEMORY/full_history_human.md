@@ -127,3 +127,17 @@ Chronological log of work sessions. Most recent first below the divider.
 **Open questions / blockers:** None for the engineering. #16 is a 30-min operational task gated on local Playwright browsers + ffmpeg.
 
 **Next session:** Pick the next stale repo per Phase A selection rules. `ai-app-integration-tests` is now the only one 36+ hours untouched.
+
+## 2026-05-22 — docs/architecture.md showed only streaming-text shipped while four other patterns had already landed (#18)
+
+**Duration:** ~30 min. **Issue:** [#18](https://github.com/jt-mchorse/nextjs-streaming-ai-patterns/issues/18). **PR:** [#19](https://github.com/jt-mchorse/nextjs-streaming-ai-patterns/pull/19).
+
+`docs/architecture.md` was first committed when only the streaming-text pattern had shipped, and the doc was never reframed when patterns #2 (tool-use), #3 (partial-json), #4 (optimistic-rollback), and #5 (error-recovery) landed. The directory diagram listed only one pattern page (`streaming-text/page.tsx ← shipped (issue #1)`), one API route, and "7 hermetic tests (vitest)" — even though `app/` now contains five pattern pages, five API routes, six client components, eight lib helpers, and the suite is 87 tests across 11 files. The "Pending patterns (open / to-be-filed issues)" section three quarters of the way down listed tool-use as `#2 (pending)` and the other three as `*(unfiled)*`, but `gh issue view 2/3/4/5 --state any` all return CLOSED. The README's Patterns table (locked by the existing `readme-patterns-table.test.ts`) already showed all five as `shipped`; only the architecture doc lagged.
+
+README L103 also carried a stale `npm test  # 7 hermetic tests on the mock streamer` comment — `npm test` runs the whole vitest suite, not just the mock-streamer file. Replaced with a count-free phrasing that explains the no-key posture instead.
+
+Rewrote the directory diagram to enumerate all five pattern pages, all five API route directories, all six client components, all eight lib helpers (annotated with their D-NNN decisions), and the capture-demo script. Replaced "7 hermetic tests" with a glob marker that doesn't rot. Replaced the "Pending patterns" section with a "Shipped patterns" section naming each pattern's load-bearing decision (D-007/D-008/D-010/D-011) and surface, with the capture-demo follow-on (#16) noted at the end.
+
+Lock-against-drift: `test/architecture-doc.test.ts` (vitest, parallel shape to the existing `readme-patterns-table.test.ts`). Three invariants — every `app/<slug>/` token in the doc resolves to a real directory; every `PATTERNS` slug in `app/page.tsx` is referenced at least once in the doc; absence of `(unfiled)`, `to-be-filed`, `Pending patterns` (case-insensitive). A fourth `it()` hard-pins the banned set itself so a loose edit can't silently drop one. Tamper-verified by reintroducing the stale section: 4 of the 6 new tests fired (the three banned-phrase tests plus the PATTERNS-slug coverage test).
+
+Same exact shape as `mcp-server-cookbook` #22 (PR #23) shipped earlier this session — an architecture doc that froze at the first pattern's PR and was never reframed. Fourth drift fix of this session; twelfth in the portfolio pattern. Open questions / blockers: none.
