@@ -1,9 +1,12 @@
 # Architecture
 
-The repo is one Next.js 15 App Router app, with one page per pattern under
-`app/<slug>/`. Each page is self-contained: it imports its own components
-from `components/`, its own helpers from `lib/`, and reads its own source
-files from disk for the side-by-side display.
+The repo is one Next.js 15 App Router app at the repo root, with one
+page per pattern under `app/<slug>/` (D-002 — one project, one page
+per pattern; keeps the demos linkable as standalone references and
+the per-pattern footprint shallow). Each page is self-contained: it
+imports its own components from `components/`, its own helpers from
+`lib/`, and reads its own source files from disk for the side-by-side
+display.
 
 ```
 nextjs-streaming-ai-patterns/

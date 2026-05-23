@@ -141,3 +141,15 @@ Rewrote the directory diagram to enumerate all five pattern pages, all five API 
 Lock-against-drift: `test/architecture-doc.test.ts` (vitest, parallel shape to the existing `readme-patterns-table.test.ts`). Three invariants — every `app/<slug>/` token in the doc resolves to a real directory; every `PATTERNS` slug in `app/page.tsx` is referenced at least once in the doc; absence of `(unfiled)`, `to-be-filed`, `Pending patterns` (case-insensitive). A fourth `it()` hard-pins the banned set itself so a loose edit can't silently drop one. Tamper-verified by reintroducing the stale section: 4 of the 6 new tests fired (the three banned-phrase tests plus the PATTERNS-slug coverage test).
 
 Same exact shape as `mcp-server-cookbook` #22 (PR #23) shipped earlier this session — an architecture doc that froze at the first pattern's PR and was never reframed. Fourth drift fix of this session; twelfth in the portfolio pattern. Open questions / blockers: none.
+
+## 2026-05-23 — Architecture-doc active-decision-range axis + D-002 backfill (#20)
+
+**Duration:** ~20 min. **Issue:** [#20](https://github.com/jt-mchorse/nextjs-streaming-ai-patterns/issues/20). **PR:** [#21](https://github.com/jt-mchorse/nextjs-streaming-ai-patterns/pull/21).
+
+Ninth of twelve repos to ship the active-decision-range upper-bound axis on its architecture-doc lock; first TypeScript sister to land it through this loop (after `agent-orchestration-platform` which already had it). Ported the Python pattern (the regex-driven `active_decisions` fixture from `llm-eval-harness` PR #32) to TypeScript as a pair of helpers — `activeDecisions(decisionsText)` returns numeric ids, `referencedDecisions(md)` returns a `Set<number>`. Caught real drift on first run: D-002 (one Next.js app at the repo root, one page per pattern) was the load-bearing scope decision for the entire app layout but was uncited in the doc. Backfilled inline at the intro paragraph. Tamper-verified three axes.
+
+**Why this work, this session:** Fifth issue in today's multi-issue loop. The TypeScript port adds a new portable shape to the portfolio's hygiene-pattern toolkit.
+
+**Open questions / blockers:** none — PR ready for review.
+
+**Next session:** Apply same TypeScript pattern to `ai-app-integration-tests` and `mcp-server-cookbook`.
