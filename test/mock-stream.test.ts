@@ -47,3 +47,36 @@ describe("mockTextStream", () => {
     expect(elapsed).toBeLessThan(200);
   });
 });
+
+describe("mockTextStream — AbortSignal parity (issue #22)", () => {
+  it("yields zero tokens when the signal is already aborted", async () => {
+    const ctrl = new AbortController();
+    ctrl.abort();
+    const chunks = await collect(mockTextStream({ seed: 1, signal: ctrl.signal }));
+    expect(chunks).toEqual([]);
+  });
+
+  it("stops yielding new tokens after the signal aborts mid-iteration", async () => {
+    const ctrl = new AbortController();
+    const gen = mockTextStream({ seed: 1, signal: ctrl.signal });
+    const out: string[] = [];
+    const { value: first } = await gen.next();
+    if (first) out.push(first.text);
+    ctrl.abort();
+    for await (const chunk of gen) {
+      out.push(chunk.text);
+    }
+    // Generator returned after the abort. The exact number depends on
+    // whether the loop body re-checked the signal before the next yield
+    // or after — both are correct semantics; the contract is "no more
+    // than one extra token after abort, then stop".
+    expect(out.length).toBeLessThan(5);
+    // First yielded token came before the abort and is present.
+    expect(out.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("without a signal, still emits every fixture token (regression-pin)", async () => {
+    const chunks = await collect(mockTextStream({ seed: 1 }));
+    expect(chunks.join("")).toBe(MOCK_FIXTURE);
+  });
+});

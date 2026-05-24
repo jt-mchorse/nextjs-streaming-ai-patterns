@@ -229,3 +229,22 @@ context_for_next_session:
   - sister_repo_targets_remaining_ai_app_integration_tests_mcp_server_cookbook_both_typescript
 followups: []
 ---
+
+---
+session: 2026-05-24T15:46Z
+duration_min: 10
+issue: 22
+focus: mock_text_stream_abort_signal_cancellation_parity_with_tool_and_json
+delta:
+  files_changed: 2   # lib/mock-stream.ts, test/mock-stream.test.ts
+  files_added: 0
+  tests_added: 3
+  test_pass_rate: "99/99"
+decisions_made: []
+context_for_next_session:
+  - mock_text_stream_was_the_only_mock_stream_without_options_signal_mock_tool_and_mock_json_already_had_it
+  - text_stream_event_shape_is_just_text_string_no_interrupted_marker_to_yield_unlike_tool_json_streams_message_stop_returning_cleanly_is_the_correct_semantic_route_layer_owns_the_sse_done_event
+  - signal_aware_sleep_helper_extracted_inline_same_shape_as_mock_tool_stream_line_65_to_80_timer_resolves_either_on_fire_or_on_abort_so_interrupt_mid_pause_unblocks_immediately
+  - portfolio_pattern_seventh_in_day_session_loop_after_eval_harness_37_prompt_regression_32_mcp_cookbook_31_emb_shootout_26_async_pipelines_29_agent_orch_28_first_typescript_frontend_target_of_the_day
+followups: []
+---
