@@ -153,3 +153,19 @@ Ninth of twelve repos to ship the active-decision-range upper-bound axis on its 
 **Open questions / blockers:** none — PR ready for review.
 
 **Next session:** Apply same TypeScript pattern to `ai-app-integration-tests` and `mcp-server-cookbook`.
+
+## 2026-05-24 — Issue #22: `mockTextStream` honors `AbortSignal` for cancellation parity
+
+**Duration:** ~10 min. **Issue:** [#22](https://github.com/jt-mchorse/nextjs-streaming-ai-patterns/issues/22). **Branch:** `session/2026-05-24-1545-issue-22`.
+
+`mockTextStream` was the only mock stream in `lib/` without an `options.signal` AbortSignal. `mockToolStream` and `mockJsonStream` already accept and honor it — a consumer wiring `/api/stream-text` to an Interrupt button had no way to cancel mid-stream. Aborting the AbortController on the client side closed the HTTP connection, but the server-side generator kept walking the fixture, racing the GC.
+
+`MockStreamOptions` gains `signal?: AbortSignal`. `mockTextStream` checks `signal?.aborted` between tokens and returns cleanly. The setTimeout-based inter-token delay now uses the same signal-aware sleep shape as `mock-tool-stream.ts` (timer resolves on either fire or abort), so an interrupt mid-pause unblocks the loop immediately rather than waiting out the current token's delay. Unlike tool/json streams, the text-stream event shape is just `{ text: string }` — there is no "interrupted" marker to yield. Returning is the correct semantic; the route layer's SSE `done` event is what the client sees.
+
+Three new tests in a dedicated describe block: pre-aborted signal yields zero tokens; aborted-after-first-yield stops cleanly within one extra token; no-signal regression-pin so the refactor doesn't break the existing fixture-emit path.
+
+**Why this work, this session:** Seventh Phase B+C target of a 180-min day session, after `llm-eval-harness` #37, `prompt-regression-suite` #32, `mcp-server-cookbook` #31, `embedding-model-shootout` #26, `python-async-llm-pipelines` #29, and `agent-orchestration-platform` #28. First TS frontend target of the day; same pattern as the day's earlier work — close a parity gap where a previously-shipped capability didn't reach a sibling surface.
+
+**Open questions / blockers:** none — PR ready for review.
+
+**Next session:** Continue the day-session loop if time permits. Remaining repos: `ai-app-integration-tests` (TS frontend, untouched today), `rag-production-kit` / `chunking-strategies-lab` / `vector-search-at-scale` (already touched in Phase A this morning).
