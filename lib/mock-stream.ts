@@ -15,6 +15,15 @@ export interface MockStreamOptions {
    * deterministic — used by the test suite.
    */
   seed?: number;
+  /**
+   * Optional `AbortSignal` that ends the stream cleanly at the next
+   * yield. Parity with `mockToolStream` / `mockJsonStream`. Aborting
+   * during an in-flight inter-token delay cuts the wait short. The
+   * text-stream event shape is just `{ text: string }`, so there is
+   * no "interrupted" event to yield — the generator returns and the
+   * route layer's SSE `done` event is what the client sees.
+   */
+  signal?: AbortSignal;
 }
 
 const FIXTURE = `Streaming the model's response token-by-token instead of waiting for the whole
@@ -45,6 +54,10 @@ function makePrng(seed: number): () => number {
  * Yield a fixed paragraph token-by-token. The yielded shape is `{ text: string }`
  * so consumers can treat it identically to the Anthropic SDK's text-delta event
  * (`{ delta: { text } }`) by mapping once.
+ *
+ * Honors `options.signal`: when the signal aborts, the generator stops
+ * yielding new tokens and returns cleanly (parity with
+ * `mockToolStream` / `mockJsonStream`).
  */
 export async function* mockTextStream(
   options: MockStreamOptions = {},
@@ -52,18 +65,45 @@ export async function* mockTextStream(
   const baseDelayMs = options.baseDelayMs ?? 30;
   const jitterMs = options.jitterMs ?? 30;
   const rand = options.seed !== undefined ? makePrng(options.seed) : Math.random;
+  const signal = options.signal;
 
   // Token boundary: split on whitespace but keep the whitespace attached to
   // the previous token, so reconstructed string === FIXTURE.
   const tokens = chunkByWhitespace(FIXTURE);
   for (const token of tokens) {
+    if (signal?.aborted) return;
     if (options.seed === undefined) {
       // Real wall-clock delay in dev; skipped under test (seed implies test).
+      // Honor `signal` during the wait so an interrupt mid-pause unblocks
+      // the loop immediately rather than completing the token's wait first.
       const delay = baseDelayMs + Math.floor(rand() * jitterMs);
-      await new Promise<void>((resolve) => setTimeout(resolve, delay));
+      await sleep(delay, signal);
+      if (signal?.aborted) return;
     }
     yield { text: token };
   }
+}
+
+/**
+ * `setTimeout`-based sleep that resolves early when `signal` aborts.
+ * Same shape used in `mock-tool-stream.ts` / `mock-json-stream.ts`.
+ */
+async function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  if (ms <= 0) return;
+  await new Promise<void>((resolve) => {
+    const t = setTimeout(() => resolve(), ms);
+    if (signal) {
+      const onAbort = (): void => {
+        clearTimeout(t);
+        resolve();
+      };
+      if (signal.aborted) {
+        onAbort();
+      } else {
+        signal.addEventListener("abort", onAbort, { once: true });
+      }
+    }
+  });
 }
 
 export function chunkByWhitespace(s: string): string[] {
