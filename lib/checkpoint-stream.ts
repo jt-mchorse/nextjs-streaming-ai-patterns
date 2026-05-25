@@ -74,6 +74,41 @@ const TOKENS = tokenize();
 export const TOTAL_TOKENS = TOKENS.filter((t) => /\S/.test(t)).length;
 
 /**
+ * Validate `StreamOptions` numerics so the demo's mid-stream-drop and
+ * resume paths can't be silently misrepresented by operator misconfig.
+ * Without this guard, `dropAfter = 0` fires the drop on the *first*
+ * text event (the `>= dropAfter` check at the drop site is satisfied
+ * by `emittedThisRun = 1 >= 0`), contradicting the field's docstring
+ * "after this many additional text tokens are emitted" and the "at
+ * least one chunk before the connection dies" comment. `startAfter <
+ * 0` and `NaN` for either field silently devolve to the defaults
+ * (no skip / no drop) without signal.
+ *
+ * Mirrors the portfolio's contract-tightening sweep (PRs
+ * llm-eval-harness#41, llm-cost-optimizer#35, rag-production-kit#37,
+ * embedding-model-shootout#30, vector-search-at-scale#28,
+ * chunking-strategies-lab#28, python-async-llm-pipelines#31,
+ * prompt-regression-suite#36, agent-orchestration-platform#30,
+ * mcp-server-cookbook#33).
+ */
+function validateOptions(options: StreamOptions): void {
+  if (options.startAfter !== undefined) {
+    if (!Number.isInteger(options.startAfter) || options.startAfter < 0) {
+      throw new RangeError(
+        `StreamOptions.startAfter must be an integer >= 0; got ${options.startAfter}`,
+      );
+    }
+  }
+  if (options.dropAfter !== undefined) {
+    if (!Number.isInteger(options.dropAfter) || options.dropAfter < 1) {
+      throw new RangeError(
+        `StreamOptions.dropAfter must be an integer >= 1; got ${options.dropAfter}`,
+      );
+    }
+  }
+}
+
+/**
  * Async generator that yields events. Whitespace tokens are folded
  * into the preceding text event so an event-level consumer doesn't
  * have to special-case them.
@@ -81,6 +116,7 @@ export const TOTAL_TOKENS = TOKENS.filter((t) => /\S/.test(t)).length;
 export async function* streamCheckpoints(
   options: StreamOptions = {},
 ): AsyncGenerator<StreamEvent, void, unknown> {
+  validateOptions(options);
   const startAfter = options.startAfter ?? 0;
   const dropAfter = options.dropAfter;
 
