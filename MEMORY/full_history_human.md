@@ -169,3 +169,17 @@ Three new tests in a dedicated describe block: pre-aborted signal yields zero to
 **Open questions / blockers:** none — PR ready for review.
 
 **Next session:** Continue the day-session loop if time permits. Remaining repos: `ai-app-integration-tests` (TS frontend, untouched today), `rag-production-kit` / `chunking-strategies-lab` / `vector-search-at-scale` (already touched in Phase A this morning).
+
+## 2026-05-25 — Issue #24: streamCheckpoints validateOptions blocks degenerate StreamOptions at entry
+**Duration:** ~25 min · **Branch:** `session/2026-05-24-issue-24`
+
+- `streamCheckpoints` at `lib/checkpoint-stream.ts:81` accepted `StreamOptions` without runtime validation. The most concrete harm: `dropAfter = 0` silently fires the drop on the *first* text event (`emittedThisRun = 1 >= 0` is satisfied at `:115`), contradicting the field docstring "after this many additional text tokens are emitted" and the "at least one chunk before the connection dies" comment. Operator likely meant `undefined` (no drop) but got "immediate drop". The mid-stream-drop pattern (#5) is load-bearing UX for the error-recovery demo — a silent immediate drop on misconfig is worse than a loud config error because the visitor attributes the failure to the pattern, not to the config.
+- Additional silent gaps: `startAfter < 0` devolves to `0` (no skip); `NaN` for either field devolves to `undefined`-defaults; fractional `startAfter` cuts off at `floor(startAfter)` — surprising and violates D-011's "checkpoints are integer indices" posture.
+- Added `validateOptions(options)` at the top of `streamCheckpoints`, before any yield. `startAfter` (when defined) must be integer `>= 0`; `dropAfter` (when defined) must be integer `>= 1`. Each invalid field throws `RangeError` naming the field and value.
+- 12 new tests in `test/checkpoint-stream.test.ts` under an issue-`#24` `describe` block: `it.each` over per-field bad-value tables (zero where invalid, negative, fractional, NaN, +Infinity); boundary acceptance at `startAfter = 0` and `dropAfter = 1`; one "validation runs before any yield" pin that calls `gen.next()` and expects rejection — so the entry-site contract can't drift into the loop. File 21/21 (was 9). Full suite 111/111 (was 99). Typecheck + ESLint clean.
+
+**Why this work, this session:** Fourth Phase B+C target in the 360-min night session. Third TypeScript repo to ship the contract-tightening sweep pattern after `agent-orchestration-platform` #29 and `mcp-server-cookbook` #32. The TS validation pattern now lives in three repos; the Python `__post_init__` pattern in seven.
+
+**Open questions / blockers:** none — PR ready for review.
+
+**Next session:** Continue the loop. `ai-app-integration-tests` (build seq #12) is the last unvisited-tonight repo. After that, the loop can deepen on already-touched repos for more contract-tightening or pivot to other harm classes.
