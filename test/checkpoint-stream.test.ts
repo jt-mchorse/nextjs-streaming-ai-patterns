@@ -126,3 +126,70 @@ describe("streamCheckpoints — resume", () => {
     expect(events.length).toBe(0);
   });
 });
+
+// Issue #24: validateOptions runs at the top of streamCheckpoints so the
+// demo's mid-stream-drop and resume paths can't be silently misrepresented
+// by operator misconfig. The most concrete harm: dropAfter = 0 fires the
+// drop on the *first* text event because emittedThisRun = 1 >= 0 — the
+// operator probably meant "no drop" but got "immediate drop".
+describe("streamCheckpoints — StreamOptions validation (issue #24)", () => {
+  async function expectThrows(options: ConstructorParameters<typeof Object>[0]): Promise<unknown> {
+    return collect(streamCheckpoints(options as never)).then(
+      () => null,
+      (e: unknown) => e,
+    );
+  }
+
+  it.each([
+    { value: -1, label: "negative" },
+    { value: 1.5, label: "fractional" },
+    { value: Number.NaN, label: "NaN" },
+    { value: Number.POSITIVE_INFINITY, label: "+Infinity" },
+  ])("rejects startAfter $label ($value)", async ({ value }) => {
+    const err = await expectThrows({ startAfter: value });
+    expect(err).toBeInstanceOf(RangeError);
+    expect(String(err)).toMatch(/startAfter must be an integer >= 0/);
+  });
+
+  it("accepts startAfter = 0 (start fresh; matches the documented default)", async () => {
+    const events = await collect(streamCheckpoints({ startAfter: 0 }));
+    // Same shape as the default (omitted) call: TOTAL_TOKENS text events.
+    const texts = events.filter((e): e is TextEvent => e.kind === "text");
+    expect(texts.length).toBe(TOTAL_TOKENS);
+  });
+
+  it.each([
+    { value: 0, label: "zero (would silently fire drop on first token)" },
+    { value: -1, label: "negative" },
+    { value: 1.5, label: "fractional" },
+    { value: Number.NaN, label: "NaN" },
+    { value: Number.POSITIVE_INFINITY, label: "+Infinity" },
+  ])("rejects dropAfter $label ($value)", async ({ value }) => {
+    const err = await expectThrows({ dropAfter: value });
+    expect(err).toBeInstanceOf(RangeError);
+    expect(String(err)).toMatch(/dropAfter must be an integer >= 1/);
+  });
+
+  it("accepts dropAfter = 1 (minimum valid; drops after one text event)", async () => {
+    let dropped = false;
+    let textCount = 0;
+    try {
+      for await (const e of streamCheckpoints({ dropAfter: 1 })) {
+        if (e.kind === "text") textCount += 1;
+      }
+    } catch (err) {
+      expect(err).toBeInstanceOf(CheckpointStreamDropped);
+      dropped = true;
+    }
+    expect(dropped).toBe(true);
+    expect(textCount).toBe(1);
+  });
+
+  it("validation runs before any yield (entry-site pin)", async () => {
+    // If validation drifted inside the for-loop, the generator would yield
+    // the first text event before throwing. The expect-throws-immediately
+    // contract is what makes the demo route handler's error path predictable.
+    const gen = streamCheckpoints({ dropAfter: 0 });
+    await expect(gen.next()).rejects.toBeInstanceOf(RangeError);
+  });
+});
