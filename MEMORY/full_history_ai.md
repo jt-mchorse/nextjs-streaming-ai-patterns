@@ -307,3 +307,18 @@ context_for_next_session:
   - portfolio_validation_sweep_now_at_eight_phase_bc_prs_this_night_plus_four_phase_a_rescue_merges_total_twelve_substantive_items
 followups: []
 ---
+
+---
+session: 2026-05-27T00:10Z
+duration_min: 6
+issue: 28
+focus: readme_decision_range_upper_bound_lock_propagation_10_of_10
+delta:
+  files_changed: 2
+  tests_added: 1
+context_for_next_session:
+  - readme_decision_range_lock_pattern_now_eleven_repos_only_ai_app_integration_tests_remains
+  - typescript_pattern_template_now_replicated_three_times_agent_orch_mcp_cookbook_uses_extended_check_readme_mjs_nextjs_streaming_uses_focused_vitest_file
+decisions_made: []
+followups: []
+---

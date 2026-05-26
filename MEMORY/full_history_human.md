@@ -198,3 +198,14 @@ Three new tests in a dedicated describe block: pre-aborted signal yields zero to
 **Open questions / blockers:** none — PR ready for review.
 
 **Next session:** `ai-app-integration-tests` (build #12, the last repo) is the natural close-the-loop pickup. After that, the portfolio's validation-sweep arc will have touched every repo this night session.
+
+## 2026-05-26 — Issue #28: README decision-range upper-bound lock
+**Duration:** ~6 min · **Branch:** `session/2026-05-26-2339-issue-28`
+
+- Added `test/readme-decision-range.test.ts`.
+- Added `D-002…D-012` citation under `## Architecture`.
+
+**Why this work, this session:** Propagation 10 of 10 of the cross-portfolio drift class. Portfolio now at 11 of 12 repos covered.
+
+**Open questions / blockers:** none.
+**Next session:** ai-app-integration-tests is the last gap.
