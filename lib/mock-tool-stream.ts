@@ -51,6 +51,27 @@ const TOOL_USE_ID = "toolu_demo_01";
 const TOOL_ARGS_FULL = JSON.stringify({ city: "Austin", units: "celsius" });
 const TOOL_RESULT = { city: "Austin", condition: "sunny", temperature_c: 22 };
 
+/**
+ * Validate `MockToolStreamOptions` at the entry of `mockToolStream` (#26).
+ * Sibling to `validateOptions` in `mock-stream.ts` and `mock-json-stream.ts`.
+ */
+function validateOptions(options: MockToolStreamOptions): void {
+  if (options.baseDelayMs !== undefined) {
+    if (!Number.isFinite(options.baseDelayMs) || options.baseDelayMs < 0) {
+      throw new RangeError(
+        `MockToolStreamOptions.baseDelayMs must be a finite non-negative number; got ${options.baseDelayMs}`,
+      );
+    }
+  }
+  if (options.jitterMs !== undefined) {
+    if (!Number.isFinite(options.jitterMs) || options.jitterMs < 0) {
+      throw new RangeError(
+        `MockToolStreamOptions.jitterMs must be a finite non-negative number; got ${options.jitterMs}`,
+      );
+    }
+  }
+}
+
 function makePrng(seed: number): () => number {
   let s = seed >>> 0;
   return () => {
@@ -109,6 +130,7 @@ function tokenize(text: string): string[] {
 export async function* mockToolStream(
   options: MockToolStreamOptions = {},
 ): AsyncGenerator<ToolStreamEvent, void, unknown> {
+  validateOptions(options);
   const base = options.baseDelayMs ?? 30;
   const jitter = options.jitterMs ?? 30;
   const seed = options.seed;

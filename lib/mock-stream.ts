@@ -38,6 +38,33 @@ If the model takes 2.5 seconds to produce 80 tokens, a non-streaming UI shows
 nothing for 2.5 seconds and then a wall of text. A streaming UI shows the first
 token at ~80ms and grows from there. Same wall clock, very different feel.`;
 
+/**
+ * Validate `MockStreamOptions` at the entry of `mockTextStream` (#26).
+ *
+ * Sibling pattern to `validateOptions` in `checkpoint-stream.ts` (#24),
+ * but on the bounded-non-negative-finite-ms domain rather than the
+ * positive-integer-index domain. `setTimeout` silently coerces NaN/
+ * Infinity in `sleep`; NaN became immediate-fire (every token dumped
+ * instantly, streaming UX silently broken in the demo); Infinity hung
+ * forever on the first sleep (~24-50 day setTimeout clamp).
+ */
+function validateOptions(options: MockStreamOptions): void {
+  if (options.baseDelayMs !== undefined) {
+    if (!Number.isFinite(options.baseDelayMs) || options.baseDelayMs < 0) {
+      throw new RangeError(
+        `MockStreamOptions.baseDelayMs must be a finite non-negative number; got ${options.baseDelayMs}`,
+      );
+    }
+  }
+  if (options.jitterMs !== undefined) {
+    if (!Number.isFinite(options.jitterMs) || options.jitterMs < 0) {
+      throw new RangeError(
+        `MockStreamOptions.jitterMs must be a finite non-negative number; got ${options.jitterMs}`,
+      );
+    }
+  }
+}
+
 function makePrng(seed: number): () => number {
   // Mulberry32 — small, fast, deterministic-given-seed.
   let s = seed >>> 0;
@@ -62,6 +89,7 @@ function makePrng(seed: number): () => number {
 export async function* mockTextStream(
   options: MockStreamOptions = {},
 ): AsyncGenerator<{ text: string }, void, unknown> {
+  validateOptions(options);
   const baseDelayMs = options.baseDelayMs ?? 30;
   const jitterMs = options.jitterMs ?? 30;
   const rand = options.seed !== undefined ? makePrng(options.seed) : Math.random;

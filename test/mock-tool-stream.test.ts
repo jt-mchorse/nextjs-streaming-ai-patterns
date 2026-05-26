@@ -102,3 +102,75 @@ describe("mockToolStream — interrupt path", () => {
     expect(types).not.toContain("tool_result");
   });
 });
+
+// Issue #26: validateOptions runs at entry of mockToolStream. Sibling to
+// the checkpoint-stream #24 pattern.
+describe("mockToolStream — MockToolStreamOptions validation (issue #26)", () => {
+  async function expectThrows(options: unknown): Promise<unknown> {
+    return collect(mockToolStream(options as never)).then(
+      () => null,
+      (e: unknown) => e,
+    );
+  }
+
+  const BAD_VALUES = [
+    { value: Number.NaN, label: "NaN" },
+    { value: Number.POSITIVE_INFINITY, label: "+Infinity" },
+    { value: Number.NEGATIVE_INFINITY, label: "-Infinity" },
+    { value: -1, label: "negative" },
+    { value: true, label: "true" },
+    { value: false, label: "false" },
+    { value: "30", label: "numeric string" },
+    { value: null, label: "null" },
+  ];
+
+  it.each(BAD_VALUES)("rejects baseDelayMs $label", async ({ value }) => {
+    const err = await expectThrows({ baseDelayMs: value });
+    expect(err).toBeInstanceOf(RangeError);
+    expect(String(err)).toMatch(
+      /MockToolStreamOptions\.baseDelayMs must be a finite non-negative number/,
+    );
+  });
+
+  it.each(BAD_VALUES)("rejects jitterMs $label", async ({ value }) => {
+    const err = await expectThrows({ jitterMs: value });
+    expect(err).toBeInstanceOf(RangeError);
+    expect(String(err)).toMatch(
+      /MockToolStreamOptions\.jitterMs must be a finite non-negative number/,
+    );
+  });
+
+  // Acceptance: small values run to completion with baseDelay=0 so the
+  // suite stays fast. Large values are pinned via construction-only checks
+  // since `mockToolStream` sleeps unconditionally (no `seed-skips-sleep`
+  // path like `mockTextStream`).
+  it.each([0, 1, 30, 30.5])(
+    "accepts baseDelayMs=%p",
+    async (good) => {
+      const gen = mockToolStream({ baseDelayMs: good, jitterMs: 0, seed: 1 });
+      await expect(gen.next()).resolves.toBeDefined();
+      await gen.return();
+    },
+  );
+
+  it.each([0, 1, 30, 30.5])(
+    "accepts jitterMs=%p",
+    async (good) => {
+      const gen = mockToolStream({ baseDelayMs: 0, jitterMs: good, seed: 1 });
+      await expect(gen.next()).resolves.toBeDefined();
+      await gen.return();
+    },
+  );
+
+  it("accepts large baseDelayMs without rejecting (validator-only check)", () => {
+    // Construct only — don't iterate, since `mockToolStream` sleeps each
+    // yield (no test-mode bypass on this surface) and we don't want a 60s
+    // wait in the suite.
+    expect(() => mockToolStream({ baseDelayMs: 60_000, jitterMs: 0, seed: 1 })).not.toThrow();
+  });
+
+  it("validation runs before any yield (entry-site pin)", async () => {
+    const gen = mockToolStream({ baseDelayMs: Number.NaN });
+    await expect(gen.next()).rejects.toBeInstanceOf(RangeError);
+  });
+});
