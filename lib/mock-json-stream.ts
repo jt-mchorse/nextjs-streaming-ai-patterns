@@ -85,6 +85,27 @@ function chunkPayload(payload: unknown): string[] {
   return out;
 }
 
+/**
+ * Validate `MockJsonStreamOptions` at the entry of `mockJsonStream` (#26).
+ * Sibling to `validateOptions` in `mock-stream.ts` and `mock-tool-stream.ts`.
+ */
+function validateOptions(options: MockJsonStreamOptions): void {
+  if (options.baseDelayMs !== undefined) {
+    if (!Number.isFinite(options.baseDelayMs) || options.baseDelayMs < 0) {
+      throw new RangeError(
+        `MockJsonStreamOptions.baseDelayMs must be a finite non-negative number; got ${options.baseDelayMs}`,
+      );
+    }
+  }
+  if (options.jitterMs !== undefined) {
+    if (!Number.isFinite(options.jitterMs) || options.jitterMs < 0) {
+      throw new RangeError(
+        `MockJsonStreamOptions.jitterMs must be a finite non-negative number; got ${options.jitterMs}`,
+      );
+    }
+  }
+}
+
 function makePrng(seed: number): () => number {
   let s = seed >>> 0;
   return () => {
@@ -126,6 +147,7 @@ async function sleep(ms: number, signal?: AbortSignal): Promise<void> {
 export async function* mockJsonStream(
   options: MockJsonStreamOptions = {},
 ): AsyncGenerator<JsonStreamEvent, void, unknown> {
+  validateOptions(options);
   const base = options.baseDelayMs ?? 80;
   const jitter = options.jitterMs ?? 40;
   const seed = options.seed;

@@ -183,3 +183,18 @@ Three new tests in a dedicated describe block: pre-aborted signal yields zero to
 **Open questions / blockers:** none — PR ready for review.
 
 **Next session:** Continue the loop. `ai-app-integration-tests` (build seq #12) is the last unvisited-tonight repo. After that, the loop can deepen on already-touched repos for more contract-tightening or pivot to other harm classes.
+
+## 2026-05-26 — Issue #26: Three mock streamer validators close the #24 deferral
+**Duration:** ~30 min · **Branch:** `session/2026-05-26-0010-issue-26`
+
+- `mockTextStream` (`lib/mock-stream.ts`), `mockToolStream` (`lib/mock-tool-stream.ts`), and `mockJsonStream` (`lib/mock-json-stream.ts`) all consumed `baseDelayMs` and `jitterMs` from their options without validation while `streamCheckpoints` was tightened in #24. The prior session's memory explicitly deferred this work as "mock_streams_unvalidated_deferred"; this PR closes the deferral.
+- Closed four silent failure modes (per file, identical shape): `baseDelayMs=NaN` made `setTimeout(_, NaN)` coerce to 0 — every token dumped on the next tick, streaming UX silently broken in the demo path; `baseDelayMs=Infinity` clamped to setTimeout's max delay (~24-50 days), first sleep hung effectively forever, demo appeared to deadlock; `baseDelayMs=-5` was absorbed by `sleep`'s `if (ms <= 0) return` early-out (the prior memory labeled this "harmless"; tightening makes the contract explicit); `jitterMs=Infinity` propagated through `Math.floor(rand() * Infinity) = Infinity` → combined delay Infinity → same hang.
+- Each streamer now calls `validateOptions(options)` as its first statement, before `??` default reading or any yield. Contract: `Number.isFinite(v) + v >= 0` (not `>= 1` — zero is a meaningful "no per-token delay" config for fast tests; fractional ms accepted because the docstring says "ms" not "integer ms" and `setTimeout` truncates anyway). Error message uses the per-type prefix so callers can grep to the specific surface.
+- Three `validateOptions` helpers live next to their respective generators (duplicated by design — a shared `lib/_validate.ts` would couple three independent demo patterns through a fourth module; the symmetry is intentional and the duplication is small).
+- 79 new collected test cases across three symmetric describe blocks. `mockToolStream` and `mockJsonStream` sleep unconditionally (no `seed-skips-sleep` bypass like `mockTextStream`), so their acceptance tests use `gen.next()` + `gen.return()` rather than full collection — that's enough to exercise the validator without burning a 60s test budget. Full suite 111 → 190. Typecheck clean.
+
+**Why this work, this session:** Eighth Phase B+C target in the 360-min night session and fourth TypeScript Phase B+C PR (after `agent-orchestration-platform#32` and `mcp-server-cookbook#35`). Picked via build-sequence #11. The #24 PR's explicit deferral note in memory was the source-of-truth pointer that made this issue file itself.
+
+**Open questions / blockers:** none — PR ready for review.
+
+**Next session:** `ai-app-integration-tests` (build #12, the last repo) is the natural close-the-loop pickup. After that, the portfolio's validation-sweep arc will have touched every repo this night session.
