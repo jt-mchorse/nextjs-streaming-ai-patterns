@@ -337,3 +337,28 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-06-02T03:38Z
+duration_min: 20
+issue: 32
+focus: validate_prompt_plus_get_stream_mode_env_hardening_close_lib_validation_arc
+phase: night_session_phase_b_iteration_3
+delta:
+  files_changed: 2   # docs/architecture.md, lib/anthropic-stream.ts
+  files_added: 1     # test/anthropic-stream.test.ts
+  tests_added: 17
+context_for_next_session:
+  - last_two_unguarded_entry_points_in_lib_closed_validate_prompt_at_stream_text_top_and_get_stream_mode_env_trimming_arc_now_saturated_across_six_public_stream_surfaces_four_mocks_plus_checkpoint_stream_plus_anthropic_stream
+  - validate_prompt_type_error_for_non_string_range_error_for_empty_or_whitespace_matches_local_convention_in_validate_options_siblings
+  - get_stream_mode_now_trims_anthropic_api_key_so_whitespace_only_treated_as_absent_falls_back_to_mock_pre_32_passed_invalid_bearer_to_sdk
+  - get_stream_mode_also_trims_anthropic_model_empty_or_whitespace_falls_back_to_default_model_pre_32_passed_model_empty_string_to_sdk
+  - default_model_now_exported_so_tests_can_assert_against_it_without_hardcoding_the_string
+  - silent_mode_divergence_closed_pre_32_live_branch_errored_at_api_time_mock_branch_silently_ignored_prompt_now_both_modes_throw_at_call_site_same_way
+  - 17_new_vitest_cases_in_test_anthropic_stream_test_ts_3_type_rejection_3_value_rejection_1_mock_acceptance_5_anthropic_api_key_table_5_anthropic_model_table
+  - 208_total_vitest_pass_was_191_typecheck_lint_clean
+  - docs_architecture_md_no_key_fallback_section_gains_paragraph_citing_32_and_sibling_streamer_guards
+  - no_new_d_nnn_extension_of_established_d_009_style_portfolio_sweep_pure_extension_to_last_unguarded_entry_points_in_lib
+decisions_made: []
+followups: []
+---

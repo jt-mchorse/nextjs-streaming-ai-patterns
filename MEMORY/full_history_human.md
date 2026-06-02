@@ -220,3 +220,17 @@ Three new tests in a dedicated describe block: pre-aborted signal yields zero to
 **Open questions / blockers:** none.
 
 **Next session:** continue portfolio propagation.
+
+## 2026-06-02 — Issue #32: validatePrompt + getStreamMode env hardening
+**Duration:** ~20 min · **Branch:** `session/2026-06-02-0336-issue-32`
+
+- Added `validatePrompt(prompt)` at the top of `streamText` in `lib/anthropic-stream.ts`. `TypeError` for non-string, `RangeError` for empty/whitespace — matches the local convention in the four mock streamers' `validateOptions` siblings. Closes the silent mode-divergence where the live branch surfaced the error at API time while the mock branch silently ignored the prompt and emitted the canned stream regardless. Both modes now fail loud at the call site the same way.
+- Hardened `getStreamMode()`: trims `ANTHROPIC_API_KEY` so a whitespace-only value is treated as absent (falls back to mock mode); trims `ANTHROPIC_MODEL` so empty/whitespace falls back to `DEFAULT_MODEL`. Pre-#32, a whitespace-only API key would reach the SDK as an invalid bearer header, and an explicit `ANTHROPIC_MODEL=""` would propagate as `model: ""` to the SDK. `DEFAULT_MODEL` is now exported so tests can assert against it without hardcoding the string.
+- 17 new vitest cases in `test/anthropic-stream.test.ts`: 3 type rejection, 3 value rejection, 1 mock-mode acceptance, 5 `ANTHROPIC_API_KEY` shape, 5 `ANTHROPIC_MODEL` shape. Full suite 208 / 208 pass (was 191).
+- `docs/architecture.md`'s "no-key fallback (D-003)" section gains a paragraph citing #32 and the sibling streamer guards. No new `D-NNN` — pure extension of the established D-009-style portfolio sweep to the last unguarded entry points in `lib/`.
+
+**Why this work, this session:** Iteration 3 of the night session loop. `nextjs-streaming-ai-patterns` was untouched since 2026-05-27 (build sequence position 11 among the untouched-stale repos). The four mock streamers + `checkpoint-stream` + `optimistic-decision`'s `decide()` already carry the entry-point validation pattern; `anthropic-stream.ts`'s two entry points (`streamText`, `getStreamMode`) were the last unguarded surfaces in `lib/`. Closing them saturates the validation arc.
+
+**Open questions / blockers:** none — ready for review.
+
+**Next session:** Continue the night-session loop. `ai-app-integration-tests` is the last untouched-since-2026-05-27 candidate (position 12, TS).
