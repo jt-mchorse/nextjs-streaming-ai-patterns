@@ -109,6 +109,16 @@ handler never branches on mode. The page footer surfaces which mode
 is active so the operator isn't confused about whether the demo is
 "real."
 
+`streamText(prompt)` carries an entry-point `validatePrompt` guard
+(#32) so a misconstructed prompt fails loud in both modes the same way
+— pre-#32 the `live` branch surfaced the error at API time while the
+`mock` branch silently ignored the prompt and emitted the canned
+stream. Sibling shape to the per-streamer `validateOptions` already in
+place on the four mock streamers (#24, #25, #26, #27). `getStreamMode`
+trims `ANTHROPIC_API_KEY` (whitespace-only = absent → mock mode) and
+`ANTHROPIC_MODEL` (empty/whitespace → `DEFAULT_MODEL` fallback) so a
+half-configured live mode can't reach the SDK as `model: ""`.
+
 ## The source-pane invariant (D-004)
 
 `components/source-pane.tsx` is a Server Component that reads source
