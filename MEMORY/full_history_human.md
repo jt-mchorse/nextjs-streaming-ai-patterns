@@ -234,3 +234,18 @@ Three new tests in a dedicated describe block: pre-aborted signal yields zero to
 **Open questions / blockers:** none — ready for review.
 
 **Next session:** Continue the night-session loop. `ai-app-integration-tests` is the last untouched-since-2026-05-27 candidate (position 12, TS).
+
+## 2026-06-17 — Issue #34: Workflow YAML-parseability lock
+**Duration:** ~6 min · **Branch:** `session/2026-06-17-1932-issue-34`
+
+Added `test/workflows-yaml-parseable.test.ts` (vitest, 3 tests for
+`ci.yml`) and pulled `js-yaml` + `@types/js-yaml` into
+`devDependencies`. Mirrors the `agent-orchestration-platform#42`
+pattern.
+
+**Why this work, this session:** Eleventh hop of the
+`portfolio-ops#30` propagation arc.
+
+**Open questions / blockers:** none — PR #35 open.
+
+**Next session:** propagate to the last repo (`ai-app-integration-tests`).
