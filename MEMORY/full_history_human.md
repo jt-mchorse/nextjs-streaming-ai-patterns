@@ -282,3 +282,22 @@ repos. Per build sequence: embedding-model-shootout (Python),
 vector-search-at-scale (Python), python-async-llm-pipelines (Python),
 agent-orchestration-platform (TS), mcp-server-cookbook (TS),
 ai-app-integration-tests (TS), plus portfolio-ops itself.
+
+## 2026-06-18 — Issue #38: concurrency guard + lock test
+**Duration:** ~15 min · **Branch:** `session/2026-06-18-1525-issue-38`
+
+- Added top-level `concurrency:` to `ci.yml` (`ci-${{ github.ref }}`).
+- Wrote `test/workflows-concurrency.test.ts` — vitest + js-yaml, mirroring
+  the timeout-minutes lock shape. 1 smoke + 3 invariants × 1 workflow
+  = 4 new tests.
+
+**Why this work, this session:** fifth per-repo hop in the
+concurrency-lock arc and **first TypeScript hop** (prior four hops
+landed in Python repos). Audit fingerprint shipped in portfolio-ops #41
+surfaces every workflow missing the lock.
+
+**Open questions / blockers:** none. Vitest 218 → 222.
+
+**Next session:** continue propagation to remaining 7 repos (mix of
+Python and TS — the TS template is now established here for future
+Node-side hops).
