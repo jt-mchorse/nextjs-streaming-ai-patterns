@@ -380,3 +380,25 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-06-18T03:21Z
+duration_min: 25
+issue: 36
+focus: workflow_timeout_minutes_lock_propagation_first_typescript_hop
+phase: night_session_phase_b_iteration_3
+delta:
+  files_added: 1   # test/workflows-timeout-minutes.test.ts
+  files_changed: 1 # .github/workflows/ci.yml
+  tests_added: 7   # 1 smoke + 2 jobs * 3 invariants
+context_for_next_session:
+  - first_typescript_hop_of_timeout_minutes_lock_arc_after_three_python_hops_llm_eval_harness_63_rag_production_kit_55_chunking_strategies_lab_42
+  - vitest_test_modeled_on_existing_workflows_yaml_parseable_test_ts_template_three_describe_it_invariants_split_so_each_failure_mode_surfaces_separately
+  - ci_yml_app_gets_20_min_npm_ci_plus_lint_plus_typecheck_plus_vitest_plus_next_build_is_longest_job_memory_check_gets_15_min
+  - policy_band_1_to_30_matches_python_canonical_hop_uniform_thresholds_simplify_audit
+  - js_yaml_dep_already_present_in_devdeps_from_yaml_parseability_lock_pr_35_no_new_dep_required
+  - test_count_pre_branch_211_post_branch_218_full_suite_clean_lint_clean_typecheck_clean
+  - audit_phase_a_py_will_drop_nextjs_streaming_ai_patterns_from_missing_timeout_finding_set_after_this_pr_merges
+decisions_made: []
+followups: []
+---
