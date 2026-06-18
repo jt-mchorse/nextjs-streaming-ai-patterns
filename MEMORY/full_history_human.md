@@ -249,3 +249,36 @@ pattern.
 **Open questions / blockers:** none — PR #35 open.
 
 **Next session:** propagate to the last repo (`ai-app-integration-tests`).
+
+## 2026-06-18 — Issue #36: timeout-minutes guard + lock test
+**Duration:** ~25 min · **Branch:** `session/2026-06-18-0321-issue-36`
+
+- Added `timeout-minutes: 20` to `app` in `ci.yml` (the longest job in
+  this repo: `npm ci` + lint + typecheck + Vitest + Next.js build) and
+  `timeout-minutes: 15` to `memory-check`.
+- Added `test/workflows-timeout-minutes.test.ts` (Vitest) — 7 new tests:
+  1 smoke + 2 jobs × 3 parametrized invariants (`timeout-minutes` is
+  present, is an integer (not boolean/string), is in policy band
+  `[1, 30]`). Each invariant fails as its own `it` so a regression
+  names the offending job exactly.
+
+**Why this work, this session:** GitHub Actions defaults to 360
+min/job when `timeout-minutes` is unset, so a hung job (npm ci stall,
+infinite typecheck loop, stuck Playwright wait) burns the full 6-hour
+ceiling. `llm-eval-harness` PR #63 shipped the canonical first hop
+(Python) and the portfolio-ops audit (#36) added a
+`--check missing-timeout` fingerprint that surfaces every unprotected
+repo weekly. Two more Python hops (`rag-production-kit#55`,
+`chunking-strategies-lab#42`) preceded this; this PR is the first
+**TypeScript** hop and unblocks propagation to the other Node/TS
+portfolio repos (`ai-app-integration-tests`, `mcp-server-cookbook`,
+`agent-orchestration-platform`).
+
+**Open questions / blockers:** none. Test count 211 → 218 (+7), `npm
+test` + `npm run lint` + `npm run typecheck` all clean.
+
+**Next session:** continue propagation across remaining 7 unprotected
+repos. Per build sequence: embedding-model-shootout (Python),
+vector-search-at-scale (Python), python-async-llm-pipelines (Python),
+agent-orchestration-platform (TS), mcp-server-cookbook (TS),
+ai-app-integration-tests (TS), plus portfolio-ops itself.
