@@ -402,3 +402,23 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-06-18T15:40Z
+duration_min: 15
+issue: 38
+focus: workflow_concurrency_guard_plus_lock_test_first_typescript_hop_propagation_from_llm_eval_harness_64
+phase: day_session_phase_b_iteration_5
+delta:
+  files_added: 1   # test/workflows-concurrency.test.ts
+  files_changed: 1 # .github/workflows/ci.yml
+  tests_added: 4   # 1 smoke + 3 invariants x 1 workflow
+context_for_next_session:
+  - fifth_per_repo_hop_of_concurrency_lock_propagation_first_typescript_hop_after_llm_eval_harness_64_llm_cost_optimizer_60_rag_production_kit_56_chunking_strategies_lab_43
+  - ci_yml_group_ci_dollar_github_ref_single_workflow_repo
+  - vitest_plus_js_yaml_modeled_on_workflows_timeout_minutes_test_ts_pattern_three_invariants_has_concurrency_group_nonempty_str_cancel_in_progress_true_bool
+  - test_count_218_to_222_four_new_full_vitest_clean_eslint_clean
+  - companion_locks_in_this_repo_workflows_yaml_parseable_workflows_timeout_minutes_now_workflows_concurrency_three_invariants_at_three_per_three
+decisions_made: []
+followups: [#38]
+---
