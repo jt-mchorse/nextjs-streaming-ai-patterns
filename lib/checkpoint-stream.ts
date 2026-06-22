@@ -57,6 +57,14 @@ export interface StreamOptions {
    * completion.
    */
   readonly dropAfter?: number;
+  /**
+   * Abort signal that ends the stream cleanly at the next event boundary
+   * (D-007). When it aborts the generator stops yielding and returns — the
+   * route handler owns the `AbortController` and wires both `req.signal` and
+   * its `cancel()` into it, so a client disconnect tears down the stream
+   * instead of running it to completion.
+   */
+  readonly signal?: AbortSignal;
 }
 
 /**
@@ -119,6 +127,7 @@ export async function* streamCheckpoints(
   validateOptions(options);
   const startAfter = options.startAfter ?? 0;
   const dropAfter = options.dropAfter;
+  const signal = options.signal;
 
   let emittedThisRun = 0;
   let textIndex = 0;
@@ -127,6 +136,12 @@ export async function* streamCheckpoints(
   // emission so the client receives natural-looking chunks.
   let pendingPrefix = "";
   for (let i = 0; i < TOKENS.length; i++) {
+    // D-007: stop at the next event boundary if the consumer disconnected.
+    // Checked before any work each iteration so an already-aborted stream
+    // yields nothing.
+    if (signal?.aborted) {
+      return;
+    }
     const tok = TOKENS[i];
     if (!/\S/.test(tok)) {
       pendingPrefix += tok;

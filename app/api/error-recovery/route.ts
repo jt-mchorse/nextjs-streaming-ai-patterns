@@ -38,6 +38,17 @@ export async function GET(req: NextRequest): Promise<Response> {
 
   const encoder = new TextEncoder();
 
+  // D-007: own the AbortController so the abort chain ends at the stream
+  // source. Previously `streamCheckpoints` got no signal at all, so a client
+  // disconnect (req.signal abort OR reader.cancel()) left the generator running
+  // to completion. Wire both disconnect surfaces into `ac` and pass `ac.signal`.
+  const ac = new AbortController();
+  if (req.signal.aborted) {
+    ac.abort();
+  } else {
+    req.signal.addEventListener("abort", () => ac.abort(), { once: true });
+  }
+
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       const send = (data: unknown, eventName?: string) => {
@@ -52,6 +63,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         for await (const event of streamCheckpoints({
           startAfter: checkpoint,
           dropAfter: dropOnce ? DROP_AFTER_TOKENS : undefined,
+          signal: ac.signal,
         })) {
           send(event);
         }
@@ -66,6 +78,12 @@ export async function GET(req: NextRequest): Promise<Response> {
       } finally {
         controller.close();
       }
+    },
+    cancel() {
+      // Browser disconnected (navigated away or hit Stop). Abort so
+      // `streamCheckpoints` stops at the next event boundary — the for-await
+      // loop does not break on its own.
+      ac.abort();
     },
   });
 
