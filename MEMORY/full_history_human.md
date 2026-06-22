@@ -301,3 +301,16 @@ surfaces every workflow missing the lock.
 **Next session:** continue propagation to remaining 7 repos (mix of
 Python and TS — the TS template is now established here for future
 Node-side hops).
+
+## 2026-06-22 — Issue #40: mock streams — honor abort during unguarded post-sleep windows
+**Duration:** ~30 min · **Branch:** `session/2026-06-22-1129-issue-40`
+
+- Found during Phase A (Explore subagent flagged two abort windows; I traced `sleep` to confirm it resolves — not rejects — on abort): `mockToolStream` phases 1 and 5 re-check the abort signal after each `sleep`, but phases 3, 4, and 6 — and `mockJsonStream`'s final sleep — did not. Because `sleep` resolves immediately on abort, a cancelled stream could emit a fabricated `tool_result` for an aborted tool call, or report `message_stop: end_turn` instead of `interrupted`, corrupting the `stop_reason` the SSE route/UI use for interruption handling and breaking the documented abort contract.
+- Fix: added a post-sleep `checkAborted()` (yield `interrupted` + return) after every sleep that precedes a yield, in both files. `mock-stream.ts` already guarded both sides.
+- 3 deterministic race-window tests that pump each generator to exactly the unguarded window, abort, and assert `interrupted` (and no post-abort `tool_result`). Verified they fail on the pre-fix code. Suite 222 → 225, tsc + eslint clean. PR #41 ready.
+
+**Why this work, this session:** the only open issue was a binary demo-capture task (not doable headless), so this was found by reading the core streaming libs. Interruption handling is a headline pattern of this repo, making a silent abort-contract violation high-value — strictly better than a synthetic fill.
+
+**Open questions / blockers:** none.
+
+**Next session:** the abort handling is now uniform across all three mock streams. If a future session wants more here, the live `anthropic-stream.ts` path and the SSE route handlers (`app/.../route.ts`) are the remaining surface to audit for the same resolve-on-abort race.

@@ -176,6 +176,15 @@ export async function* mockJsonStream(
     yield { type: "json_delta", delta: chunk };
   }
   await sleep(delay(), signal);
+  // The final sleep is a race window like every other: `sleep` resolves (not
+  // rejects) on abort, so an abort landing here must still surface as
+  // `interrupted` rather than a clean `end_turn` — otherwise the SSE route
+  // reports a completed turn for a stream the client actually cancelled, and
+  // the documented abort contract (yield `interrupted` and return) is broken.
+  if (checkAborted()) {
+    yield { type: "message_stop", stop_reason: "interrupted" };
+    return;
+  }
   yield { type: "message_stop", stop_reason: "end_turn" };
 }
 

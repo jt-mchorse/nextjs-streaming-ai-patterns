@@ -174,3 +174,55 @@ describe("mockToolStream — MockToolStreamOptions validation (issue #26)", () =
     await expect(gen.next()).rejects.toBeInstanceOf(RangeError);
   });
 });
+
+describe("mockToolStream — abort race windows (#40)", () => {
+  it("does not inject a tool_result when aborted during the pre-result sleep", async () => {
+    // Pump to just after `tool_use_stop` (generator suspended before the sleep
+    // that precedes `tool_result`), then abort. The next resume enters that
+    // sleep with an already-aborted signal; the stream must report interrupted
+    // and must NOT emit a fabricated tool_result for a cancelled tool call.
+    const controller = new AbortController();
+    const gen = mockToolStream({
+      baseDelayMs: 0,
+      jitterMs: 0,
+      seed: 1,
+      signal: controller.signal,
+    });
+    const seen: ToolStreamEvent[] = [];
+    let value: ToolStreamEvent | undefined;
+    do {
+      const next = await gen.next();
+      if (next.done || !next.value) throw new Error("stream ended before tool_use_stop");
+      value = next.value;
+      seen.push(value);
+    } while (value.type !== "tool_use_stop");
+
+    controller.abort();
+    const after = await gen.next();
+    expect(after.value).toEqual({ type: "message_stop", stop_reason: "interrupted" });
+    expect(seen.some((e) => e.type === "tool_result")).toBe(false);
+  });
+
+  it("reports interrupted (not end_turn) when aborted during the final sleep", async () => {
+    // Count events on a clean run so we can stop exactly at the post-last-text
+    // final-sleep window on the aborted run.
+    const clean = await collect(mockToolStream({ baseDelayMs: 0, jitterMs: 0, seed: 1 }));
+    const total = clean.length; // includes the terminal message_stop
+    const controller = new AbortController();
+    const gen = mockToolStream({
+      baseDelayMs: 0,
+      jitterMs: 0,
+      seed: 1,
+      signal: controller.signal,
+    });
+    // Pump every event except the terminal message_stop; the generator is then
+    // suspended just before the Phase-6 final sleep.
+    for (let n = 0; n < total - 1; n++) {
+      const next = await gen.next();
+      if (next.done) throw new Error("stream ended early");
+    }
+    controller.abort();
+    const after = await gen.next();
+    expect(after.value).toEqual({ type: "message_stop", stop_reason: "interrupted" });
+  });
+});
