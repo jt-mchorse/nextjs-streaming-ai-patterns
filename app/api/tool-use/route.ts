@@ -32,12 +32,24 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: NextRequest): Promise<Response> {
   const encoder = new TextEncoder();
-  const signal = req.signal;
+
+  // D-007: own the AbortController so the abort chain ends at the stream
+  // source. A disconnect can surface either as `req.signal` aborting OR as the
+  // ReadableStream being cancelled (the for-await loop is NOT auto-cancelled on
+  // cancel()); wire both into `ac` and pass `ac.signal` to the streamer.
+  // Previously only `req.signal` was forwarded, so a `reader.cancel()` (the
+  // Stop-button path) left the stream pulling to completion.
+  const ac = new AbortController();
+  if (req.signal.aborted) {
+    ac.abort();
+  } else {
+    req.signal.addEventListener("abort", () => ac.abort(), { once: true });
+  }
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       try {
-        for await (const event of mockToolStream({ signal })) {
+        for await (const event of mockToolStream({ signal: ac.signal })) {
           const data = JSON.stringify(eventPayload(event));
           controller.enqueue(encoder.encode(`event: ${event.type}\ndata: ${data}\n\n`));
         }
@@ -49,6 +61,11 @@ export async function GET(req: NextRequest): Promise<Response> {
       } finally {
         controller.close();
       }
+    },
+    cancel() {
+      // Browser disconnected (navigated away or hit Stop). Abort so the
+      // streamer stops pulling — the for-await loop does not break on its own.
+      ac.abort();
     },
   });
 
