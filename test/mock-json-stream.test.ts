@@ -126,3 +126,32 @@ describe("mockJsonStream — MockJsonStreamOptions validation (issue #26)", () =
     await expect(gen.next()).rejects.toBeInstanceOf(RangeError);
   });
 });
+
+describe("mockJsonStream — final-sleep abort race (#40)", () => {
+  it("reports interrupted (not end_turn) when aborted during the final sleep", async () => {
+    // Count json_delta chunks on a clean run.
+    let total = 0;
+    for await (const e of mockJsonStream({ baseDelayMs: 0, jitterMs: 0, seed: 1 })) {
+      if (e.type === "json_delta") total += 1;
+    }
+
+    const controller = new AbortController();
+    const gen = mockJsonStream({
+      baseDelayMs: 0,
+      jitterMs: 0,
+      seed: 1,
+      signal: controller.signal,
+    });
+    // Pump exactly all json_delta events; the generator is then suspended just
+    // after the last json_delta yield, before the unguarded final sleep.
+    let seen = 0;
+    while (seen < total) {
+      const next = await gen.next();
+      if (next.done || !next.value) throw new Error("stream ended before final sleep");
+      if (next.value.type === "json_delta") seen += 1;
+    }
+    controller.abort();
+    const after = await gen.next();
+    expect(after.value).toEqual({ type: "message_stop", stop_reason: "interrupted" });
+  });
+});

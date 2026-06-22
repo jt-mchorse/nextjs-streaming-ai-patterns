@@ -185,6 +185,12 @@ export async function* mockToolStream(
       return;
     }
     await sleep(delay(), signal);
+    // `sleep` resolves (not rejects) on abort, so re-check after it — matching
+    // phases 1 and 5 — before emitting the next event (#40).
+    if (checkAborted()) {
+      yield { type: "message_stop", stop_reason: "interrupted" };
+      return;
+    }
     yield { type: "tool_use_delta", partial_json: c };
   }
 
@@ -194,8 +200,18 @@ export async function* mockToolStream(
     return;
   }
   await sleep(delay(), signal);
+  if (checkAborted()) {
+    yield { type: "message_stop", stop_reason: "interrupted" };
+    return;
+  }
   yield { type: "tool_use_stop" };
   await sleep(delay(), signal);
+  // Without this check an abort during the sleep would still inject a
+  // fabricated tool_result for a tool call the client already cancelled.
+  if (checkAborted()) {
+    yield { type: "message_stop", stop_reason: "interrupted" };
+    return;
+  }
   yield { type: "tool_result", tool_use_id: TOOL_USE_ID, result: TOOL_RESULT };
 
   // Phase 5: post-tool text.
@@ -214,5 +230,11 @@ export async function* mockToolStream(
 
   // Phase 6: clean stop.
   await sleep(delay(), signal);
+  // Final-sleep race window — an abort here must report `interrupted`, not a
+  // clean `end_turn` for a stream the client cancelled (#40).
+  if (checkAborted()) {
+    yield { type: "message_stop", stop_reason: "interrupted" };
+    return;
+  }
   yield { type: "message_stop", stop_reason: "end_turn" };
 }
