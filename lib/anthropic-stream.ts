@@ -62,28 +62,65 @@ export function getStreamMode(): StreamModeInfo {
   return { mode: "live", model };
 }
 
+export interface StreamTextOptions {
+  /**
+   * Optional `AbortSignal` that cancels the stream end-to-end (D-007). When it
+   * aborts, generation stops cleanly: the mock path stops at the next token,
+   * and the live path aborts the underlying Anthropic request via the SDK's
+   * `signal` request option so we stop consuming (and being billed for) a
+   * response no one is reading.
+   */
+  signal?: AbortSignal;
+}
+
 /**
  * Yield text deltas for `prompt`. Returns the same `{ text }` shape as the
  * mock streamer so consumers don't branch on mode.
+ *
+ * `options.signal` makes the stream abortable in *both* modes. This is the
+ * stream-source end of the D-007 abort chain (client fetch → route handler →
+ * here); without it the route's `cancel()` had nothing to cancel and the live
+ * SDK stream ran to completion after a client disconnect, burning tokens.
  */
-export async function* streamText(prompt: string): AsyncGenerator<{ text: string }, void, unknown> {
+export async function* streamText(
+  prompt: string,
+  options: StreamTextOptions = {},
+): AsyncGenerator<{ text: string }, void, unknown> {
   validatePrompt(prompt);
+  const { signal } = options;
   const { mode, model } = getStreamMode();
 
+  // Already cancelled before we did any work — yield nothing. For the live
+  // path this is load-bearing: it returns *before* `new Anthropic()` so an
+  // aborted request never opens a network stream.
+  if (signal?.aborted) {
+    return;
+  }
+
   if (mode === "mock") {
-    yield* mockTextStream();
+    yield* mockTextStream({ signal });
     return;
   }
 
   // Live mode — model is guaranteed non-null because mode === "live".
   const client = new Anthropic();
-  const stream = client.messages.stream({
-    model: model as string,
-    max_tokens: 1024,
-    messages: [{ role: "user", content: prompt }],
-  });
+  const stream = client.messages.stream(
+    {
+      model: model as string,
+      max_tokens: 1024,
+      messages: [{ role: "user", content: prompt }],
+    },
+    // Forward the signal so aborting cancels the underlying HTTP request, not
+    // just our local loop — otherwise the SDK keeps the connection open.
+    { signal },
+  );
 
   for await (const event of stream) {
+    // The SDK aborts the request on `signal`, but re-check here so a late
+    // abort stops us yielding a partially-buffered delta as well.
+    if (signal?.aborted) {
+      return;
+    }
     if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
       yield { text: event.delta.text };
     }

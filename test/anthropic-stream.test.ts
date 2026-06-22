@@ -88,6 +88,59 @@ describe("validatePrompt — accepts well-formed prompts (mock mode)", () => {
   });
 });
 
+describe("streamText — abort (#42, D-007)", () => {
+  let savedKey: string | undefined;
+  beforeEach(() => {
+    savedKey = process.env.ANTHROPIC_API_KEY;
+  });
+  afterEach(() => {
+    if (savedKey === undefined) delete process.env.ANTHROPIC_API_KEY;
+    else process.env.ANTHROPIC_API_KEY = savedKey;
+  });
+
+  it("yields nothing when the signal is already aborted (mock mode)", async () => {
+    delete process.env.ANTHROPIC_API_KEY; // mock mode
+    const ac = new AbortController();
+    ac.abort();
+    const chunks: string[] = [];
+    for await (const chunk of streamText("Write a haiku.", { signal: ac.signal })) {
+      chunks.push(chunk.text);
+    }
+    expect(chunks).toEqual([]);
+  });
+
+  it("stops yielding once the signal aborts mid-stream (mock mode)", async () => {
+    delete process.env.ANTHROPIC_API_KEY; // mock mode
+    const ac = new AbortController();
+    const chunks: string[] = [];
+    for await (const chunk of streamText("Write a long paragraph.", { signal: ac.signal })) {
+      chunks.push(chunk.text);
+      if (chunks.length === 2) ac.abort(); // cancel after the second token
+      if (chunks.length > 100) break; // safety cap — should never be hit
+    }
+    // The mock stream is many tokens long; aborting after 2 must stop it well
+    // short of the full output. (It honors the abort during the inter-token
+    // sleep, so we get at most a small handful more before it returns.)
+    expect(chunks.length).toBeGreaterThan(0);
+    expect(chunks.length).toBeLessThan(10);
+  });
+
+  it("returns without constructing the SDK when aborted in live mode", async () => {
+    // A real key selects live mode. An already-aborted signal must make
+    // `streamText` return *before* `new Anthropic()` / any network call —
+    // otherwise this test would attempt a real (failing/hanging) request.
+    // Yielding nothing and resolving immediately proves the early-return guard.
+    process.env.ANTHROPIC_API_KEY = "sk-ant-test-key";
+    const ac = new AbortController();
+    ac.abort();
+    const chunks: string[] = [];
+    for await (const chunk of streamText("Write a haiku.", { signal: ac.signal })) {
+      chunks.push(chunk.text);
+    }
+    expect(chunks).toEqual([]);
+  });
+});
+
 describe("getStreamMode — ANTHROPIC_API_KEY shape", () => {
   let savedKey: string | undefined;
   let savedModel: string | undefined;

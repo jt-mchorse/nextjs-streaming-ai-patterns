@@ -22,10 +22,24 @@ export async function GET(req: NextRequest): Promise<Response> {
 
   const encoder = new TextEncoder();
 
+  // D-007: the abort chain ends at the stream source. We own an AbortController
+  // here, pass its signal into `streamText`, and abort it when the client goes
+  // away. A ReadableStream's `start` loop is NOT auto-cancelled when the stream
+  // is cancelled, so without this the live SDK stream would keep running (and
+  // keep being billed) after a disconnect.
+  const ac = new AbortController();
+  // A disconnect can surface either as the request signal aborting or as the
+  // ReadableStream being cancelled; wire both into our controller.
+  if (req.signal.aborted) {
+    ac.abort();
+  } else {
+    req.signal.addEventListener("abort", () => ac.abort(), { once: true });
+  }
+
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       try {
-        for await (const chunk of streamText(prompt)) {
+        for await (const chunk of streamText(prompt, { signal: ac.signal })) {
           const payload = JSON.stringify({ text: chunk.text });
           controller.enqueue(encoder.encode(`data: ${payload}\n\n`));
         }
@@ -39,8 +53,10 @@ export async function GET(req: NextRequest): Promise<Response> {
       }
     },
     cancel() {
-      // The browser disconnected (user navigated away or hit Cancel). Generator
-      // cancellation cascades back to `streamText` via the for-await break.
+      // The browser disconnected (navigated away or hit Cancel). Abort the
+      // controller so `streamText` stops pulling from the model and the live
+      // SDK request is torn down — the for-await loop does not break on its own.
+      ac.abort();
     },
   });
 
