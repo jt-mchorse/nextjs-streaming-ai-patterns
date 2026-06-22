@@ -327,3 +327,16 @@ Node-side hops).
 **Open questions / blockers:** none.
 
 **Next session:** the other four SSE routes (tool-use, optimistic, error-recovery, partial-json) likely share the un-abortable pattern — filed as #43 (priority:med) to audit each against D-007 with a mirroring cancel test.
+
+## 2026-06-22 — Issue #43: make the remaining SSE routes abortable
+**Duration:** ~50 min · **Branch:** `session/2026-06-22-1953-issue-43`
+
+- Picked the filed `priority:med` follow-up from #42/#44 (real product work in a priority-tier repo) over a dogfood, after five dogfood fixes earlier in the run. Audited the four routes: three are SSE streams with the gap, one (`optimistic`) is a unary JSON POST with nothing to abort (documented N/A).
+- `error-recovery` was genuinely un-abortable — it passed no signal into `streamCheckpoints` at all, so a disconnect ran the generator to completion. Added a `signal` option to `streamCheckpoints` (returns at the next event boundary when aborted) and wired the route's AbortController in. `tool-use` and `partial-json` forwarded `req.signal` but owned no AbortController and had no `cancel()`, so the `reader.cancel()` Stop-button path didn't abort; both now own an AC and wire both disconnect surfaces, mirroring the canonical stream-text route.
+- New `test/sse-route-cancellation.test.ts` (8 tests); 3 regression-catchers (error-recovery already-aborted + two `streamCheckpoints` signal tests) fail pre-fix, the rest are behavior assertions per the #42 precedent. Suite 230 → 238, tsc + eslint clean. PR #45 ready.
+
+**Why this work, this session:** a concrete, filed `priority:med` issue extending validated #42 work — higher value than another dogfood sweep in a saturated portfolio.
+
+**Open questions / blockers:** none.
+
+**Next session:** all five SSE routes now honor the D-007 abort chain end-to-end. No remaining route-abort lead.
