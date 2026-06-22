@@ -314,3 +314,16 @@ Node-side hops).
 **Open questions / blockers:** none.
 
 **Next session:** the abort handling is now uniform across all three mock streams. If a future session wants more here, the live `anthropic-stream.ts` path and the SSE route handlers (`app/.../route.ts`) are the remaining surface to audit for the same resolve-on-abort race.
+
+## 2026-06-22 — Issue #42: stream-text — make streamText abortable end-to-end
+**Duration:** ~30 min · **Branch:** `session/2026-06-22-1519-issue-abort-live`
+
+- Acted on the "remaining surface" lead from the #40/#41 session: that session fixed abort windows in the *mock* streams and flagged the live `anthropic-stream.ts` path and the SSE route handlers. The live path was worse than a race — `streamText` accepted no `AbortSignal` at all, so `client.messages.stream(...)` ran to completion after a client disconnect (token burn), and the mock path ignored the signal it already supports. The stream-text route's `cancel()` was an empty no-op whose comment *falsely* claimed cancellation "cascades back via the for-await break" — a `ReadableStream`'s `start()` loop does not auto-break on cancel.
+- Fix: `streamText(prompt, { signal })` early-returns before `new Anthropic()` if already aborted (so an aborted live request never opens a network stream), forwards `{ signal }` to the SDK request and to `mockTextStream`, and re-checks in the loop. The route owns an `AbortController`, passes its signal in, and aborts from both `cancel()` and a `req.signal` listener — implementing the **D-007** abort chain (client → route → stream source) the path was silently violating. Comment corrected.
+- 5 new tests (mock already-aborted yields nothing; mock mid-stream abort stops early; live already-aborted returns before SDK construction; route already-aborted emits no text frames; route `cancel()` resolves cleanly). Verified 4 of 5 fail pre-fix. Suite 225 → 230, tsc + eslint clean. PR ready.
+
+**Why this work, this session:** the only open issue was a `priority:low` demo-capture task; this was a real correctness + cost bug in the repo's headline interruption-handling feature, already documented as the next lead. Higher value than a synthetic fill.
+
+**Open questions / blockers:** none.
+
+**Next session:** the other four SSE routes (tool-use, optimistic, error-recovery, partial-json) likely share the un-abortable pattern — filed as #43 (priority:med) to audit each against D-007 with a mirroring cancel test.
