@@ -157,3 +157,17 @@ describe("parsePartialJson — incremental sequence", () => {
     }
   });
 });
+
+describe("parsePartialJson — trailing junk after a complete top-level value", () => {
+  it("surfaces the committed object when junk follows the close brace", () => {
+    expect(parsePartialJson('{"a":1}extra')).toEqual({ value: { a: 1 }, isComplete: false });
+  });
+
+  it("surfaces the committed array when junk follows the close bracket", () => {
+    expect(parsePartialJson("[1,2]extra")).toEqual({ value: [1, 2], isComplete: false });
+  });
+
+  it("surfaces a bare top-level value when junk follows", () => {
+    expect(parsePartialJson("42 junk")).toEqual({ value: 42, isComplete: false });
+  });
+});
