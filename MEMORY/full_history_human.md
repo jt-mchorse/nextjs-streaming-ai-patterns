@@ -340,3 +340,15 @@ Node-side hops).
 **Open questions / blockers:** none.
 
 **Next session:** all five SSE routes now honor the D-007 abort chain end-to-end. No remaining route-abort lead.
+
+## 2026-06-23 — Issue #48: partial-json discarded a complete value on trailing junk
+**Duration:** ~25 min · **Branch:** `session/2026-06-23-0428-issue-48`
+
+- Fixed a contract violation in `parsePartialJson`. A complete top-level value followed by trailing junk (`{"a":1}extra`, `[1,2]extra`, `42 junk`) collapsed the whole result to `{value:null,isComplete:false}` — `repair()` never recorded where the top-level value ended, so it fell into `frameSnapshot` on an empty stack and returned null, discarding a value the caller had already fully received.
+- Track `topLevelEnd` at the bare-literal and top-level-close sites, break on junk once complete, and re-emit `buffer.slice(0, topLevelEnd)`. Added trailing-junk tests. Red pre-fix, green post-fix. Suite 238 → 241, tsc + eslint clean. Mid-stream partial values and the real demo payload are unaffected.
+
+**Why this work, this session:** found by a different-angle second pass in the night session's Phase A dogfood wave (the first pass on this repo's abort surface was already saturated). A real progressive-render contract bug in pure, unit-testable logic.
+
+**Open questions / blockers:** none.
+
+**Next session:** a malformed `\u` escape inside a closed string can null committed fields too (lower reachability, larger fix) — deferred.
