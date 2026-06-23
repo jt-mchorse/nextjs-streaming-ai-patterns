@@ -340,3 +340,15 @@ Node-side hops).
 **Open questions / blockers:** none.
 
 **Next session:** all five SSE routes now honor the D-007 abort chain end-to-end. No remaining route-abort lead.
+
+## 2026-06-23 — Issue #46: tool-stream Phase-2 abort recheck gap
+**Duration:** ~20 min · **Branch:** `session/2026-06-23-0328-issue-46`
+
+- Closed a one-phase gap in `mockToolStream`'s abort contract. Because `sleep` resolves (not rejects) on abort, every phase needs a post-sleep `checkAborted()` before its yield. Issue #40 added that guard to phases 1/3/4/5/6 but missed Phase 2 — so an abort during the sleep before `tool_use_start` emitted a `tool_use_start` event (model "wants to call get_weather") for a stream the client had already cancelled.
+- Added the guard and an abort-race test that suspends the generator in the Phase-2 sleep, aborts while pending, and asserts `interrupted`. Red pre-fix, green post-fix. Suite 238 → 239, eslint clean.
+
+**Why this work, this session:** found by the night session's Phase A parallel dogfood sweep; a real UX defect reachable through the live `app/api/tool-use` route when a user hits stop at the wrong moment.
+
+**Open questions / blockers:** none. All six phases now uniformly honor the #40 abort contract.
+
+**Next session:** no remaining known abort-window gaps in the tool stream.
