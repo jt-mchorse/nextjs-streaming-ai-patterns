@@ -203,6 +203,40 @@ describe("mockToolStream — abort race windows (#40)", () => {
     expect(seen.some((e) => e.type === "tool_result")).toBe(false);
   });
 
+  it("does not emit tool_use_start when aborted during the Phase-2 sleep", async () => {
+    // The Phase-1 pre-tool text yields N text_deltas; tool_use_start is the
+    // first non-text event. Find N from a clean run so we can suspend the
+    // aborted run exactly before the Phase-2 sleep.
+    const clean = await collect(mockToolStream({ baseDelayMs: 0, jitterMs: 0, seed: 1 }));
+    const preToolDeltas = clean.findIndex((e) => e.type === "tool_use_start");
+    expect(preToolDeltas).toBeGreaterThan(0);
+
+    const controller = new AbortController();
+    // baseDelayMs > 0 so the Phase-2 sleep actually suspends — with 0 the
+    // pre-sleep check would mask the gap. The abort listener inside `sleep`
+    // resolves the pending promise synchronously, so no timer wait is needed.
+    const gen = mockToolStream({
+      baseDelayMs: 5,
+      jitterMs: 0,
+      seed: 1,
+      signal: controller.signal,
+    });
+    // Pump every Phase-1 text_delta; the generator is then suspended at the
+    // last text_delta yield, immediately before the Phase-2 sleep.
+    for (let n = 0; n < preToolDeltas; n++) {
+      const next = await gen.next();
+      if (next.done) throw new Error("stream ended before tool_use_start");
+      expect(next.value.type).toBe("text_delta");
+    }
+    // This next() runs the Phase-2 pre-sleep check (passes — not yet aborted)
+    // then suspends inside `await sleep(...)`, registering the abort listener.
+    const pending = gen.next();
+    controller.abort(); // resolves the sleep; generator resumes
+    const after = await pending;
+    expect(after.value).toEqual({ type: "message_stop", stop_reason: "interrupted" });
+    expect(after.value?.type).not.toBe("tool_use_start");
+  });
+
   it("reports interrupted (not end_turn) when aborted during the final sleep", async () => {
     // Count events on a clean run so we can stop exactly at the post-last-text
     // final-sleep window on the aborted run.

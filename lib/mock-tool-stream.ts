@@ -165,6 +165,12 @@ export async function* mockToolStream(
     return;
   }
   await sleep(delay(), signal);
+  // `sleep` resolves (not rejects) on abort, so re-check after it — matching
+  // the other phases — before declaring a tool the client already cancelled (#40).
+  if (checkAborted()) {
+    yield { type: "message_stop", stop_reason: "interrupted" };
+    return;
+  }
   yield {
     type: "tool_use_start",
     tool_use_id: TOOL_USE_ID,
