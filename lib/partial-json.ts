@@ -100,6 +100,11 @@ function repair(buffer: string): string | null {
   // parent (or the top level). When parsing fast-fails but the whole
   // value is structurally complete (e.g. trailing junk), this catches it.
   let topLevelComplete = false;
+  // Offset just past a *completed* top-level value (bare literal, or a closed
+  // top-level object/array). Lets us re-emit the committed value when trailing
+  // junk makes the whole-buffer JSON.parse fail and we fall into repair —
+  // without it, `frameSnapshot(buffer, [])` returns null and the value is lost.
+  let topLevelEnd = -1;
 
   let i = 0;
   while (i < buffer.length) {
@@ -114,7 +119,7 @@ function repair(buffer: string): string | null {
 
     // Top level — only one value allowed, but stream may not have started.
     if (!frame) {
-      if (topLevelComplete) break; // junk after top-level value
+      if (topLevelComplete || topLevelEnd >= 0) break; // junk after top-level value
       if (ch === "{") {
         stack.push({ kind: "object", lastSafeEnd: i + 1, expecting: "key", committedAny: false });
         i += 1;
@@ -130,6 +135,7 @@ function repair(buffer: string): string | null {
       if (consumed === null) return null; // unrecoverable
       if (consumed.complete) {
         topLevelComplete = true;
+        topLevelEnd = consumed.endIndex;
         i = consumed.endIndex;
         continue;
       }
@@ -142,6 +148,7 @@ function repair(buffer: string): string | null {
           // Empty object or trailing comma already swallowed — close.
           stack.pop();
           commitChildToParent(stack, i + 1);
+          if (stack.length === 0) topLevelEnd = i + 1; // closed top-level value
           i += 1;
           continue;
         }
@@ -195,6 +202,7 @@ function repair(buffer: string): string | null {
         if (ch === "}") {
           stack.pop();
           commitChildToParent(stack, i + 1);
+          if (stack.length === 0) topLevelEnd = i + 1; // closed top-level value
           i += 1;
           continue;
         }
@@ -207,6 +215,7 @@ function repair(buffer: string): string | null {
         if (ch === "]") {
           stack.pop();
           commitChildToParent(stack, i + 1);
+          if (stack.length === 0) topLevelEnd = i + 1; // closed top-level value
           i += 1;
           continue;
         }
@@ -239,6 +248,7 @@ function repair(buffer: string): string | null {
         if (ch === "]") {
           stack.pop();
           commitChildToParent(stack, i + 1);
+          if (stack.length === 0) topLevelEnd = i + 1; // closed top-level value
           i += 1;
           continue;
         }
@@ -247,6 +257,12 @@ function repair(buffer: string): string | null {
     }
   }
 
+  // A top-level value completed (then we hit trailing junk or end-of-buffer):
+  // re-emit just that value. frameSnapshot would return null on the now-empty
+  // stack, dropping a value the caller already fully received.
+  if (stack.length === 0 && topLevelEnd >= 0) {
+    return buffer.slice(0, topLevelEnd);
+  }
   return frameSnapshot(buffer, stack);
 }
 
