@@ -171,3 +171,51 @@ describe("parsePartialJson — trailing junk after a complete top-level value", 
     expect(parsePartialJson("42 junk")).toEqual({ value: 42, isComplete: false });
   });
 });
+
+describe("parsePartialJson — malformed/truncated string escapes (#50)", () => {
+  // The bug: consumeString tracked escape state but never validated the
+  // escape, so a closed string with an invalid escape was reported complete,
+  // JSON.parse then threw on the repaired buffer, and the catch-all nulled
+  // EVERY field — including ones fully transmitted before the bad string.
+
+  it("preserves prior committed fields when a closed string has a non-hex \\u escape", () => {
+    expect(parsePartialJson('{"a": 1, "b": "\\uXYZW"}')).toEqual({ value: { a: 1 }, isComplete: false });
+  });
+
+  it("preserves prior committed fields on an invalid single-char escape (\\q)", () => {
+    expect(parsePartialJson('{"a": 1, "b": "\\q"}')).toEqual({ value: { a: 1 }, isComplete: false });
+  });
+
+  it("preserves prior committed fields when a \\u escape is closed with too few hex digits", () => {
+    expect(parsePartialJson('{"keep": 42, "bad": "x\\u12"}')).toEqual({ value: { keep: 42 }, isComplete: false });
+  });
+
+  it("preserves prior committed fields when a \\u escape is truncated at end of buffer", () => {
+    expect(parsePartialJson('{"keep": 42, "bad": "x\\u12')).toEqual({ value: { keep: 42 }, isComplete: false });
+  });
+
+  it("preserves prior committed fields on a dangling backslash at end of buffer", () => {
+    expect(parsePartialJson('{"keep": 7, "bad": "x\\')).toEqual({ value: { keep: 7 }, isComplete: false });
+  });
+
+  it("drops an entire array element with a malformed escape but keeps earlier elements", () => {
+    expect(parsePartialJson('[1, 2, "\\uZZZZ"]')).toEqual({ value: [1, 2], isComplete: false });
+  });
+
+  it("returns null for a bare malformed top-level string (nothing was validly transmitted)", () => {
+    expect(parsePartialJson('"\\q"')).toEqual({ value: null, isComplete: false });
+  });
+
+  // Regressions: well-formed escapes must keep parsing exactly as before.
+  it("still parses valid control escapes (\\n) to completion", () => {
+    expect(parsePartialJson('{"a": 1, "b": "ok\\n"}')).toEqual({ value: { a: 1, b: "ok\n" }, isComplete: true });
+  });
+
+  it("still parses a valid \\uXXXX escape to completion", () => {
+    expect(parsePartialJson('"\\uABCD"')).toEqual({ value: "ꯍ", isComplete: true });
+  });
+
+  it("still parses all single-char escapes (\\\" \\\\ \\/) to completion", () => {
+    expect(parsePartialJson('{"p": "a\\"b\\\\c\\/d"}')).toEqual({ value: { p: 'a"b\\c/d' }, isComplete: true });
+  });
+});

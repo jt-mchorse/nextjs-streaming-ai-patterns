@@ -365,3 +365,17 @@ Node-side hops).
 **Open questions / blockers:** none.
 
 **Next session:** a malformed `\u` escape inside a closed string can null committed fields too (lower reachability, larger fix) — deferred.
+
+---
+## 2026-06-24 — Issue #50: partial-json nulled committed fields on a malformed string escape
+**Duration:** ~35 min · **Branch:** `session/2026-06-24-0312-issue-50`
+
+- Closed the bug the #48 session explicitly deferred (and never filed). `consumeString` tracked backslash-escape *state* but never *validated* the escape, so a closed string with an invalid escape (`\q`) or a non-hex `\u` escape (`\uXYZW`) was reported complete. `JSON.parse` then threw on the repaired buffer and the catch-all nulled **every** field — including ones fully transmitted before the bad string (`{"a":1,"b":"\uXYZW"}` → null instead of `{a:1}`).
+- `consumeString` now validates the eight single-char escapes plus `\u` + 4 hex digits. A closed-form malformed escape returns `null` (so `repair` drops the value and keeps prior committed siblings); a truncated escape at end of buffer returns `complete:false` (still streaming, same drop-and-keep). Strictly more conservative — only drops what `JSON.parse` rejects anyway; valid escapes are untouched.
+- 10 new tests (4 red-pre-fix catchers, 6 regression/edge guards). Red via `git stash` of the lib change, green after. Suite → 252 passed, tsc + eslint clean.
+
+**Why this work, this session:** nextjs-streaming-ai-patterns was the only priority-tier repo past its 18h freshness floor (~22h), and this was a concrete, pre-scoped contract bug already documented in the prior session's "Next session" note.
+
+**Open questions / blockers:** none.
+
+**Next session:** lone-surrogate (`\uD800`) semantic validation was considered and deliberately skipped — `JSON.parse` accepts lone surrogates, so rejecting them would diverge from the "only drop what JSON.parse rejects" principle.

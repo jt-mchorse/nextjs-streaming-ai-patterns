@@ -362,17 +362,49 @@ function consumeLiteralOrString(
   return { endIndex: j, complete: false };
 }
 
+/**
+ * The eight single-character escapes JSON permits after a backslash.
+ * Anything else (`\q`, `\x`, …) is a malformed escape; `JSON.parse`
+ * would reject the whole document, so we must too — but conservatively
+ * (drop the bad string, keep prior committed fields) rather than by
+ * nulling everything in the catch-all.
+ */
+const VALID_SINGLE_ESCAPES = new Set(['"', "\\", "/", "b", "f", "n", "r", "t"]);
+
+/**
+ * Consume a JSON string literal starting at the opening quote, validating
+ * escape sequences as it goes (a backslash must introduce one of the eight
+ * single-char escapes or a `\uXXXX` with four hex digits).
+ *
+ * Returns:
+ * - `{ complete: true }` for a well-formed, closed string.
+ * - `{ complete: false }` when the buffer *ends* mid-string or mid-escape
+ *   (`"abc`, a dangling `\`, a truncated `\u12`) — i.e. it may still be
+ *   streaming; the caller drops it and keeps everything before it.
+ * - `null` for a *closed-form* malformed escape (`"\q"`, `"\uXYZW"`): the
+ *   string is terminated yet invalid, so it can never become valid and the
+ *   value must be dropped. Same drop-and-keep handling as `complete: false`
+ *   in object/array contexts; both preserve already-committed siblings.
+ */
 function consumeString(buffer: string, start: number): { endIndex: number; complete: boolean } | null {
   if (buffer[start] !== '"') return null;
-  let escape = false;
   for (let j = start + 1; j < buffer.length; j += 1) {
     const c = buffer[j];
-    if (escape) {
-      escape = false;
-      continue;
-    }
     if (c === "\\") {
-      escape = true;
+      const next = buffer[j + 1];
+      // Dangling backslash at end of buffer — escape not yet transmitted.
+      if (next === undefined) return { endIndex: buffer.length, complete: false };
+      if (next === "u") {
+        const hex = buffer.slice(j + 2, j + 6);
+        // Fewer than 4 chars only when the buffer ran out — still streaming.
+        if (hex.length < 4) return { endIndex: buffer.length, complete: false };
+        // Four chars present but not all hex — closed-form malformed escape.
+        if (!/^[0-9a-fA-F]{4}$/.test(hex)) return null;
+        j += 5; // skip `uXXXX`; loop's +1 lands past the last hex digit
+        continue;
+      }
+      if (!VALID_SINGLE_ESCAPES.has(next)) return null; // malformed escape (\q, \x, …)
+      j += 1; // skip the escaped character
       continue;
     }
     if (c === '"') {
