@@ -558,3 +558,24 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-06-24T19:26Z
+duration_min: 20
+issue: 52
+focus: partial_json_unescaped_control_char_in_string_nulls_all_prior_committed_fields
+phase: day_session_phase_b_iteration_3
+delta:
+  files_changed: 2 # lib/partial-json.ts + test/partial-json.test.ts
+  tests_added: 7   # control char in object/array/top-level + escaped n/t regression guards
+context_for_next_session:
+  - direct_sibling_of_50_same_drop_and_keep_failure_mode_different_trigger_literal_unescaped_control_char_u0000_u001f_vs_malformed_escape
+  - root_cause_consumestring_validated_escapes_but_walked_past_a_literal_control_char_reported_complete_true_json_parse_repaired_then_threw_bad_control_character_in_string_literal_catch_all_nulled_every_field_including_ones_fully_transmitted_before_the_bad_string
+  - fix_in_consumestring_after_quote_check_if_c_charcode_lt_0x20_return_null_closed_form_corruption_cant_become_valid_by_streaming_more_same_drop_and_keep_as_malformed_escape_branch
+  - red_green_verified_4_failing_drop_and_keep_cases_before_fix_all_pass_after_bare_top_level_control_char_string_and_escaped_regression_cases_already_passed_pre_fix
+  - full_suite_259_pass_eslint_clean_tsc_noemit_clean
+  - partial_json_contract_correctness_arc_now_3_feature_48_trailing_junk_50_escape_validation_52_unescaped_control_char
+  - deferred_lone_surrogate_uD800_still_out_of_scope_json_parse_accepts_lone_surrogates_only_drop_what_json_parse_rejects_principle_holds_control_chars_ARE_rejected_by_json_parse_so_in_scope
+decisions_made: []
+followups: []
+---

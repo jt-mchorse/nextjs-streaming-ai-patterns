@@ -410,6 +410,14 @@ function consumeString(buffer: string, start: number): { endIndex: number; compl
     if (c === '"') {
       return { endIndex: j + 1, complete: true };
     }
+    // An unescaped control character (U+0000–U+001F: a literal newline, tab,
+    // \x01, …) is invalid inside a JSON string; JSON.parse rejects the whole
+    // document. Treat it as closed-form corruption (#52) — it can never become
+    // valid by streaming more — and return null so the bad string is dropped
+    // and prior committed siblings survive, the same drop-and-keep handling as
+    // a malformed escape above. Without this the scanner reports complete:true,
+    // the final JSON.parse throws, and the catch-all nulls EVERY field.
+    if (c !== undefined && c.charCodeAt(0) < 0x20) return null;
   }
   return { endIndex: buffer.length, complete: false };
 }

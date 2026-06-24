@@ -379,3 +379,16 @@ Node-side hops).
 **Open questions / blockers:** none.
 
 **Next session:** lone-surrogate (`\uD800`) semantic validation was considered and deliberately skipped — `JSON.parse` accepts lone surrogates, so rejecting them would diverge from the "only drop what JSON.parse rejects" principle.
+
+---
+## 2026-06-24 — Issue #52: an unescaped control char in a string nulled all prior committed fields
+**Duration:** ~20 min · **Branch:** `session/2026-06-24-1926-issue-52`
+
+- `consumeString` validated escape sequences (#50) but walked past a *literal* unescaped control character (U+0000–U+001F: a raw newline, tab, `\x01`) and reported `complete: true`. JSON forbids literal control chars in strings, so the repaired buffer's `JSON.parse` threw and the catch-all nulled every field — the same drop-everything regression #50 fixed, reached by a different trigger.
+- Added an unescaped-control-char check in `consumeString` (`return null` → drop-and-keep), preserving prior committed siblings. Red→green verified (4 failing cases before, all passing after). Full suite 259/259, ESLint + `tsc` clean.
+
+**Why this work, this session:** the third issue of a multi-issue DAY run themed on seam-hardening; this one extends the partial-JSON correctness arc (#3 → #48 trailing junk → #50 escape validation → #52 control chars) and pairs with the cross-repo finiteness fixes shipped this run in rag-production-kit (#82) and chunking-strategies-lab (#66). nextjs-streaming-ai-patterns is in the D-009 priority tier.
+
+**Open questions / blockers:** none.
+
+**Next session:** lone-surrogate (`\uD800`) handling remains deliberately out of scope (`JSON.parse` accepts lone surrogates, so dropping them would violate the "only drop what JSON.parse rejects" principle — control chars, by contrast, ARE rejected by JSON.parse, which is why this fix is in scope).
