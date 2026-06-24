@@ -219,3 +219,42 @@ describe("parsePartialJson — malformed/truncated string escapes (#50)", () => 
     expect(parsePartialJson('{"p": "a\\"b\\\\c\\/d"}')).toEqual({ value: { p: 'a"b\\c/d' }, isComplete: true });
   });
 });
+
+describe("parsePartialJson — unescaped control characters in strings (#52)", () => {
+  // Sibling of #50: JSON forbids literal control characters (U+0000–U+001F)
+  // inside string literals, so JSON.parse rejects the whole document.
+  // consumeString validated escapes but walked past a literal control char and
+  // reported complete:true, so the repaired buffer's JSON.parse threw and the
+  // catch-all nulled EVERY field — including ones fully transmitted before it.
+  // Fix: treat an unescaped control char as closed-form corruption (return
+  // null → drop-and-keep), preserving prior committed siblings.
+
+  it("preserves prior committed fields when a string holds a literal newline", () => {
+    expect(parsePartialJson('{"a": 1, "b": "y\nz"}')).toEqual({ value: { a: 1 }, isComplete: false });
+  });
+
+  it("preserves prior committed fields when a string holds a literal tab", () => {
+    expect(parsePartialJson('{"a": 1, "b": "y\tz"}')).toEqual({ value: { a: 1 }, isComplete: false });
+  });
+
+  it("preserves prior committed fields on a low control char (\\x01)", () => {
+    expect(parsePartialJson('{"keep": 42, "bad": "x\x01y"}')).toEqual({ value: { keep: 42 }, isComplete: false });
+  });
+
+  it("drops an array element with a literal control char but keeps earlier elements", () => {
+    expect(parsePartialJson('[1, 2, "a\nb"]')).toEqual({ value: [1, 2], isComplete: false });
+  });
+
+  it("returns null for a bare top-level string containing a control char", () => {
+    expect(parsePartialJson('"a\nb"')).toEqual({ value: null, isComplete: false });
+  });
+
+  // Regressions: properly *escaped* control chars must still parse to completion.
+  it("still parses an escaped newline (\\n) to completion", () => {
+    expect(parsePartialJson('{"a": 1, "b": "y\\nz"}')).toEqual({ value: { a: 1, b: "y\nz" }, isComplete: true });
+  });
+
+  it("still parses an escaped tab (\\t) to completion", () => {
+    expect(parsePartialJson('{"a": "x\\ty"}')).toEqual({ value: { a: "x\ty" }, isComplete: true });
+  });
+});
