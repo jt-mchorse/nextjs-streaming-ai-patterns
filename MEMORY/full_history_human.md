@@ -392,3 +392,16 @@ Node-side hops).
 **Open questions / blockers:** none.
 
 **Next session:** lone-surrogate (`\uD800`) handling remains deliberately out of scope (`JSON.parse` accepts lone surrogates, so dropping them would violate the "only drop what JSON.parse rejects" principle — control chars, by contrast, ARE rejected by JSON.parse, which is why this fix is in scope).
+
+---
+## 2026-06-25 — Issue #54: trailing comma before a present closer dropped the whole value to null
+**Duration:** ~25 min · **Branch:** `session/2026-06-25-1542-issue-54`
+
+- `parsePartialJson` documents "trailing commas → trimmed before close", but that only held while the buffer was still open (the `frameSnapshot` path strips a trailing `[\s,]+`). When the closing `]`/`}` was already present after a trailing comma, `repair` re-emitted the raw buffer slice with the comma intact, `JSON.parse` rejected the whole document, and the catch-all returned `null` — dropping every already-transmitted field. `[1,2,]` → null, `{"a":1,}` → null, nested `[[1,2,],3]` → null. Trailing commas before a closer are one of the most common malformations in LLM-generated JSON, so this was both wrong and high-impact.
+- Added a string-aware `stripTrailingCommas()` applied to the repaired candidate before the final `JSON.parse` (repair branch only — the valid fast-path is untouched). It removes a `,` followed by optional whitespace then `}`/`]`, skipping over string-literal contents (escape-aware) so a comma-bracket *inside* a string (`{"a":"x,]"}`) is preserved, and handles every nesting level. Since JSON forbids trailing commas, the pass can only turn invalid JSON valid — never change an already-valid parse. 10 new tests, red-without / green-with. Suite 259 → 269, eslint + tsc clean.
+
+**Why this work, this session:** nextjs-streaming-ai-patterns is priority-tier (D-009) and was not touched earlier this run; the partial-JSON parser's robustness is the whole point of the streaming-patterns page, and this was a real, documented-contract violation on common real-world LLM output.
+
+**Open questions / blockers:** none.
+
+**Next session:** lone-surrogate handling remains deliberately out of scope (JSON.parse accepts lone surrogates; the "only drop what JSON.parse rejects" principle stands). The partial-json correctness arc now covers trailing junk (#48), escape validation (#50), unescaped control chars (#52), and trailing-comma-before-closer (#54).

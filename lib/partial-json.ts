@@ -65,11 +65,67 @@ export function parsePartialJson<T = unknown>(buffer: string): PartialJsonResult
     return { value: null, isComplete: false };
   }
   try {
-    const value = JSON.parse(repaired) as T;
+    const value = JSON.parse(stripTrailingCommas(repaired)) as T;
     return { value, isComplete: false };
   } catch {
     return { value: null, isComplete: false };
   }
+}
+
+/**
+ * Remove trailing commas — a `,` followed by optional whitespace then `}` or
+ * `]` — from an otherwise-repaired buffer (#54).
+ *
+ * `repair` re-emits a *closed* structure by slicing the raw buffer, so a
+ * trailing comma that the model already streamed before the closer (`[1,2,]`,
+ * `{"a":1,}`, and nested forms like `[[1,2,],3]`) survives into the candidate
+ * and makes `JSON.parse` reject the whole document — dropping every
+ * already-transmitted field to `null`. The truncated-open path goes through
+ * `frameSnapshot`, which strips the outer trailing comma, but the closed-form
+ * path does not; this closes that gap at every nesting level. Trailing commas
+ * are one of the most common malformations in LLM-generated JSON.
+ *
+ * The scan is string-aware (it skips over string-literal contents, honoring
+ * `\"` escapes) so a comma-before-bracket *inside* a string value
+ * (`{"a":"x,]"}`, `["a,]"]`) is preserved. JSON forbids trailing commas, so
+ * removing them can only turn invalid JSON valid — it never changes the parse
+ * of an already-valid document.
+ */
+function stripTrailingCommas(s: string): string {
+  let out = "";
+  let inString = false;
+  for (let i = 0; i < s.length; i += 1) {
+    const c = s[i] as string;
+    if (inString) {
+      out += c;
+      if (c === "\\") {
+        // Copy the escaped character verbatim so an escaped quote (`\"`)
+        // doesn't prematurely end the string.
+        i += 1;
+        if (i < s.length) out += s[i];
+        continue;
+      }
+      if (c === '"') inString = false;
+      continue;
+    }
+    if (c === '"') {
+      inString = true;
+      out += c;
+      continue;
+    }
+    if (c === ",") {
+      // Look past whitespace: if the next significant char closes a
+      // container, this comma is a trailing comma — drop it.
+      let j = i + 1;
+      while (j < s.length && /\s/.test(s[j] as string)) j += 1;
+      const nextSig = s[j];
+      if (nextSig === "}" || nextSig === "]") {
+        continue; // skip the comma; whitespace + closer copied on later iterations
+      }
+    }
+    out += c;
+  }
+  return out;
 }
 
 /**

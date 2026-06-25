@@ -258,3 +258,53 @@ describe("parsePartialJson — unescaped control characters in strings (#52)", (
     expect(parsePartialJson('{"a": "x\\ty"}')).toEqual({ value: { a: "x\ty" }, isComplete: true });
   });
 });
+
+describe("parsePartialJson — trailing commas before a present closer (#54)", () => {
+  it("trims a trailing comma before a closed array bracket", () => {
+    expect(parsePartialJson("[1,2,]")).toEqual({ value: [1, 2], isComplete: false });
+  });
+
+  it("trims a trailing comma before a closed object brace", () => {
+    expect(parsePartialJson('{"a":1,}')).toEqual({ value: { a: 1 }, isComplete: false });
+  });
+
+  it("trims a trailing comma with surrounding whitespace", () => {
+    expect(parsePartialJson("[1, 2 ,]")).toEqual({ value: [1, 2], isComplete: false });
+  });
+
+  it("trims a trailing comma after multiple object members", () => {
+    expect(parsePartialJson('{"a":1,"b":2,}')).toEqual({
+      value: { a: 1, b: 2 },
+      isComplete: false,
+    });
+  });
+
+  it("trims trailing commas at nested levels (array in array)", () => {
+    expect(parsePartialJson("[[1,2,],3]")).toEqual({ value: [[1, 2], 3], isComplete: false });
+  });
+
+  it("trims trailing commas at nested levels (array in object)", () => {
+    expect(parsePartialJson('{"x":[1,2,]}')).toEqual({ value: { x: [1, 2] }, isComplete: false });
+  });
+
+  it("does NOT modify a comma-before-bracket inside a string value", () => {
+    expect(parsePartialJson('{"a":"x,]"}')).toEqual({ value: { a: "x,]" }, isComplete: true });
+    expect(parsePartialJson('["a,]"]')).toEqual({ value: ["a,]"], isComplete: true });
+  });
+
+  it("does NOT trip on an escaped quote preceding a comma-bracket in a string", () => {
+    // The string contains a literal `"` then `,]`; the escape-aware scan must
+    // not exit the string early and strip the in-string comma.
+    expect(parsePartialJson('{"a":"x\\",]"}')).toEqual({ value: { a: 'x",]' }, isComplete: true });
+  });
+
+  it("leaves the open-trailing-comma path (no closer yet) working", () => {
+    expect(parsePartialJson("[1,2,")).toEqual({ value: [1, 2], isComplete: false });
+    expect(parsePartialJson('{"a":1,')).toEqual({ value: { a: 1 }, isComplete: false });
+  });
+
+  it("leaves valid JSON (no trailing comma) untouched and complete", () => {
+    expect(parsePartialJson("[1,2,3]")).toEqual({ value: [1, 2, 3], isComplete: true });
+    expect(parsePartialJson('{"a":1,"b":2}')).toEqual({ value: { a: 1, b: 2 }, isComplete: true });
+  });
+});
