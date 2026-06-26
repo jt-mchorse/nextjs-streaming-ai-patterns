@@ -72,6 +72,44 @@ describe("decide — split", () => {
   });
 });
 
+describe("decisionSplitOver — range validation", () => {
+  it("throws on an inverted range instead of silently returning zero samples", () => {
+    // Before the guard this returned { successes: 0, failures: 0 }, letting a
+    // split property test pass vacuously on zero evidence.
+    expect(() => decisionSplitOver(DEMO_NAMES, { from: 5, to: 2 })).toThrow(
+      /from \(5\) must be <= clickRange\.to \(2\)/,
+    );
+  });
+
+  it("throws a decisionSplitOver-named error on a sub-1 from bound", () => {
+    expect(() => decisionSplitOver(DEMO_NAMES, { from: 0, to: 5 })).toThrow(
+      /decisionSplitOver\(\): clickRange\.from must be a positive integer/,
+    );
+  });
+
+  it("throws on a non-integer from bound", () => {
+    expect(() => decisionSplitOver(DEMO_NAMES, { from: 1.5, to: 5 })).toThrow(
+      /clickRange\.from must be a positive integer/,
+    );
+  });
+
+  it("throws on a non-integer to bound (no silent truncation)", () => {
+    expect(() => decisionSplitOver(DEMO_NAMES, { from: 2, to: 2.5 })).toThrow(
+      /clickRange\.to must be a positive integer/,
+    );
+  });
+
+  it("accepts a valid range and returns the full sample count", () => {
+    const { successes, failures } = decisionSplitOver(DEMO_NAMES, { from: 2, to: 10 });
+    expect(successes + failures).toBe(DEMO_NAMES.length * (10 - 2 + 1));
+  });
+
+  it("accepts a single-click range (from === to)", () => {
+    const { successes, failures } = decisionSplitOver(DEMO_NAMES, { from: 3, to: 3 });
+    expect(successes + failures).toBe(DEMO_NAMES.length);
+  });
+});
+
 describe("decide — improved_name shape", () => {
   it("returns one of the committed improvements when id is a demo id", () => {
     // Walk a range of click_counts; every ok=true improved_name must
