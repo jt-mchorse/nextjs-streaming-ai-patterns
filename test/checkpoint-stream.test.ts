@@ -4,6 +4,7 @@ import {
   CHECKPOINT_EVERY,
   CheckpointStreamDropped,
   TOTAL_TOKENS,
+  resumeTokenPosition,
   streamCheckpoints,
   type CheckpointEvent,
   type StreamEvent,
@@ -191,5 +192,36 @@ describe("streamCheckpoints — StreamOptions validation (issue #24)", () => {
     // contract is what makes the demo route handler's error path predictable.
     const gen = streamCheckpoints({ dropAfter: 0 });
     await expect(gen.next()).rejects.toBeInstanceOf(RangeError);
+  });
+});
+
+// Issue #58: the client must resume from the server-reported drop position
+// (`last_token` on the error event), not the last recorded checkpoint. The drop
+// is independent of CHECKPOINT_EVERY and lands past the last checkpoint, so
+// resuming from the checkpoint replays — and the client re-renders (duplicates)
+// — the tokens between the checkpoint and the drop.
+describe("resumeTokenPosition (issue #58)", () => {
+  it("advances to the drop position when it is past the last checkpoint", () => {
+    // The exact demo shape: checkpoints at 5/10, drop at 12.
+    expect(resumeTokenPosition(10, 12)).toBe(12);
+  });
+
+  it("falls back to the checkpoint when no drop position is given", () => {
+    // The network-drop path (no `error` frame) carries no last_token.
+    expect(resumeTokenPosition(10, undefined)).toBe(10);
+  });
+
+  it("ignores a drop position behind the checkpoint (never rewinds)", () => {
+    // A stale/lower last_token must not rewind and re-stream already-shown text.
+    expect(resumeTokenPosition(10, 7)).toBe(10);
+  });
+
+  it("ignores a non-integer drop position", () => {
+    expect(resumeTokenPosition(10, Number.NaN)).toBe(10);
+    expect(resumeTokenPosition(10, 11.5)).toBe(10);
+  });
+
+  it("equal checkpoint and drop position resume from that position", () => {
+    expect(resumeTokenPosition(10, 10)).toBe(10);
   });
 });

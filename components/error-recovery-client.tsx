@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { resumeTokenPosition } from "@/lib/checkpoint-stream";
+
 type Phase = "idle" | "streaming" | "recovering" | "done" | "fatal";
 
 interface ResumeEvent {
@@ -108,8 +110,17 @@ export function ErrorRecoveryClient() {
           return;
         }
         if (parsed.event === "error") {
-          const data = parsed.data as { reason?: string };
+          const data = parsed.data as { reason?: string; last_token?: number };
           setRecoveryReason(data.reason ?? "unknown server-side error");
+          // Resume from the server-reported drop position, not the last
+          // checkpoint. The drop can land past the last checkpoint (checkpoints
+          // fire every CHECKPOINT_EVERY tokens; the drop is independent), and
+          // those in-between tokens are already rendered — resuming from the
+          // checkpoint would replay and duplicate them at the drop seam (#58).
+          lastCheckpoint.current = resumeTokenPosition(
+            lastCheckpoint.current,
+            data.last_token,
+          );
           scheduleResume();
           return;
         }

@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import { GET } from "../app/api/error-recovery/route";
+import { resumeTokenPosition, streamCheckpoints } from "../lib/checkpoint-stream";
+
+/** The canonical clean stream text — all tokens, no drop. */
+async function cleanStreamText(): Promise<string> {
+  let text = "";
+  for await (const ev of streamCheckpoints({})) {
+    if (ev.kind === "text") text += ev.text;
+  }
+  return text;
+}
 
 async function readAllText(res: Response): Promise<string> {
   const reader = res.body!.getReader();
@@ -94,6 +104,60 @@ describe("GET /api/error-recovery — resume request", () => {
     for (const idx of textIndices) {
       expect(idx).toBeGreaterThan(10);
     }
+  });
+});
+
+// Issue #58: the drop→resume round trip must not duplicate the tokens between
+// the last checkpoint and the drop. This simulates the client accumulation
+// exactly: collect text + record the last checkpoint on run 1 (which drops),
+// then resume and keep appending. The resume position is the only difference.
+describe("GET /api/error-recovery — drop→resume round trip (issue #58)", () => {
+  async function runClient(
+    resumeFrom: (lastCheckpoint: number, droppedAt?: number) => number,
+  ): Promise<string> {
+    let text = "";
+    let lastCheckpoint = 0;
+    let droppedAt: number | undefined;
+    // Run 1: first request drops mid-stream.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const f of parseSSE(await readAllText(await GET(makeReq("?checkpoint=0") as any)))) {
+      if (f.event === "error") {
+        droppedAt = (f.data as { last_token?: number }).last_token;
+        break;
+      }
+      const ev = f.data as
+        | { kind: "text"; text: string }
+        | { kind: "checkpoint"; last_token: number };
+      if (ev.kind === "text") text += ev.text;
+      else if (ev.kind === "checkpoint") lastCheckpoint = ev.last_token;
+    }
+    expect(droppedAt).toBeGreaterThan(lastCheckpoint); // the bug's precondition
+    const resume = resumeFrom(lastCheckpoint, droppedAt);
+    // Run 2: resume request streams cleanly to `done`.
+    for (const f of parseSSE(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await readAllText(await GET(makeReq(`?checkpoint=${resume}`) as any)),
+    )) {
+      if (f.event === "done" || f.event === "error") break;
+      const ev = f.data as { kind: string; text?: string };
+      if (ev.kind === "text") text += ev.text;
+    }
+    return text;
+  }
+
+  it("resuming from the drop position (last_token) reconstructs the clean stream exactly", async () => {
+    const fromDrop = await runClient((cp, dropped) => resumeTokenPosition(cp, dropped));
+    expect(fromDrop).toBe(await cleanStreamText());
+  });
+
+  it("resuming from the last checkpoint duplicates the in-between tokens (locks the bug)", async () => {
+    const fromCheckpoint = await runClient((cp) => cp); // the old buggy behavior
+    const clean = await cleanStreamText();
+    // The buggy path re-renders the tokens between the checkpoint and the drop,
+    // so it is strictly longer than the clean stream and contains a duplicated
+    // word-pair at the seam.
+    expect(fromCheckpoint.length).toBeGreaterThan(clean.length);
+    expect(fromCheckpoint).toMatch(/\b(\w+ \w+) \1\b/);
   });
 });
 
