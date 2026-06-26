@@ -405,3 +405,15 @@ Node-side hops).
 **Open questions / blockers:** none.
 
 **Next session:** lone-surrogate handling remains deliberately out of scope (JSON.parse accepts lone surrogates; the "only drop what JSON.parse rejects" principle stands). The partial-json correctness arc now covers trailing junk (#48), escape validation (#50), unescaped control chars (#52), and trailing-comma-before-closer (#54).
+
+## 2026-06-26 — Issue #56: decisionSplitOver now validates its clickRange
+**Duration:** ~20 min · **Branch:** `session/2026-06-26-1520-issue-56`
+
+- `decide()` validates its inputs, but its sibling diagnostic `decisionSplitOver(ids, clickRange)` — documented as the helper that pins the 50/50 split as *evidenced*, not aspirational — validated nothing about `clickRange`. A degenerate range silently produced a meaningless result: an inverted `{ from: 5, to: 2 }` ran zero iterations and returned `{ successes: 0, failures: 0 }` (a split property test would then pass vacuously on zero samples), a sub-1 or non-integer bound threw from deep inside `decide()` with an opaque `click_count` message, and a non-integer `to` silently truncated the iteration.
+- Added `clickRange` validation: `from`/`to` must be integers ≥ 1 with `from <= to`, throwing a clear `decisionSplitOver(): …` error — symmetric with `decide()`'s own validation. The split logic and hash are untouched. 6 new tests (inverted/sub-1/non-integer-from/non-integer-to throw; valid and single-click ranges return the right sample total). Full suite 269 → 275, eslint clean on changed files.
+
+**Why this work, this session:** nextjs-streaming-ai-patterns is priority-tier (D-009) and was stale past 18h; its only open issue (#16) is an environment-dependent binary demo-capture task, so per Phase A step 6 I filed a substantive code issue. This is the same silent-measurement-corruption class guarded across the portfolio (empty-`ks` in chunking-strategies-lab, `k_values` in embedding-model-shootout).
+
+**Open questions / blockers:** none. (Note: the repo root has several untracked scratch `.ts` files from prior bug hunts that break a local `tsc --noEmit`; they are not in git, so CI typecheck on the committed tree is unaffected. Worth a cleanup pass some session.)
+
+**Next session:** the optimistic-decision helper now validates both `decide` inputs and `decisionSplitOver` ranges; no further input-validation gap known there.
