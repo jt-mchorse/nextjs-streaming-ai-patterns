@@ -417,3 +417,15 @@ Node-side hops).
 **Open questions / blockers:** none. (Note: the repo root has several untracked scratch `.ts` files from prior bug hunts that break a local `tsc --noEmit`; they are not in git, so CI typecheck on the committed tree is unaffected. Worth a cleanup pass some session.)
 
 **Next session:** the optimistic-decision helper now validates both `decide` inputs and `decisionSplitOver` ranges; no further input-validation gap known there.
+
+## 2026-06-26 — Issue #58: Error-recovery client resumes from checkpoint, duplicating tokens
+**Duration:** ~25 min · **Branch:** `session/2026-06-26-2346-issue-58`
+
+- The error-recovery route reports the exact drop position in the `error` SSE event's `last_token`, but `error-recovery-client.tsx` ignored it: the `error` branch read only `reason`, and `scheduleResume()` resumed from the most-recent **checkpoint**. Checkpoints fire every 5 tokens while the drop fires at 12 (independently), so tokens 11–12 are rendered before the drop yet `lastCheckpoint` is still 10. Resuming from 10 re-streams 11–12, which the client appends again — duplicated text at the seam. Reproduced via the real route: checkpoint-resume → 799 chars with a duplicated `"a chat a chat"`; drop-position-resume → clean 792 chars.
+- Fixed by adding a pure `resumeTokenPosition(lastCheckpoint, droppedAt)` helper to `checkpoint-stream.ts` (furthest-forward known position; ignores missing/non-integer/behind `droppedAt`) and using it in the client's `error` branch with the server's `last_token`. 5 unit tests + 2 integration round-trip tests (resume-from-`last_token` reconstructs the clean stream exactly; resume-from-checkpoint is strictly longer and duplicates). Suite 275 → 282, typecheck + lint clean.
+
+**Why this work, this session:** fifth issue of a multi-issue DAY run, completing a full sweep of all five priority-tier repos. The repo's only open issue (#16) is a binary demo-capture task (poor autonomous fit), so I dogfooded with an Explore agent and filed #58 from a reproduced finding.
+
+**Open questions / blockers:** the repo root holds many untracked scratch `.ts` files from prior sessions (e.g. `find_real_bug.ts`, `verify_bug2.ts`) that break local `npm run typecheck`/`lint` but are untracked so never reach CI. A future cleanup session could `git clean`-review them. A minor `phase` stale-closure in `run()` (recovering indicator may not clear promptly) is UI-only and unfiled.
+
+**Next session:** priority-tier sweep is complete for this run; rotate to non-tier repos or revisit the unfiled runners-up.
