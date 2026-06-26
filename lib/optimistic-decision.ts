@@ -113,6 +113,25 @@ export function decisionSplitOver(
   ids: ReadonlyArray<string>,
   clickRange: { from: number; to: number },
 ): { successes: number; failures: number } {
+  // Validate the range the same way `decide` validates its own inputs.
+  // Without this, a degenerate range yields a silently-meaningless result:
+  // an inverted `{ from: 5, to: 2 }` runs zero iterations and returns
+  // `{ 0, 0 }` — letting a "50/50 split" property test pass vacuously on
+  // zero samples — and a sub-1 / non-integer bound throws from deep inside
+  // `decide` with an opaque `click_count` message that points at the wrong
+  // thing. This helper's whole job is to make the split *evidenced*, so a
+  // range that produces no evidence must fail loud here.
+  const { from, to } = clickRange;
+  if (!Number.isInteger(from) || from < 1) {
+    throw new Error(`decisionSplitOver(): clickRange.from must be a positive integer; got ${from}`);
+  }
+  if (!Number.isInteger(to) || to < 1) {
+    throw new Error(`decisionSplitOver(): clickRange.to must be a positive integer; got ${to}`);
+  }
+  if (from > to) {
+    throw new Error(`decisionSplitOver(): clickRange.from (${from}) must be <= clickRange.to (${to})`);
+  }
+
   let successes = 0;
   let failures = 0;
   for (const id of ids) {
