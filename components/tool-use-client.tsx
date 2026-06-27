@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { isAbortError, pumpSseFrames } from "@/lib/sse-stream";
+
 /**
  * Tool-use streaming UI (#2).
  *
@@ -104,7 +106,7 @@ export function ToolUseClient() {
     try {
       resp = await fetch("/api/tool-use", { signal: ctrl.signal });
     } catch (e) {
-      if ((e as DOMException)?.name === "AbortError") {
+      if (isAbortError(e)) {
         setPhase("interrupted");
       } else {
         setError((e as Error).message);
@@ -119,20 +121,20 @@ export function ToolUseClient() {
     }
 
     const reader = resp.body.getReader();
-    const decoder = new TextDecoder();
-    let buf = "";
     let currentToolId: string | null = null;
     let phasePosition: "before" | "after" = "before";
 
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buf += decoder.decode(value, { stream: true });
-      let idx: number;
-      while ((idx = buf.indexOf("\n\n")) !== -1) {
-        const frame = buf.slice(0, idx);
-        buf = buf.slice(idx + 2);
-        handleFrame(frame);
+    try {
+      await pumpSseFrames(reader, handleFrame);
+    } catch (e) {
+      // Interrupt aborts the in-flight read; per docs/tool-use-state-machine.md
+      // that's the `interrupted` terminal state, not an error. Without this the
+      // AbortError escaped run() and the UI wedged in a non-terminal phase (#60).
+      if (isAbortError(e)) {
+        setPhase("interrupted");
+      } else {
+        setError((e as Error).message);
+        setPhase("error");
       }
     }
 

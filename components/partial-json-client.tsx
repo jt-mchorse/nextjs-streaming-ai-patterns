@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 
 import { parsePartialJson } from "@/lib/partial-json";
+import { isAbortError, pumpSseFrames } from "@/lib/sse-stream";
 
 /**
  * Partial-JSON streaming UI (#3).
@@ -59,7 +60,7 @@ export function PartialJsonClient(): React.ReactElement {
     try {
       resp = await fetch("/api/partial-json", { signal: ctrl.signal });
     } catch (e) {
-      if ((e as DOMException)?.name === "AbortError") {
+      if (isAbortError(e)) {
         setPhase("interrupted");
       } else {
         setError((e as Error).message);
@@ -74,21 +75,21 @@ export function PartialJsonClient(): React.ReactElement {
     }
 
     const reader = resp.body.getReader();
-    const decoder = new TextDecoder();
-    let frameBuf = "";
     let jsonBuf = "";
 
     setPhase("streaming");
 
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      frameBuf += decoder.decode(value, { stream: true });
-      let idx: number;
-      while ((idx = frameBuf.indexOf("\n\n")) !== -1) {
-        const frame = frameBuf.slice(0, idx);
-        frameBuf = frameBuf.slice(idx + 2);
-        handleFrame(frame);
+    try {
+      await pumpSseFrames(reader, handleFrame);
+    } catch (e) {
+      // Interrupt aborts the in-flight read; that's the `interrupted` terminal
+      // state, not an error. Without this the AbortError escaped run() and the
+      // UI wedged in the non-terminal `streaming` phase (#60).
+      if (isAbortError(e)) {
+        setPhase("interrupted");
+      } else {
+        setError((e as Error).message);
+        setPhase("error");
       }
     }
 
