@@ -429,3 +429,15 @@ Node-side hops).
 **Open questions / blockers:** the repo root holds many untracked scratch `.ts` files from prior sessions (e.g. `find_real_bug.ts`, `verify_bug2.ts`) that break local `npm run typecheck`/`lint` but are untracked so never reach CI. A future cleanup session could `git clean`-review them. A minor `phase` stale-closure in `run()` (recovering indicator may not clear promptly) is UI-only and unfiled.
 
 **Next session:** priority-tier sweep is complete for this run; rotate to non-tier repos or revisit the unfiled runners-up.
+
+## 2026-06-27 — Issue #60: guard the SSE read loop so Interrupt isn't lost
+**Duration:** ~30 min · **Branch:** `session/2026-06-27-0335-issue-60`
+
+- `tool-use-client.tsx` and `partial-json-client.tsx` wrapped only the initial `fetch()` in try/catch; the subsequent `while (true) { reader.read() … }` SSE loop was **unguarded**. Clicking Interrupt (`AbortController.abort()`) rejected the in-flight `read()` with an `AbortError` that escaped `run()` as an unhandled rejection — `phase` never became `interrupted`, `isStreaming` stayed true, and the Run/Interrupt buttons stayed disabled (UI wedged). This violated `docs/tool-use-state-machine.md` (the `abort() → interrupted` transition). The sibling `streaming-text-client.tsx` was already correct.
+- Extracted the identical loop into `lib/sse-stream.ts` (`pumpSseFrames` + an `isAbortError` predicate) and had each client `await pumpSseFrames(reader, handleFrame)` inside a try/catch mapping `AbortError → interrupted`, else `→ error` — also reusing `isAbortError` in the existing fetch-catch (dedup). Added 9 unit tests, including the regression guard that a reader rejecting mid-stream still delivers prior frames then propagates the abort. Removed 24 untracked root-level scratch `.ts` files a prior dogfood agent had left behind (they broke `tsc --noEmit`). vitest 282 → 291, tsc + eslint clean.
+
+**Why this work, this session:** fifth issue of a multi-issue NIGHT run; a priority-tier repo with a documented-contract violation surfaced by a parallel dogfood agent, fixed via the repo's established extract-to-`lib`-and-unit-test pattern.
+
+**Open questions / blockers:** none.
+
+**Next session:** all three streaming clients now guard their read loops uniformly; a full React-render (Playwright) test of the button-re-enable UI remains deferred (no RTL harness in the repo).
