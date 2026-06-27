@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 
 import { resumeTokenPosition } from "@/lib/checkpoint-stream";
+import { phaseOnFirstChunk, type RecoveryPhase } from "@/lib/recovery-phase";
 
-type Phase = "idle" | "streaming" | "recovering" | "done" | "fatal";
+type Phase = RecoveryPhase;
 
 interface ResumeEvent {
   readonly at: number;
@@ -131,7 +132,10 @@ export function ErrorRecoveryClient() {
         if (ev.kind === "text") {
           if (!firstChunkSeen) {
             firstChunkSeen = true;
-            if (phase === "recovering") setPhase("streaming");
+            // Functional updater so this reads the *live* phase, not `run`'s
+            // stale render-0 closure (always "idle"). On a resume the live
+            // phase is "recovering" and advances to "streaming" (#64).
+            setPhase(phaseOnFirstChunk);
           }
           setText((t) => t + ev.text);
         } else if (ev.kind === "checkpoint") {
