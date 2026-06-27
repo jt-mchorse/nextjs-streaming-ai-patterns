@@ -139,7 +139,7 @@ deterministic tour of the homepage and the five pattern pages. The
 tour's `TIMELINE` constant is the source of truth for what each
 recording covers: homepage → `/streaming-text` → `/tool-use`
 (with a mid-stream Interrupt click) → `/partial-json` →
-`/optimistic-rollback` (two clicks on the first item — the second
+`/optimistic-rollback` (two clicks on a rollback item — the second
 hits the deterministic 50/50 oracle D-010 and triggers the rollback
 animation) → `/error-recovery` (the route handler always drops the
 first request, so the auto-resume pill is guaranteed). The mode pill

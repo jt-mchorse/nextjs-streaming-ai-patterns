@@ -223,12 +223,17 @@ async function interactFor(
       // fields populate.
       return;
     case "/optimistic-rollback": {
-      // Two clicks on the same item: the first commits (happy path),
-      // the second resolves via the deterministic 50/50 oracle keyed
-      // by (id, click_count) (D-010). DEMO_NAMES[0] is the load-bearing
-      // anchor item; using it keeps the take pinned across recordings.
-      const firstItem = page.locator('[data-testid^="item-"]').first();
-      const improveBtn = firstItem.getByRole("button", { name: /improve/i });
+      // Two clicks on the same item: the first commits (happy path), the
+      // second resolves via the deterministic 50/50 oracle keyed by
+      // (id, click_count) (D-010). We drive `untitled-2.txt` specifically
+      // because it is one of the items the oracle ROLLS BACK on its 2nd click
+      // (`decide({id:"untitled-2.txt", click_count:2}).ok === false`, pinned in
+      // test/optimistic-decision.test.ts). The earlier `.first()` selected
+      // `untitled-1.txt`, which the oracle SUCCEEDS on at click 2 (it rolls
+      // back only at click 3), so the take showed two successes and never the
+      // rollback animation this pattern exists to demonstrate (#62).
+      const rollbackItem = page.locator('[data-testid="item-untitled-2.txt"]');
+      const improveBtn = rollbackItem.getByRole("button", { name: /improve/i });
       await improveBtn.click();
       await wait(2_500 + paceMs);
       await improveBtn.click();
