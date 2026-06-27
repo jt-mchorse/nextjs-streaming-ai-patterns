@@ -59,6 +59,20 @@ describe("decide — determinism", () => {
   });
 });
 
+describe("decide — demo capture contract (#62)", () => {
+  // scripts/capture_demo.ts drives exactly two clicks on `untitled-2.txt` to
+  // show the rollback animation, and the README documents the same. That only
+  // works if the oracle rolls this item back on its 2nd click. (The earlier
+  // driver clicked `untitled-1.txt`, which the oracle SUCCEEDS on at click 2 —
+  // it rolls back only at click 3 — so the recorded take never showed the
+  // rollback.) Pin the contract so a future oracle/hash change can't silently
+  // break the demo recording again.
+  it("rolls back the capture driver's item (untitled-2.txt) on its second click", () => {
+    expect(decide({ id: "untitled-2.txt", click_count: 1 }).ok).toBe(true);
+    expect(decide({ id: "untitled-2.txt", click_count: 2 }).ok).toBe(false);
+  });
+});
+
 describe("decide — split", () => {
   it("is approximately 50/50 over the demo ids × clicks 2..200 (first-click bias excluded)", () => {
     const { successes, failures } = decisionSplitOver(DEMO_NAMES, {
