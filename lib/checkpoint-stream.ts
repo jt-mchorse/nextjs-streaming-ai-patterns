@@ -117,6 +117,30 @@ function validateOptions(options: StreamOptions): void {
 }
 
 /**
+ * Where should a client resume after a drop?
+ *
+ * A client records the most-recent `checkpoint` event's `last_token`, but the
+ * server keeps emitting text tokens *between* checkpoints, and the drop is
+ * independent of the CHECKPOINT_EVERY cadence — it can (and in this demo does)
+ * land past the last checkpoint. The route reports the true drop position in
+ * the `error` event's `last_token`. Resuming from the *checkpoint* would make
+ * the server replay every token between the checkpoint and the drop, which the
+ * client has already rendered — so it would append them a second time
+ * (duplicated text at the drop seam). Resume from the furthest-forward known
+ * position so no token is shown twice and none is skipped.
+ *
+ * `droppedAt` is ignored when absent, non-integer, or behind `lastCheckpoint`
+ * (e.g. a network drop with no `error` frame carries no drop position) — the
+ * recorded checkpoint is the safe fallback in that case.
+ */
+export function resumeTokenPosition(lastCheckpoint: number, droppedAt?: number): number {
+  if (droppedAt === undefined || !Number.isInteger(droppedAt) || droppedAt < lastCheckpoint) {
+    return lastCheckpoint;
+  }
+  return droppedAt;
+}
+
+/**
  * Async generator that yields events. Whitespace tokens are folded
  * into the preceding text event so an event-level consumer doesn't
  * have to special-case them.
