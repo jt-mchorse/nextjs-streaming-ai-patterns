@@ -477,3 +477,14 @@ Node-side hops).
 **Open questions / blockers:** none. #16 (demo binary capture) stays blocked on JT — needs a headed Playwright run + ffmpeg + committing a video binary.
 
 **Next session:** count-label pluralization is centralized in `lib/plural.ts`; reuse it for any new count chips.
+
+## 2026-06-29 — Issue #68: docs claimed parser exposes a committedAny flag (it doesn't)
+**Duration:** ~9 min · **Branch:** `session/2026-06-29-0410-committedany-doc`
+
+- README:41 and architecture.md:153 said the partial-JSON parser "exposes a `committedAny` flag" driving the UI fade-in, but `committedAny` is a private `repair()`-internal `Frame` field, never returned. The public `PartialJsonResult` is `{ value, isComplete }`, and the client uses per-field presence in `value` + `isComplete`. Reworded both docs to the real surface. The MEMORY references (internal design) are correct + append-only, left as-is.
+
+**Why this work, this session:** thirteenth issue of the night run, from the final doc-contract subagent sweep. Second PR in this repo this session (alongside #67); both append MEMORY → serial rebase at merge time expected.
+
+**Open questions / blockers:** none.
+
+**Next session:** the partial-JSON docs describe the actual exported `{ value, isComplete }` surface.

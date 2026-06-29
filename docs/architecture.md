@@ -149,9 +149,9 @@ distinct mechanism on top of the same SSE envelope (D-005, D-006).
 - **`app/partial-json/`** (#3) — progressive rendering of a structured
   response as the model emits it. A dep-free in-repo state machine
   (`lib/partial-json.ts`, D-008) tolerates open strings, open
-  arrays/objects, trailing commas, and mid-token primitives, and
-  exposes a `committedAny` flag so UI fields fade in as their slot
-  first contains a value.
+  arrays/objects, trailing commas, and mid-token primitives, returning a
+  best-effort partial `value` plus an `isComplete` flag so UI fields fade
+  in from their skeletons as each slot first contains a value.
 - **`app/optimistic-rollback/`** (#4) — React 19 `useOptimistic` + a
   deterministic 50/50 decision oracle keyed by `(id, click_count)` on
   the server (`lib/optimistic-decision.ts`, D-010). Successes commit;

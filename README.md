@@ -38,8 +38,9 @@ so interruption is a browser primitive all the way down.
 - **Partial JSON parsing** (#3) — progressive rendering of a structured
   response as the model emits it. A dep-free in-repo state machine (D-008)
   tolerates open strings, open arrays/objects, trailing commas, and
-  mid-token primitives, and exposes a `committedAny` flag so UI fields
-  fade in as their slot first contains a value.
+  mid-token primitives, returning a best-effort partial `value` plus an
+  `isComplete` flag so UI fields fade in from their skeletons as each
+  slot first contains a value.
 - **Optimistic updates with rollback** (#4) — React 19 `useOptimistic` +
   a deterministic 50/50 decision oracle keyed by `(id, click_count)` on
   the server (D-010). Successes commit; failures roll back with a
