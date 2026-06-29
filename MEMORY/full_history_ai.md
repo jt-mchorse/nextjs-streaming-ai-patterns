@@ -729,3 +729,22 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-06-29T04:10Z
+issue: 68
+focus: readme_and_architecture_claim_parser_exposes_committedany_flag_but_its_private_internal
+phase: night_session_phase_b_iteration_13
+duration_min: 9
+delta:
+  files_changed: 2 # README.md + docs/architecture.md
+  tests_added: 0   # doc-only; public shape already locked by test/partial-json.test.ts
+context_for_next_session:
+  - readme_41_and_architecture_md_153_claimed_parser_exposes_a_committedany_flag_driving_ui_fade_in_but_committedany_is_a_private_frame_field_inside_repair_lib_partial_json_ts_150_366_never_returned_public_partialjsonresult_is_value_iscomplete_locked_by_test_partial_json_test_ts
+  - partial_json_client_tsx_drives_skeleton_fade_in_from_per_field_presence_in_value_plus_iscomplete_flag_never_committedany_memory_references_to_committedany_correctly_describe_internal_state_machine_concept_append_only_left_as_is
+  - fix_reworded_both_docs_to_real_public_surface_best_effort_partial_value_plus_iscomplete_doc_only_vitest_296_green
+  - second_pr_in_this_repo_this_session_alongside_67_issue_66_both_append_memory_so_serial_rebase_at_merge_time_expected_known_phase_a_pattern
+  - thirteenth_issue_this_night_run
+decisions_made: []
+followups: []
+---
