@@ -465,3 +465,15 @@ Node-side hops).
 **Open questions / blockers:** none. A full jsdom/RTL component-render test was out of scope (vitest env is node-only); the pure reducer + functional-updater usage is the in-convention faithful fix.
 
 **Next session:** error-recovery phase labels are correct on resume; consider the secondary streaming-text-client error-frame dead-code fallback the dogfood agent noted in passing (lower severity).
+
+## 2026-06-29 — Issue #66: error-recovery recovery counter spelled "recoveryies"
+**Duration:** ~18 min · **Branch:** `session/2026-06-29-0310-issue-new`
+
+- The error-recovery page's recovery-count chip rendered `2 recoveryies` for any count ≥ 2 — the inline JSX appended `ies` to the whole word (`recovery{n > 1 ? "ies" : ""}`) instead of replacing the trailing `y`. The chip is gated on `n > 0` and the `n = 1` case is correct by accident, so every multi-recovery render was wrong. This is on the demo path: the page exists to drop-and-resume, and the planned demo capture (#16) walks exactly that flow.
+- Extracted the count-label rendering into a pure, dep-free `lib/plural.ts` (`pluralizeCount`), following the #64 `recovery-phase.ts` extract-to-testable-pure-function precedent, fixed the pluralization there, and routed both the `recoveries` chip and the sibling `partial-json` `day(s)` label through it. Unit-tested with 7 cases.
+
+**Why this work, this session:** first issue of the night run. Phase A selection rule 1 picked `nextjs-streaming-ai-patterns` (only priority-tier repo over its 18h floor, at 32h); its sole open issue (#16) is an operator-blocked demo-binary capture, so I dogfooded the component, filed #66, and fixed it — the saturated-state dogfood→issue→PR pattern.
+
+**Open questions / blockers:** none. #16 (demo binary capture) stays blocked on JT — needs a headed Playwright run + ffmpeg + committing a video binary.
+
+**Next session:** count-label pluralization is centralized in `lib/plural.ts`; reuse it for any new count chips.

@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 
 import { parsePartialJson } from "@/lib/partial-json";
+import { pluralizeCount } from "@/lib/plural";
 import { isAbortError, pumpSseFrames } from "@/lib/sse-stream";
 
 /**
@@ -197,9 +198,7 @@ function Itinerary({
         </h3>
         <p className="text-xs text-[var(--muted)]">
           {typeof days === "number" ? (
-            <>
-              {days} day{days === 1 ? "" : "s"}
-            </>
+            <>{pluralizeCount(days, "day")}</>
           ) : (
             <Skeleton width="4rem" />
           )}

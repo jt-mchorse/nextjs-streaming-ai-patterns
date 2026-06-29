@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { resumeTokenPosition } from "@/lib/checkpoint-stream";
+import { pluralizeCount } from "@/lib/plural";
 import { phaseOnFirstChunk, type RecoveryPhase } from "@/lib/recovery-phase";
 
 type Phase = RecoveryPhase;
@@ -175,7 +176,7 @@ export function ErrorRecoveryClient() {
         </span>
         {recoveryCount > 0 ? (
           <span className="rounded-full border border-[var(--border)] px-2 py-0.5 text-[10px] uppercase tracking-wide">
-            {recoveryCount} recovery{recoveryCount > 1 ? "ies" : ""}
+            {pluralizeCount(recoveryCount, "recovery", "recoveries")}
           </span>
         ) : null}
         {showResumedPill ? (
