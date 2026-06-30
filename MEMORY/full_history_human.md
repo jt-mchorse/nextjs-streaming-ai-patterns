@@ -488,3 +488,15 @@ Node-side hops).
 **Open questions / blockers:** none.
 
 **Next session:** the partial-JSON docs describe the actual exported `{ value, isComplete }` surface.
+
+## 2026-06-30 — Issue #70: a drop on a checkpoint boundary suppressed that checkpoint, duplicating tokens on the no-error-frame resume
+**Duration:** ~20 min · **Branch:** `session/2026-06-30-1928-issue-70`
+
+- In `streamCheckpoints` (`lib/checkpoint-stream.ts`) the `dropAfter` drop check ran *before* the checkpoint emission. So when a drop landed exactly on a checkpoint boundary (`dropAfter` a multiple of `CHECKPOINT_EVERY`), it threw before yielding `checkpoint{last_token: N}` for the just-emitted token. The error-frame resume path is robust to this (it uses `resumeTokenPosition`, which takes the furthest-forward of the last checkpoint and the server-reported drop position). But the **no-error-frame** path — a raw network drop, documented at `:132-134` and locked by `test:209-212` — falls back to the last *received* checkpoint, so the client rewound to the prior checkpoint and replayed `CHECKPOINT_EVERY` already-rendered tokens: the duplicated drop seam this pattern exists to prevent (`:129`). Sibling to #58.
+- Fixed by reordering so the boundary checkpoint is yielded before the drop check throws — what a real server does (emit token N, emit the due checkpoint, then the connection dies). +3 tests: `dropAfter` 5 and 10 now carry the boundary checkpoint as the final event before the throw (both fail pre-fix via a stash-and-rerun inverse check); `dropAfter: 7` ordering is unchanged (checkpoint only at 5, never at 7). Suite 303 → 306, lint + typecheck clean.
+
+**Why this work, this session:** DAY multi-issue run. Phase A merged 7 ready sibling PRs (one per non-nextjs repo) then found **zero open priority:high issues across all 12 repos** — a fully saturated portfolio. nextjs-streaming-ai-patterns was the only priority-tier repo past its 18h freshness floor (~28h stale), so I dogfooded it (Phase B step 5). Two serial Explore hunters: the first exhausted `partial-json.ts` and confirmed it correct; the second (routes + mock streamers + checkpoint-stream) surfaced this ordering issue. The hunter's "breaks the recovery protocol" framing was imprecise — I verified the error-frame path is robust and the real defect is only on the no-error-frame fallback — so the issue and fix are scoped to that.
+
+**Open questions / blockers:** none — ready for review. The repo's only other open issue (#16, the binary demo recording) needs a running dev server + Playwright chromium + ffmpeg + human frame verification; it remains a JT-side task.
+
+**Next session:** continue the loop. Priority-tier repos are all fresh now; rotate per build sequence.
