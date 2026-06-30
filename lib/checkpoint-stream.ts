@@ -185,14 +185,24 @@ export async function* streamCheckpoints(
     pendingPrefix = "";
     emittedThisRun += 1;
 
-    // Drop check fires after the text event so the client receives
-    // at least one chunk before the connection dies.
-    if (dropAfter !== undefined && emittedThisRun >= dropAfter) {
-      throw new CheckpointStreamDropped(textIndex);
-    }
-
+    // Emit the checkpoint for this token *before* the drop check. A real
+    // server that emits token N with a checkpoint due at N sends the
+    // checkpoint and only then dies — so when a drop lands exactly on a
+    // checkpoint boundary (`dropAfter` a multiple of CHECKPOINT_EVERY) the
+    // client must still receive `checkpoint{last_token: N}`. Otherwise the
+    // no-error-frame resume path (resumeTokenPosition falls back to the last
+    // *received* checkpoint, checkpoint-stream.ts:132-134) rewinds to the
+    // prior checkpoint and replays CHECKPOINT_EVERY already-rendered tokens —
+    // the duplicated drop seam this pattern exists to prevent. Sibling to #58.
     if (textIndex % CHECKPOINT_EVERY === 0) {
       yield { kind: "checkpoint", last_token: textIndex };
+    }
+
+    // Drop check fires after the text event (and its boundary checkpoint) so
+    // the client receives at least one chunk — and any due checkpoint — before
+    // the connection dies.
+    if (dropAfter !== undefined && emittedThisRun >= dropAfter) {
+      throw new CheckpointStreamDropped(textIndex);
     }
   }
 }
