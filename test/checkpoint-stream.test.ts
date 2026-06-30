@@ -95,6 +95,61 @@ describe("streamCheckpoints — drop simulation", () => {
     );
     expect(checkpoints.length).toBeGreaterThanOrEqual(1);
   });
+
+  // Issue #70: a drop landing exactly on a checkpoint boundary
+  // (dropAfter a multiple of CHECKPOINT_EVERY) must still emit that
+  // boundary checkpoint before throwing. The boundary checkpoint is
+  // emitted before the drop check, so the no-error-frame resume path
+  // (which falls back to the last *received* checkpoint) does not rewind
+  // and replay already-rendered tokens at the drop seam.
+  it.each([CHECKPOINT_EVERY, CHECKPOINT_EVERY * 2])(
+    "emits the boundary checkpoint before dropping when dropAfter (%i) is a multiple of CHECKPOINT_EVERY",
+    async (dropAfter) => {
+      const events: StreamEvent[] = [];
+      let threw = false;
+      try {
+        for await (const e of streamCheckpoints({ dropAfter })) {
+          events.push(e);
+        }
+      } catch (err) {
+        threw = true;
+        expect(err).toBeInstanceOf(CheckpointStreamDropped);
+        expect((err as CheckpointStreamDropped).emitted).toBe(dropAfter);
+      }
+      expect(threw).toBe(true);
+
+      const text = events.filter((e): e is TextEvent => e.kind === "text");
+      expect(text.length).toBe(dropAfter);
+
+      const checkpoints = events.filter(
+        (e): e is CheckpointEvent => e.kind === "checkpoint",
+      );
+      // The checkpoint at the drop boundary is present (the bug suppressed it).
+      expect(checkpoints.map((c) => c.last_token)).toContain(dropAfter);
+      // And it is the final event — emitted just before the connection dies.
+      expect(events[events.length - 1]).toEqual({
+        kind: "checkpoint",
+        last_token: dropAfter,
+      });
+    },
+  );
+
+  it("does not invent a checkpoint at a non-boundary drop (dropAfter: 7 ordering unchanged)", async () => {
+    const events: StreamEvent[] = [];
+    try {
+      for await (const e of streamCheckpoints({ dropAfter: 7 })) {
+        events.push(e);
+      }
+    } catch {
+      // expected
+    }
+    const checkpoints = events.filter(
+      (e): e is CheckpointEvent => e.kind === "checkpoint",
+    );
+    // 7 is not a multiple of CHECKPOINT_EVERY (5): only the boundary at 5 fires,
+    // never one at 7. Guards against the reorder over-emitting at the drop.
+    expect(checkpoints.map((c) => c.last_token)).toEqual([CHECKPOINT_EVERY]);
+  });
 });
 
 describe("streamCheckpoints — resume", () => {
