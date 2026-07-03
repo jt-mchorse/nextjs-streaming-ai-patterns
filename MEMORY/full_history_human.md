@@ -512,3 +512,15 @@ Node-side hops).
 **Open questions / blockers:** none — ready for review.
 
 **Next in this session's loop:** file + fix the `error-recovery` route's missing `X-Accel-Buffering: no` header (the other three SSE routes all set it) as issue #2.
+
+## 2026-07-03 — Issue #74: error-recovery SSE route missing X-Accel-Buffering: no
+**Duration:** ~15 min · **Branch:** `session/2026-07-03-1523-issue-74` · **PR:** #75
+
+- `error-recovery` was the only SSE route not sending `X-Accel-Buffering: no`. The other three streaming routes (`stream-text`, `tool-use`, `partial-json`) all set it. Behind a reverse proxy that honors the header (nginx et al.), the response can be buffered and flushed in one burst — which for this route collapses the incremental checkpoint → drop → resume sequence into a single late delivery, defeating the entire recovery demo. `Cache-Control: no-transform` (already present) governs content transformation, not proxy buffering, so it isn't a substitute.
+- Fixed by adding the header, matching the siblings. +2 route-header regression tests (asserts the header, plus SSE content-type and no-transform cache-control). Inverse-checked by reverting the route change and confirming the header test fails. Suite 306 → 308, typecheck + lint clean.
+
+**Why this work, this session:** second issue of the DAY multi-issue loop, same priority-tier repo (nextjs). Found firsthand during the route review I did while working #72 — not from an agent. Filed #74, worked it same session.
+
+**Open questions / blockers:** none — ready for review. Sibling note: this PR and #73 both append to the same MEMORY files, so whichever merges second needs a trivial serial rebase (the documented append-only sibling-conflict pattern).
+
+**Next in this session's loop:** priority-tier repo nextjs now has no more autonomous unblocked defects surfaced; rotate to the next repo per selection rules (llm-cost-optimizer / chunking cross the 18h floor soon, else non-tier by build sequence).
