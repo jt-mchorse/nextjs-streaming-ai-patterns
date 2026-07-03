@@ -105,6 +105,52 @@ describe("parsePartialJson — nested structures", () => {
     expect(value.note).toBe('she said "hi"');
     expect(result.isComplete).toBe(false);
   });
+
+  // #72: a truly-empty nested container value is a complete, valid value —
+  // close and surface it (`[]`/`{}`) instead of dropping it (and its key).
+  // Pre-fix these all collapsed to `{}`/`[]`, contradicting the docstring's
+  // "open array or object → appends the missing closers" and the top-level
+  // `[` → `[]` behavior below.
+  it("surfaces an empty nested array value as [] rather than dropping it (#72)", () => {
+    expect(parsePartialJson('{"a": [')).toEqual({ value: { a: [] }, isComplete: false });
+  });
+
+  it("surfaces an empty nested object value as {} rather than dropping it (#72)", () => {
+    expect(parsePartialJson('{"a": {')).toEqual({ value: { a: {} }, isComplete: false });
+  });
+
+  it("surfaces an empty object element inside an array as [{}] (#72)", () => {
+    expect(parsePartialJson("[{")).toEqual({ value: [{}], isComplete: false });
+  });
+
+  it("surfaces an empty array element inside an array as [[]] (#72)", () => {
+    expect(parsePartialJson("[[")).toEqual({ value: [[]], isComplete: false });
+  });
+
+  it("keeps an empty container value alongside a committed sibling (#72)", () => {
+    expect(parsePartialJson('{"a": 1, "b": [')).toEqual({
+      value: { a: 1, b: [] },
+      isComplete: false,
+    });
+  });
+
+  it("is consistent with top-level: nested `[` surfaces `[]` just as a top-level `[` does (#72)", () => {
+    const topLevel = parsePartialJson("[");
+    const nested = parsePartialJson('{"a": [');
+    expect(topLevel).toEqual({ value: [], isComplete: false });
+    expect((nested.value as { a: unknown[] }).a).toEqual(topLevel.value);
+  });
+
+  // #72 guard: the fix must NOT resurrect a half-typed trailing *pair*. An
+  // object that has consumed a key + colon but no value (`{"id":`) still can't
+  // be closed validly, so it is dropped exactly as before — the empty-container
+  // surfacing above only applies to containers with nothing started inside.
+  it("still drops a trailing started-but-incomplete object pair (#72 guard)", () => {
+    const result = parsePartialJson('{"items": [{"id": 1}, {"id": 2}, {"id":');
+    const value = result.value as { items: { id: number }[] };
+    expect(value.items).toEqual([{ id: 1 }, { id: 2 }]);
+    expect(result.isComplete).toBe(false);
+  });
 });
 
 describe("parsePartialJson — malformed-tolerance (acceptance criteria)", () => {

@@ -352,18 +352,36 @@ function frameSnapshot(
   stack: {
     kind: "object" | "array";
     lastSafeEnd: number;
+    expecting: string;
     committedAny: boolean;
   }[],
 ): string | null {
   if (stack.length === 0) return null;
 
-  // Pop innermost frames that have no committed content. We always
-  // keep at least the outermost frame so empty containers (`{}`,
-  // `[]`) remain reachable instead of collapsing to `null`.
+  // Pop innermost frames that can't be closed into a valid value as-is. We
+  // always keep at least the outermost frame so empty containers (`{}`, `[]`)
+  // remain reachable instead of collapsing to `null`.
+  //
+  // A frame is *un-closeable* only when it's an object that has started a pair
+  // but not committed its value — `expecting` is "colon" (`{"id"`) or "value"
+  // (`{"id":`): appending `}` there yields invalid JSON (`{"id"}` / `{"id":}`),
+  // so the whole half-typed entry is dropped. A *truly-empty* container is the
+  // opposite case: a fresh array (any array with no committed content) or an
+  // object still `expecting "key"` closes cleanly to `[]`/`{}`, which is a
+  // complete, valid value — so it must be surfaced, not dropped (#72). The old
+  // `!committedAny` condition popped both, so a nested empty container value
+  // (`{"a": [` → should be `{"a":[]}`) collapsed to `{}`, taking its key with
+  // it and contradicting the docstring's "open array or object → append the
+  // missing closers" and top-level `[` → `[]`.
   const trimmed = stack.slice();
   while (trimmed.length > 1) {
     const top = trimmed[trimmed.length - 1];
-    if (top && !top.committedAny) {
+    const uncloseable =
+      !!top &&
+      !top.committedAny &&
+      top.kind === "object" &&
+      (top.expecting === "colon" || top.expecting === "value");
+    if (uncloseable) {
       trimmed.pop();
     } else {
       break;

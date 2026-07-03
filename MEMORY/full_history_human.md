@@ -500,3 +500,15 @@ Node-side hops).
 **Open questions / blockers:** none — ready for review. The repo's only other open issue (#16, the binary demo recording) needs a running dev server + Playwright chromium + ffmpeg + human frame verification; it remains a JT-side task.
 
 **Next session:** continue the loop. Priority-tier repos are all fresh now; rotate per build sequence.
+
+## 2026-07-03 — Issue #72: parsePartialJson dropped a nested empty container value (and its key)
+**Duration:** ~30 min · **Branch:** `session/2026-07-03-1519-issue-72` · **PR:** #73
+
+- `parsePartialJson('{"a": [')` returned `{}` instead of `{"a": []}` — the empty array value, and the `"a"` key with it, were dropped. Root cause: `frameSnapshot` (`lib/partial-json.ts`) popped *every* innermost frame with `committedAny === false`. That's correct for an object that has started a pair but not committed a value (`{"id":` — you can't close `{"id":}` to valid JSON), but wrong for a *truly-empty* container: an empty array/object is a complete, valid value and should be closed, not dropped. This contradicted the docstring ("open array or object → appends the missing closers"), `frameSnapshot`'s own "empty containers remain reachable" comment, and the top-level `[` → `[]` behavior. In the progressive-render UI it caused a flicker — the model emits `{"a": [`, the UI renders `{}` (key "a" vanishes), then `{"a":[1]}` (reappears).
+- Fixed by narrowing the pop condition: pop a `committedAny === false` frame only when it's an **object** `expecting "colon"/"value"`. Truly-empty containers (any array with no committed content, or an object still `expecting "key"`) are kept and closed. `{"a": [`→`{"a":[]}`, `{"a": {`→`{"a":{}}`, `[{`→`[{}]`, `[[`→`[[]]`. +7 regression tests including a top-level/nested consistency assertion and a guard that the trailing started-pair (`{"id":`) is still dropped (`test:88`). Suite 306 → 313, typecheck + lint clean.
+
+**Why this work, this session:** DAY multi-issue run, first issue. Phase A merged 4 clean ready PRs (mcp-server-cookbook #81, llm-eval-harness #139, rag-production-kit #117, embedding-model-shootout #82) and the audit came back clean (12 repos + the known operator-blocked portfolio-ops `trending-daily` stale-schedule). Portfolio stayed saturated — zero open priority:high issues — so I dogfooded the stalest priority-tier repo (nextjs, ~64h). Two parallel Explore hunters: one clean, one surfaced this. Reproduced firsthand before fixing.
+
+**Open questions / blockers:** none — ready for review.
+
+**Next in this session's loop:** file + fix the `error-recovery` route's missing `X-Accel-Buffering: no` header (the other three SSE routes all set it) as issue #2.
