@@ -797,3 +797,24 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-07-03T15:23Z
+issue: 74
+focus: error_recovery_sse_route_missing_x_accel_buffering_no_header_that_three_sibling_sse_routes_all_set
+phase: day_session_phase_b_iteration_2
+duration_min: 15
+delta:
+  files_changed: 2 # app/api/error-recovery/route.ts + test/error-recovery-route.test.ts
+  tests_added: 2   # x-accel-buffering header assertion + sse content-type/no-transform cache-control assertion
+context_for_next_session:
+  - second_issue_of_day_multi_issue_loop_same_priority_tier_repo_nextjs_found_firsthand_during_phase_b_iteration_1_route_review_not_from_an_agent
+  - error_recovery_route_was_only_sse_route_not_setting_x_accel_buffering_no_stream_text_tool_use_partial_json_all_set_it_behind_a_buffering_reverse_proxy_nginx_the_incremental_checkpoint_drop_resume_sequence_collapses_into_one_late_burst_defeating_the_recovery_demo
+  - cache_control_no_transform_already_present_governs_content_transformation_not_proxy_buffering_so_not_a_substitute
+  - fix_add_x_accel_buffering_no_to_error_recovery_response_headers_one_line_plus_comment
+  - inverse_safety_net_git_stash_route_change_header_test_failed_pre_fix_7_of_8_route_tests_passed_restored_then_308_green_was_306
+  - sibling_pr_note_73_issue_72_and_75_issue_74_both_append_to_memory_full_history_ai_and_human_off_main_whichever_merges_second_conflicts_on_append_only_files_trivial_serial_rebase_known_pattern
+  - both_prs_ready_not_draft_next_phase_a_should_merge_73_first_lower_number_then_rebase_75
+decisions_made: []
+followups: []
+---

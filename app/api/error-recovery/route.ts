@@ -92,6 +92,15 @@ export async function GET(req: NextRequest): Promise<Response> {
       "content-type": "text/event-stream",
       "cache-control": "no-cache, no-transform",
       connection: "keep-alive",
+      // Tell reverse proxies (nginx et al.) not to buffer the response. Without
+      // it a proxy can accumulate the SSE bytes and flush them in one burst,
+      // which for *this* route collapses the whole drop→resume demo into a
+      // single late delivery — the incremental checkpoint/drop/resume sequence
+      // is the entire point here. The three sibling SSE routes (stream-text,
+      // tool-use, partial-json) all set this; error-recovery was the only one
+      // missing it (#74). `no-transform` above governs content transformation,
+      // not proxy buffering, so it is not a substitute.
+      "X-Accel-Buffering": "no",
     },
   });
 }

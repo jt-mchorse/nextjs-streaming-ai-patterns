@@ -181,3 +181,21 @@ describe("GET /api/error-recovery — input validation", () => {
     expect(last.event).toBe("error");
   });
 });
+
+describe("GET /api/error-recovery — SSE transport headers (#74)", () => {
+  it("sets X-Accel-Buffering: no so proxies don't buffer the drop/resume stream", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const res = await GET(makeReq("") as any);
+    // The incremental checkpoint→drop→resume sequence is the whole point of
+    // this route; a buffering reverse proxy would collapse it into one late
+    // burst. This header (which the three sibling SSE routes all set) opts out.
+    expect(res.headers.get("x-accel-buffering")).toBe("no");
+  });
+
+  it("sends the SSE content-type and a no-transform cache-control", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const res = await GET(makeReq("") as any);
+    expect(res.headers.get("content-type")).toBe("text/event-stream");
+    expect(res.headers.get("cache-control")).toContain("no-transform");
+  });
+});
