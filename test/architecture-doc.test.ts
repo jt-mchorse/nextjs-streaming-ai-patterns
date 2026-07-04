@@ -28,8 +28,8 @@
 //      bug.
 
 import { describe, it, expect } from "vitest";
-import { readFileSync, existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
+import { resolve, join } from "node:path";
 
 const ROOT = resolve(__dirname, "..");
 const ARCH_PATH = resolve(ROOT, "docs/architecture.md");
@@ -187,5 +187,194 @@ describe("docs/architecture.md is current with the shipped patterns", () => {
     // Locks the baseline-skip threshold so a future loose edit can't silently
     // weaken or strengthen the guard.
     expect(MIN_ACTIVE_DECISION_ID).toBe(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Symbol-resolution lock (portfolio-ops #55, TS side — nextjs #76).
+//
+// The four invariants above lock path tokens, PATTERNS-slug coverage, active
+// decisions, and banned phrases — but nothing checks that the *symbols* the
+// doc names actually exist in the code. A doc that renamed `streamText` ->
+// `streamTokens`, or `validatePrompt` -> `guardPrompt`, would sail through CI
+// green. That's the exact drift class portfolio-ops #55 catalogued portfolio-
+// wide (e.g. llm-cost-optimizer's nonexistent `BatchAPIBackend`,
+// embedding-model-shootout's `compute_frontier`).
+//
+// The Python siblings (llm-eval-harness #140, rag-production-kit #118,
+// chunking-strategies-lab #104, ...) resolve doc symbols against the package
+// via importlib/`hasattr`. TS has no importlib analogue at test time, so the
+// ground truth here is a static scan of every *top-level declaration* across
+// `lib/`, `components/`, and `app/` -- exported OR internal. Internal is
+// load-bearing: `validatePrompt` and `validateOptions` are non-exported guards
+// the doc names by name, so an export-only surface would false-positive on
+// both (the same lesson as llm-cost-optimizer #122's "submodule-aware, not
+// surface-only" note, where `UnknownModelError` wasn't in `__all__`).
+//
+// Candidate selection mirrors the Python adaptation: only *multi-word*
+// camelCase/PascalCase backticked identifiers are checked. Single lowercase
+// words (`value`, `mock`, `live`), SCREAMING_CASE env/const tokens
+// (`ANTHROPIC_API_KEY`, `DEFAULT_MODEL`), and snake_case JSON/event tokens
+// (`text_delta`, `tool_use_*`) are deliberately excluded -- they're prose and
+// wire-format noise, not repo symbols, and checking them would either
+// false-positive or force an unmaintainable allow-list. Two hard-pinned
+// exception sets carry the rest: `EXTERNAL_SYMBOLS` (framework/web/SDK) and
+// `DOC_FIELDS` (return-object fields the doc names that aren't module symbols).
+
+const SOURCE_DIRS = ["lib", "components", "app"] as const;
+const SOURCE_EXTS = [".ts", ".tsx"] as const;
+
+// Framework / web / SDK identifiers the doc names in backticks that are NOT
+// repo declarations. Multi-word only (single-word Pascal like `Anthropic` /
+// `Suspense` never enters the candidate set). Hard-pinned below so adding a new
+// external is a conscious widening, not an accidental one.
+const EXTERNAL_SYMBOLS: ReadonlyArray<string> = [
+  "ReadableStream", // web streams API (client incremental read)
+  "useOptimistic", // React 19 hook (optimistic-rollback pattern)
+] as const;
+
+// Return-object / result field names the doc legitimately references that are
+// object properties, not top-level module declarations. `isComplete` is a
+// field of `PartialJsonResult` (lib/partial-json.ts), surfaced in the doc's
+// partial-json narrative. Kept as an explicit, verified pin rather than
+// broadening the ground truth to all property keys (which would weaken the
+// lock into "identifier appears anywhere in source").
+const DOC_FIELDS: ReadonlyArray<string> = ["isComplete"] as const;
+
+/** Strip fenced code blocks (``` ... ```), including the mermaid diagram, so
+ *  the backtick pairing for inline-code extraction can't desync on the triple
+ *  fences. Symbols that only appear inside diagrams/trees are intentionally out
+ *  of scope; the doc's prose is the contract. */
+function stripFences(md: string): string {
+  return md.replace(/```[\s\S]*?```/g, "");
+}
+
+/** True for a multi-word camelCase or PascalCase identifier -- one with an
+ *  internal lower->upper boundary (`streamText`, `getStreamMode`) or a
+ *  Pascal-with-second-cap shape (`ReadableStream`). Single-word tokens of any
+ *  case return false. */
+function isMultiWordIdentifier(tok: string): boolean {
+  return /[a-z][A-Z]/.test(tok) || /[A-Z][a-z].*[A-Z]/.test(tok);
+}
+
+/** Extract multi-word camel/Pascal identifier candidates from the doc: fenced
+ *  blocks stripped, then every inline-code span split into identifier tokens
+ *  (dotted member refs split on `.` so `Anthropic.messages.stream` yields its
+ *  parts). Returns a sorted unique list. */
+function candidateSymbols(md: string): string[] {
+  const prose = stripFences(md);
+  const out = new Set<string>();
+  for (const m of prose.matchAll(/`([^`\n]+)`/g)) {
+    for (const piece of m[1].split(/[^A-Za-z0-9_$]+/)) {
+      for (const tok of piece.split(".")) {
+        if (/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(tok) && isMultiWordIdentifier(tok)) {
+          out.add(tok);
+        }
+      }
+    }
+  }
+  return [...out].sort();
+}
+
+/** Recursively collect `*.ts` / `*.tsx` files under a directory. */
+function sourceFiles(dir: string): string[] {
+  const abs = resolve(ROOT, dir);
+  if (!existsSync(abs)) return [];
+  const files: string[] = [];
+  for (const entry of readdirSync(abs, { withFileTypes: true })) {
+    if (entry.name === "node_modules" || entry.name.startsWith(".")) continue;
+    const full = join(abs, entry.name);
+    if (entry.isDirectory()) files.push(...sourceFiles(join(dir, entry.name)));
+    else if (SOURCE_EXTS.some((e) => entry.name.endsWith(e))) files.push(full);
+  }
+  return files;
+}
+
+/** Every top-level declaration name across the source dirs -- exported or
+ *  internal. Matches `function`/`function*`, `const`/`let`/`var`, `class`,
+ *  `type`, `interface`, `enum`, with optional `export` / `export default` /
+ *  `async` prefixes. This is the TS analogue of the Python resolver's module
+ *  attribute surface. */
+function repoDeclaredSymbols(): Set<string> {
+  const decl =
+    /(?:^|\n)[ \t]*(?:export[ \t]+)?(?:default[ \t]+)?(?:async[ \t]+)?(?:function\*?|const|let|var|class|type|interface|enum)[ \t]+([A-Za-z_$][A-Za-z0-9_$]*)/g;
+  const names = new Set<string>();
+  for (const dir of SOURCE_DIRS) {
+    for (const file of sourceFiles(dir)) {
+      const text = readFileSync(file, "utf8");
+      for (const m of text.matchAll(decl)) names.add(m[1]);
+    }
+  }
+  return names;
+}
+
+/** The shared resolution path used by BOTH the live doc test and the inverse
+ *  drift test -- so the inverse test exercises the real resolver, not a
+ *  re-implementation, and a resolver that silently resolves everything can't go
+ *  vacuously green. Returns the candidates that resolve to nothing. */
+function unresolvedSymbols(md: string, repoSymbols: Set<string>): string[] {
+  const allowed = new Set<string>([...EXTERNAL_SYMBOLS, ...DOC_FIELDS]);
+  return candidateSymbols(md).filter(
+    (sym) => !repoSymbols.has(sym) && !allowed.has(sym),
+  );
+}
+
+describe("docs/architecture.md names only symbols that exist (#76 / portfolio-ops #55)", () => {
+  const md = readFileSync(ARCH_PATH, "utf8");
+  const repoSymbols = repoDeclaredSymbols();
+
+  it("extracts a non-empty candidate set (guards regex/extraction breakage)", () => {
+    // If the extraction silently yields nothing (a broken regex, a doc rewrite
+    // that drops all inline code), the resolution test below would pass
+    // vacuously. Pin a floor.
+    expect(candidateSymbols(md).length).toBeGreaterThan(0);
+  });
+
+  it("discovers the repo's real declarations as ground truth", () => {
+    // Sanity floor on the source scan: these four are named in the doc's prose
+    // and known to exist (two exported, two internal). If the scan regresses to
+    // empty/tiny, the resolution test would false-flag everything -- catch it
+    // here with a specific, legible message instead.
+    for (const known of ["streamText", "getStreamMode", "validatePrompt", "validateOptions"]) {
+      expect(repoSymbols.has(known), `expected repo declaration '${known}' in the source scan`).toBe(true);
+    }
+  });
+
+  it("every multi-word symbol the doc names resolves to a declaration or a pinned exception", () => {
+    const unresolved = unresolvedSymbols(md, repoSymbols);
+    expect(
+      unresolved,
+      `docs/architecture.md names these multi-word identifiers that resolve to no ` +
+        `top-level declaration in lib/ components/ app/, and are not in EXTERNAL_SYMBOLS ` +
+        `or DOC_FIELDS: ${JSON.stringify(unresolved)}. Either fix the doc, or (if the ` +
+        `symbol is a genuine framework API / object field) add it to the matching pinned set.`,
+    ).toEqual([]);
+  });
+
+  it("flags an injected drifted symbol while a real one in the same text resolves (inverse safety net)", () => {
+    // Prove the resolver actually rejects a nonexistent symbol -- otherwise the
+    // green above could be vacuous. `streamTextXYZ` is not a declaration, not
+    // external, not a field; `streamText` is a real export. Same code path as
+    // the live test.
+    const injected = "the real `streamText` sits next to a drifted `streamTextXYZ` here";
+    const unresolved = unresolvedSymbols(injected, repoSymbols);
+    expect(unresolved).toContain("streamTextXYZ");
+    expect(unresolved).not.toContain("streamText");
+  });
+
+  it("EXTERNAL_SYMBOLS is the exact pinned set", () => {
+    // Hard-pin so a future loose edit widening the external allow-list is a
+    // conscious, reviewed change.
+    expect([...EXTERNAL_SYMBOLS]).toEqual(["ReadableStream", "useOptimistic"]);
+  });
+
+  it("DOC_FIELDS is the exact pinned set", () => {
+    expect([...DOC_FIELDS]).toEqual(["isComplete"]);
+  });
+
+  it("SOURCE_DIRS is the exact pinned set", () => {
+    // The ground-truth scan roots. Widening (a new top-level code dir) should be
+    // an intentional edit, not silent drift.
+    expect([...SOURCE_DIRS]).toEqual(["lib", "components", "app"]);
   });
 });
