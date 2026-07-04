@@ -524,3 +524,15 @@ Node-side hops).
 **Open questions / blockers:** none — ready for review. Sibling note: this PR and #73 both append to the same MEMORY files, so whichever merges second needs a trivial serial rebase (the documented append-only sibling-conflict pattern).
 
 **Next in this session's loop:** priority-tier repo nextjs now has no more autonomous unblocked defects surfaced; rotate to the next repo per selection rules (llm-cost-optimizer / chunking cross the 18h floor soon, else non-tier by build sequence).
+
+## 2026-07-04 — Issue #76: architecture-doc symbol-resolution lock (TS side of portfolio-ops #55)
+**Duration:** ~35 min · **Branch:** `session/2026-07-04-0313-issue-76` · **PR:** #77
+
+- `test/architecture-doc.test.ts` locked path tokens, PATTERNS-slug coverage, active decisions, and banned phrases — but never checked that the *symbols* `docs/architecture.md` names actually exist. A doc renaming `streamText` → `streamTokens` would pass CI green (the drift class portfolio-ops #55 catalogued portfolio-wide). Added a symbol-resolution invariant: multi-word camelCase/PascalCase inline-code identifiers (fenced blocks stripped) resolved against a static scan of every top-level declaration across `lib/`+`components/`+`app/`, **exported or internal** — internal matters because `validatePrompt`/`validateOptions` are non-exported guards the doc names. Two hard-pinned exception sets carry framework APIs (`ReadableStream`, `useOptimistic`) and object fields (`isComplete`). An injected-drift test runs the shared resolver so the green can't be vacuous; also negative-controlled by renaming a live doc symbol and watching the suite fail.
+- All seven current candidates resolve — no live drift, so this is a preventive lock like most of the Python siblings. Suite 315 → 322, `tsc --noEmit` + eslint clean.
+
+**Why this work, this session:** first issue of the NIGHT loop. Portfolio has zero `priority:high` issues and no freshness floor crossed; the only actionable, non-blocked backlog is portfolio-ops #55's TS-side propagation (the Python side finished in the prior DAY run, whose four tail PRs I merged in Phase A). nextjs is priority-tier, so it won the pick among the three TS repos.
+
+**Open questions / blockers:** none — ready for review. The TS resolver is genuinely per-repo (not a port), as #55 anticipated.
+
+**Next in this session's loop:** propagate to the remaining TS gap repos — `mcp-server-cookbook` (mjs test) and `ai-app-integration-tests` (ts test) — one PR each, each adapted to its own doc's citation style.
