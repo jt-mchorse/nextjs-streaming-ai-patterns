@@ -536,3 +536,15 @@ Node-side hops).
 **Open questions / blockers:** none — ready for review. The TS resolver is genuinely per-repo (not a port), as #55 anticipated.
 
 **Next in this session's loop:** propagate to the remaining TS gap repos — `mcp-server-cookbook` (mjs test) and `ai-app-integration-tests` (ts test) — one PR each, each adapted to its own doc's citation style.
+
+## 2026-07-07 — Issue #78: AbortController unmount-teardown parity (partial-json & error-recovery clients)
+**Duration:** ~35 min · **Branch:** `session/2026-07-07-2311-issue-78` · **PR:** #79
+
+- Two of the four streaming client components leaked their in-flight `fetch`/reader when unmounted mid-stream. `partial-json-client.tsx` had **no unmount teardown at all** (didn't even import `useEffect`); `error-recovery-client.tsx`'s cleanup only set `aborted.current = true` — masking the symptom by halting further `setState`/reconnect — but **never called `controller.abort()`** (the controller was a per-`run` local, so the signal handed to `fetch` never fired). A browser `fetch` isn't auto-aborted on component unmount, so both left the HTTP connection open until server EOF and never tripped the route's abort-on-disconnect chain (D-007). The two correct siblings (`streaming-text-client`, `tool-use-client`) already abort on unmount.
+- Fix: `partial-json` imports `useEffect` and adds an unmount abort (mirrors `tool-use-client`); `error-recovery` hoists the controller into a `controllerRef` and aborts it in the existing cleanup. Added `test/streaming-client-cleanup.test.ts`, a source-level parity lock (idiom of `public-surface.test.ts`) that discovers every `components/*.tsx` owning an `AbortController` and asserts each aborts on unmount, so a fifth client can't silently reintroduce the leak. Verified it fails on pre-fix source (3 failures), passes after fix. Suite 322 → 331, `tsc --noEmit` + eslint clean.
+
+**Why this work, this session:** static issue queue is exhausted (zero `priority:high` open in any priority-tier repo; only headless demo captures + a JT-gated decision-revisit remain), so work came from fresh-lens dogfood hunts. Ran four parallel hunters — percentile computation, TTL/expiry boundary, retry/backoff, and nextjs cancellation/cleanup; three came back honestly empty (the portfolio's math/time/retry paths are well-hardened), and the cancellation lens surfaced this real parity gap on nextjs, the stalest priority-tier repo. Filed #78 with both findings reproduced firsthand.
+
+**Open questions / blockers:** none — ready for review.
+
+**Next in this session's loop:** rotate to the next repo per selection rules; the AbortController-unmount lens is now swept on nextjs (only client-owned fetch controllers live here). Continue fresh-lens hunts against the saturated portfolio, stopping cleanly within the DAY 2–4 issue target.
