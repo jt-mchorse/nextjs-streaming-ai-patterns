@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { parsePartialJson } from "@/lib/partial-json";
 import { pluralizeCount } from "@/lib/plural";
@@ -134,6 +134,15 @@ export function PartialJsonClient(): React.ReactElement {
 
   const interrupt = useCallback(() => {
     controllerRef.current?.abort();
+  }, []);
+
+  // Tear down the controller on unmount so navigating away mid-stream aborts
+  // the in-flight fetch/reader instead of leaving it open until server EOF.
+  // A browser fetch is NOT auto-aborted when its initiating component unmounts,
+  // so without this the route's abort-on-disconnect chain (D-007) never fires.
+  // Mirrors tool-use-client.tsx.
+  useEffect(() => {
+    return () => controllerRef.current?.abort();
   }, []);
 
   const inFlight = phase === "connecting" || phase === "streaming";
