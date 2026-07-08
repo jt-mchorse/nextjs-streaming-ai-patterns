@@ -38,12 +38,20 @@ export function ErrorRecoveryClient() {
   const [recoveryCount, setRecoveryCount] = useState(0);
   const lastCheckpoint = useRef(0);
   const aborted = useRef(false);
+  const controllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     aborted.current = false;
     void run(0);
     return () => {
       aborted.current = true;
+      // Abort the in-flight (or most-recent resume) fetch on unmount. The
+      // `aborted` flag alone only stops further setState/reconnect; the
+      // AbortSignal passed to fetch never fired, so the HTTP connection
+      // leaked until server EOF and the route's cancel() (D-007) never got
+      // its disconnect. `run` reassigns controllerRef on every attempt, so
+      // this always aborts the currently-live one.
+      controllerRef.current?.abort();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -51,6 +59,7 @@ export function ErrorRecoveryClient() {
   async function run(startAtCheckpoint: number): Promise<void> {
     setPhase(startAtCheckpoint === 0 ? "streaming" : "recovering");
     const controller = new AbortController();
+    controllerRef.current = controller;
     let resp: Response;
     try {
       resp = await fetch(
