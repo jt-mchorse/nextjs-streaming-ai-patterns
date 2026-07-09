@@ -548,3 +548,15 @@ Node-side hops).
 **Open questions / blockers:** none — ready for review.
 
 **Next in this session's loop:** rotate to the next repo per selection rules; the AbortController-unmount lens is now swept on nextjs (only client-owned fetch controllers live here). Continue fresh-lens hunts against the saturated portfolio, stopping cleanly within the DAY 2–4 issue target.
+
+## 2026-07-09 — Issue #80: error-recovery raw-drop resume-seam duplication
+**Duration:** ~30 min · **Branch:** `session/2026-07-09-1538-issue-80` · **PR:** #81
+
+- The error-recovery client rendered every streamed token but discarded each text event's `index`, so on a *raw* network drop (no SSE `error` frame) it resumed from the last checkpoint — which lags up to 4 tokens behind the screen — replaying and re-appending already-rendered tokens and duplicating text at the drop seam. #58 fixed this for the error-frame branch; the raw-drop branches were left exposed (the #71 comment already named the hazard).
+- Tracked the furthest rendered index and resume from `Math.max(lastCheckpoint, lastRendered)`. Added a behavioral regression (real `streamCheckpoints` raw-drop → resume reproduces the clean stream) and a source-level wiring lock in the #78 idiom; both locks fail on the pre-fix client. Full suite 335 pass, tsc + eslint clean.
+
+**Why this work, this session:** the static queue was globally saturated (11 of 12 dogfood hunt agents returned empty this run); a parallel nextjs hunt surfaced this, and it reproduced firsthand against the real streamer.
+
+**Open questions / blockers:** none — ready for review.
+
+**Next session:** streaming resume-seam correctness is now swept on error-recovery (raw-drop + error-frame branches at parity). The other three streaming clients (partial-json, stream-text, tool-use) have no checkpoint-resume construct, so this lens doesn't transfer to them.
