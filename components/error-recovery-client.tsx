@@ -37,6 +37,14 @@ export function ErrorRecoveryClient() {
   const [recoveryReason, setRecoveryReason] = useState<string | null>(null);
   const [recoveryCount, setRecoveryCount] = useState(0);
   const lastCheckpoint = useRef(0);
+  // Furthest text-token index actually rendered. Checkpoints only advance
+  // `lastCheckpoint` every CHECKPOINT_EVERY tokens, but text renders on every
+  // event — so on a *raw* drop (no `error` frame) the checkpoint lags up to
+  // CHECKPOINT_EVERY-1 tokens behind the screen. Resuming from the checkpoint
+  // would replay those already-rendered tokens and append them a second time
+  // (duplicated drop seam). Tracking the rendered index lets the raw-drop
+  // branches resume from client-side truth, matching the #58 error-frame fix.
+  const lastRendered = useRef(0);
   const aborted = useRef(false);
   const controllerRef = useRef<AbortController | null>(null);
 
@@ -147,6 +155,7 @@ export function ErrorRecoveryClient() {
             // phase is "recovering" and advances to "streaming" (#64).
             setPhase(phaseOnFirstChunk);
           }
+          lastRendered.current = ev.index;
           setText((t) => t + ev.text);
         } else if (ev.kind === "checkpoint") {
           lastCheckpoint.current = ev.last_token;
@@ -157,7 +166,12 @@ export function ErrorRecoveryClient() {
 
   function scheduleResume(): void {
     if (aborted.current) return;
-    const checkpoint = lastCheckpoint.current;
+    // Resume from the furthest-forward position the client can prove it has
+    // rendered. The error-frame branch already advanced `lastCheckpoint` to the
+    // server-reported drop position (#58); the raw-drop branches did not, so
+    // `lastRendered` (which never lags behind the screen) is what keeps them
+    // from replaying and duplicating already-shown tokens at the seam.
+    const checkpoint = Math.max(lastCheckpoint.current, lastRendered.current);
     setRecoveryCount((n) => n + 1);
     setLastResume({ at: checkpoint, when: Date.now() });
     setTimeout(() => {
