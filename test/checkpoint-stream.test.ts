@@ -280,3 +280,72 @@ describe("resumeTokenPosition (issue #58)", () => {
     expect(resumeTokenPosition(10, 10)).toBe(10);
   });
 });
+
+// Issue #80: the RAW-drop resume path (a network drop with no `error` frame)
+// must resume from the furthest *rendered* token, not the last checkpoint.
+// The client renders every text token but only advances its checkpoint every
+// CHECKPOINT_EVERY tokens, so the checkpoint lags up to CHECKPOINT_EVERY-1
+// tokens behind the screen. Resuming from it replays — and the client
+// re-appends (duplicates) — those already-rendered tokens at the drop seam.
+// #58 fixed this for the error-frame branch; this locks the raw-drop sibling.
+describe("raw-drop resume position (issue #80)", () => {
+  // Model the client: render each text token immediately, advance the checkpoint
+  // only on checkpoint events, and stop after `renderStop` tokens to simulate a
+  // raw socket drop with no error frame. Returns the rendered text plus the two
+  // resume anchors the client holds.
+  async function renderUntilRawDrop(startAfter: number, renderStop: number) {
+    let rendered = "";
+    let lastCheckpoint = startAfter;
+    let lastRendered = startAfter;
+    let count = 0;
+    for await (const ev of streamCheckpoints({ startAfter })) {
+      if (ev.kind === "text") {
+        rendered += ev.text;
+        lastRendered = ev.index;
+        count += 1;
+        if (count >= renderStop) break; // raw drop mid-stream
+      } else {
+        lastCheckpoint = ev.last_token;
+      }
+    }
+    return { rendered, lastCheckpoint, lastRendered };
+  }
+
+  async function resumeAppend(prior: string, startAfter: number): Promise<string> {
+    let out = prior;
+    for await (const ev of streamCheckpoints({ startAfter })) {
+      if (ev.kind === "text") out += ev.text;
+    }
+    return out;
+  }
+
+  async function cleanStream(): Promise<string> {
+    let out = "";
+    for await (const ev of streamCheckpoints()) if (ev.kind === "text") out += ev.text;
+    return out;
+  }
+
+  it("resuming from the furthest rendered token reproduces the clean stream exactly", async () => {
+    const truth = await cleanStream();
+    // Drop between checkpoints so the checkpoint lags behind the screen.
+    const first = await renderUntilRawDrop(0, CHECKPOINT_EVERY + 3);
+    expect(first.lastRendered).toBeGreaterThan(first.lastCheckpoint);
+
+    const fixed = await resumeAppend(
+      first.rendered,
+      Math.max(first.lastCheckpoint, first.lastRendered),
+    );
+    expect(fixed).toBe(truth);
+  });
+
+  it("resuming from the stale checkpoint duplicates the tokens rendered since it (the bug)", async () => {
+    const truth = await cleanStream();
+    const first = await renderUntilRawDrop(0, CHECKPOINT_EVERY + 3);
+
+    const buggy = await resumeAppend(first.rendered, first.lastCheckpoint);
+    // The checkpoint-only resume re-streams (checkpoint, lastRendered] which the
+    // client already showed, so the reassembled text no longer matches.
+    expect(buggy).not.toBe(truth);
+    expect(buggy.length).toBeGreaterThan(truth.length);
+  });
+});
