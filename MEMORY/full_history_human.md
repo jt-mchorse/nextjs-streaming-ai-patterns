@@ -560,3 +560,13 @@ Node-side hops).
 **Open questions / blockers:** none — ready for review.
 
 **Next session:** streaming resume-seam correctness is now swept on error-recovery (raw-drop + error-frame branches at parity). The other three streaming clients (partial-json, stream-text, tool-use) have no checkpoint-resume construct, so this lens doesn't transfer to them.
+
+## 2026-07-10 — Issue #82 (decision-revisit): partial-json started-pair drop flicker (~30 min, night)
+
+**What got done.** Investigated a non-monotonic flicker in the partial-JSON parser: `frameSnapshot`'s pop loop drops an inner object frame that started a pair (`{"id":`), but the parent's `lastSafeEnd` predates the child's opening brace, so the pop erases the parent's key/element (`{"a": {"b":` → `{}`, key `a` lost, instead of `{"a":{}}`). Verified firsthand across 6 repro cases plus the appear/vanish/reappear flicker, reachable in the shipped demo's `daily_plan` array.
+
+Built the fix (remove the pop loop; close every frame in place at its own `lastSafeEnd`, which already excludes the half-typed pair) — all 9 repro cases pass — **but it fails the two explicit `#72 guard` tests** that deliberately lock the drop behavior. Since #72 chose (adjacently-tested) to surface a truly-empty container but drop a started pair, this is a *deliberate prior decision*, not an oversight. Per the handoff (§1.5) and session protocol, I did not overturn it: **reverted the code (tree untouched, 57/57 green) and reclassified #82 as a `decision-revisit`** for JT, with both positions laid out (A: surface consistently, recommended; B: also drop the empty `{`) and the new flicker evidence.
+
+**Why prioritized.** Found via a sibling-incomplete-fix hunt on the #72/#73 partial-json cluster; the flicker is a real UX regression, but the resolution touches an explicit guarded decision.
+
+**Open questions / blockers.** JT to choose A vs B on #82. Do not re-file/fix until then.
