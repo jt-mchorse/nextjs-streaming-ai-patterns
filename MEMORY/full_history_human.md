@@ -570,3 +570,16 @@ Built the fix (remove the pop loop; close every frame in place at its own `lastS
 **Why prioritized.** Found via a sibling-incomplete-fix hunt on the #72/#73 partial-json cluster; the flicker is a real UX regression, but the resolution touches an explicit guarded decision.
 
 **Open questions / blockers.** JT to choose A vs B on #82. Do not re-file/fix until then.
+
+## 2026-07-13 (Night) — Issue #83: architecture.md tree omitted 3 shipped lib/ modules
+**Duration:** ~25 min · **Branch:** `session/2026-07-13-0518-issue-83` · **PR:** #84
+
+- The `docs/architecture.md` directory tree listed 8 of `lib/`'s 11 `.ts` modules. Missing: `sse-stream.ts` (the shared `pumpSseFrames`/`isAbortError` SSE pump, #60), `recovery-phase.ts` (the `RecoveryPhase` model + `phaseOnFirstChunk`, #64), and `plural.ts` (`pluralizeCount`, #66) — each with a dedicated test file, so all three are first-class modules embodying the `lib/`-extraction-for-testability principle the doc itself describes.
+- Un-pinned because the arch-doc lock's path check (`appSlugRefs`) only validates `app/<slug>/` *directory* tokens, and `stripFences()` removes the tree code block before the symbol scan — so `lib/` file staleness sailed through CI green. The "arch-doc drift beyond the lock lens" class.
+- Added the three modules to the tree with role comments and a code-tied completeness lock: every `.ts` under `lib/` and every `.tsx` under `components/` on disk must be named by basename in the doc; hard-pinned `TREE_DIRS = [lib, components]` + inverse injected-drift guard. Verified the lock flags exactly the three drifted modules on the pre-fix doc. `npm test` 339 pass (arch-doc file 16 → 20 tests); lint + typecheck clean.
+
+**Why this work, this session:** ported the "arch-doc drift beyond the lock lens" from chunking-strategies-lab #122 (same night) — hunt README/architecture claims the lock tests *don't* pin. The `components/` and `app/api/` trees were audited and are already complete.
+
+**Open questions / blockers:** none — ready for review.
+
+**Next session:** the directory-tree completeness gap is now locked in nextjs. Check the other two JS arch-doc repos (mcp-server-cookbook, ai-app-integration-tests) and the Python repos' trees for the same class — a fenced directory tree stale vs the shipped module set.
