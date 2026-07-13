@@ -37,9 +37,12 @@ nextjs-streaming-ai-patterns/
 │   ├── mock-stream.ts                ← deterministic text streamer
 │   ├── mock-tool-stream.ts           ← deterministic tool-use frames
 │   ├── mock-json-stream.ts           ← deterministic partial-JSON token stream
+│   ├── sse-stream.ts                 ← shared SSE read-loop pump (pumpSseFrames/isAbortError)
 │   ├── partial-json.ts               ← incremental JSON parser (D-008)
 │   ├── optimistic-decision.ts        ← deterministic 50/50 oracle (D-010)
 │   ├── checkpoint-stream.ts          ← checkpoint protocol (D-011)
+│   ├── recovery-phase.ts             ← error-recovery phase model (phaseOnFirstChunk)
+│   ├── plural.ts                     ← count-label pluralization helper (pluralizeCount)
 │   └── shiki.ts                      ← syntax-highlighter singleton
 ├── scripts/
 │   └── capture_demo.ts               ← Playwright demo tour (D-012)
