@@ -378,3 +378,59 @@ describe("docs/architecture.md names only symbols that exist (#76 / portfolio-op
     expect([...SOURCE_DIRS]).toEqual(["lib", "components", "app"]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Directory-tree completeness lock (#83).
+//
+// The doc's directory tree is a fenced code block. `stripFences()` removes it
+// before the symbol scan above, and the path check (`appSlugRefs`) only
+// validates `app/<slug>/` *directory* tokens — never `lib/*.ts` /
+// `components/*.tsx` file paths. So a module that ships under `lib/` or
+// `components/` without a tree update stays CI-green. That is exactly how
+// `lib/plural.ts`, `lib/recovery-phase.ts`, and `lib/sse-stream.ts` (each with a
+// dedicated test file) went unlisted for several sessions. Lock it: every source
+// module on disk under these flat dirs must be named in the doc by basename.
+
+const TREE_DIRS = ["lib", "components"] as const;
+
+/** Basenames of the source modules directly under `dir` (these two dirs are
+ *  flat), excluding test / declaration files. */
+function moduleBasenames(dir: string): string[] {
+  const abs = resolve(ROOT, dir);
+  if (!existsSync(abs)) return [];
+  return readdirSync(abs, { withFileTypes: true })
+    .filter((e) => e.isFile())
+    .map((e) => e.name)
+    .filter((n) => SOURCE_EXTS.some((ext) => n.endsWith(ext)))
+    .filter((n) => !/\.(test|d)\.tsx?$/.test(n))
+    .sort();
+}
+
+describe("docs/architecture.md tree lists every lib/ and components/ module (#83)", () => {
+  const md = readFileSync(ARCH_PATH, "utf8");
+
+  it.each(TREE_DIRS)("every %s module basename appears in the doc", (dir: string) => {
+    const names = moduleBasenames(dir);
+    expect(names.length, `expected source modules under ${dir}/`).toBeGreaterThan(0);
+    const missing = names.filter((name) => !md.includes(name));
+    expect(
+      missing,
+      `docs/architecture.md does not name these ${dir}/ modules anywhere ` +
+        `(add them to the directory tree so the architecture stays complete): ${JSON.stringify(missing)}`,
+    ).toEqual([]);
+  });
+
+  it("flags an on-disk module the doc doesn't name (inverse safety net)", () => {
+    // Prove the check rejects an unlisted module — otherwise the green above
+    // could be vacuous if `md.includes` or the scan silently no-op'd.
+    const names = [...moduleBasenames("lib"), "totally-unlisted-xyz.ts"];
+    const missing = names.filter((name) => !md.includes(name));
+    expect(missing).toEqual(["totally-unlisted-xyz.ts"]);
+  });
+
+  it("TREE_DIRS is the exact pinned set", () => {
+    // Widening (a new flat code dir the tree must depict) should be an
+    // intentional, reviewed edit.
+    expect([...TREE_DIRS]).toEqual(["lib", "components"]);
+  });
+});
