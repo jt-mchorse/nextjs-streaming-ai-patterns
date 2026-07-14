@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 const DROP_AFTER_TOKENS = 12;
 
 /**
- * GET /api/error-recovery?checkpoint=N&session=S
+ * GET /api/error-recovery?checkpoint=N
  *
  * Streams the prose body as SSE events:
  *   data: {"kind":"text","index":N,"text":"…"}      — per-chunk text
