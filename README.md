@@ -49,7 +49,7 @@ so interruption is a browser primitive all the way down.
 - **Error recovery mid-stream** (#5) — checkpoint protocol layered over
   SSE. The route handler emits a `kind: "checkpoint"` event every few
   tokens; the client records the most recent checkpoint; on a deliberate
-  drop the client reconnects with `?since=N` and accumulating text never
+  drop the client reconnects with `?checkpoint=N` and accumulating text never
   resets. Checkpoints are token-position integers (D-011), so the server
   has no per-session state and the drop point is deterministic.
 

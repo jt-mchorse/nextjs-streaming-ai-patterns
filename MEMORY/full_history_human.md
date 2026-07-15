@@ -583,3 +583,11 @@ Built the fix (remove the pop loop; close every frame in place at its own `lastS
 **Open questions / blockers:** none — ready for review.
 
 **Next session:** the directory-tree completeness gap is now locked in nextjs. Check the other two JS arch-doc repos (mcp-server-cookbook, ai-app-integration-tests) and the Python repos' trees for the same class — a fenced directory tree stale vs the shipped module set.
+
+## 2026-07-14 (night, issue #85) — error-recovery SSE param doc-drift (?since=N vs ?checkpoint=N)
+
+README.md and docs/architecture.md described the error-recovery reconnect as `?since=N`, but the route reads `?checkpoint=N` (`url.searchParams.get("checkpoint")`) and the client sends `?checkpoint=`. A reader following the docs would build a client with the wrong param and silently never resume. The route docstring also documented a `session=S` param the route never reads.
+
+Fix: corrected the two prose sites to `?checkpoint=N`, dropped the phantom `session=S` from the docstring, and added a lock test (`test/error-recovery-doc-param.test.ts`) that extracts the route's real `searchParams.get(...)` key as ground truth and asserts the docs reference `?checkpoint=` and never the stale `?since=`/`session=`. Verified firsthand (route + client both use checkpoint; no test pinned the strings). typecheck + lint clean, 342 tests pass (+3).
+
+The lens: doc-drift beyond the lock lens — the arch-doc symbol/tree locks (#76/#83) pin symbols and filenames but NOT prose query-param strings, so a `?since=` vs `?checkpoint=` drift went unguarded. Found via the run-shipped-example / doc-drift agent wave on the priority-tier repos. Shipped as PR #86.

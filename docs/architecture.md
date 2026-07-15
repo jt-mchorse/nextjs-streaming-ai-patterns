@@ -164,7 +164,7 @@ distinct mechanism on top of the same SSE envelope (D-005, D-006).
   SSE (`lib/checkpoint-stream.ts`, D-011). The route handler emits a
   `kind: "checkpoint"` event every few tokens; the client records the
   most recent checkpoint; on a deliberate drop the client reconnects
-  with `?since=N` and accumulating text never resets. Checkpoints are
+  with `?checkpoint=N` and accumulating text never resets. Checkpoints are
   token-position integers, so the server keeps no per-session state.
 
 A captured Playwright demo tour driving all five pages is in
