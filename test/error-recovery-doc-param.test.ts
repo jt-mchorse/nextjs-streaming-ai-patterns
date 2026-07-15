@@ -42,6 +42,32 @@ describe("error-recovery SSE query param docs match the route (#85)", () => {
     }
   });
 
+  it("the route docstring documents `last_token` on the simulated-drop error event (#87)", () => {
+    // Doc-drift sibling of #85 in the same docstring block: the simulated-drop
+    // path emits `send({ reason, last_token }, "error")` (the client reads
+    // `last_token` off the error frame to resume from the exact drop position),
+    // but the docstring's error-event line documented only `{"reason":"…"}`.
+    // Ground-truth the drop-path send, then assert the docstring's error-event
+    // line names `last_token` so the two can't drift again.
+    const dropSendsLastToken =
+      /send\(\s*\{[^}]*\breason\b[^}]*\blast_token\b[^}]*\}\s*,\s*["']error["']\s*\)/.test(route);
+    expect(dropSendsLastToken, "route's simulated-drop send should carry last_token").toBe(true);
+
+    // The docstring line describing the `error` event (annotated "simulated
+    // drop") must name last_token, matching that wire shape.
+    const errorDocLine = route
+      .split("\n")
+      .find((l) => l.includes("event: error") && l.includes("simulated drop"));
+    expect(
+      errorDocLine,
+      "docstring should have an `event: error` — simulated drop line",
+    ).toBeTruthy();
+    expect(
+      errorDocLine!.includes("last_token"),
+      "the documented simulated-drop error event must name last_token",
+    ).toBe(true);
+  });
+
   it("no doc names the stale `?since=` param or the unimplemented `session=` param", () => {
     // `?since=N` was the pre-#85 drift; `session=S` was a phantom param in the
     // route docstring that the route never reads (only `checkpoint`).

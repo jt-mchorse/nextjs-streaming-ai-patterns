@@ -14,10 +14,10 @@ const DROP_AFTER_TOKENS = 12;
  * GET /api/error-recovery?checkpoint=N
  *
  * Streams the prose body as SSE events:
- *   data: {"kind":"text","index":N,"text":"…"}      — per-chunk text
- *   data: {"kind":"checkpoint","last_token":N}     — every 5 tokens
- *   event: error\ndata: {"reason":"…"}              — simulated drop
- *   event: done\ndata: {}                           — successful completion
+ *   data: {"kind":"text","index":N,"text":"…"}          — per-chunk text
+ *   data: {"kind":"checkpoint","last_token":N}         — every 5 tokens
+ *   event: error\ndata: {"reason":"…","last_token":N}  — simulated drop
+ *   event: done\ndata: {}                               — successful completion
  *
  * On the *first* request for a session (checkpoint=0) the server
  * simulates a mid-stream drop after DROP_AFTER_TOKENS text emissions
@@ -25,6 +25,12 @@ const DROP_AFTER_TOKENS = 12;
  * request (checkpoint > 0) the server streams cleanly to completion.
  * This makes the recovery branch reproducible and observable in the
  * UI without needing a real flaky upstream.
+ *
+ * The simulated-drop `error` frame carries `last_token` = the exact
+ * emission index at which the stream dropped; the client resumes from
+ * THAT position (not the last recorded checkpoint, which lags the drop
+ * by up to CHECKPOINT_EVERY-1 tokens) so no token is re-emitted. The
+ * generic error frame (an unexpected failure) carries only `reason`.
  */
 export async function GET(req: NextRequest): Promise<Response> {
   // Use `new URL(req.url)` rather than `req.nextUrl` so the route works
