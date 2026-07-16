@@ -591,3 +591,22 @@ README.md and docs/architecture.md described the error-recovery reconnect as `?s
 Fix: corrected the two prose sites to `?checkpoint=N`, dropped the phantom `session=S` from the docstring, and added a lock test (`test/error-recovery-doc-param.test.ts`) that extracts the route's real `searchParams.get(...)` key as ground truth and asserts the docs reference `?checkpoint=` and never the stale `?since=`/`session=`. Verified firsthand (route + client both use checkpoint; no test pinned the strings). typecheck + lint clean, 342 tests pass (+3).
 
 The lens: doc-drift beyond the lock lens — the arch-doc symbol/tree locks (#76/#83) pin symbols and filenames but NOT prose query-param strings, so a `?since=` vs `?checkpoint=` drift went unguarded. Found via the run-shipped-example / doc-drift agent wave on the priority-tier repos. Shipped as PR #86.
+
+## 2026-07-15 — Issue #87: error-event docstring omits last_token (sibling of #85)
+
+#85 fixed the query-param line of the error-recovery route docstring but left the
+error-event data-shape line documenting `{"reason":"…"}` — while the simulated-drop
+path actually sends `{reason, last_token}`. That `last_token` is load-bearing: the
+client reads it off the error frame to resume from the exact drop position, and two
+tests depend on it. A reader following the docstring would resume from the lagging
+checkpoint fallback instead, reintroducing the duplicated-drop-seam #58 prevents.
+
+Fixed the docstring and extended the #85 doc-lock test to pin the documented
+error-event `last_token` against the route's drop-path `send`. Verified firsthand.
+
+Process note: nextjs CI runs `eslint .` with no prettier, and the committed route.ts
+isn't prettier-formatted — running prettier --write reformatted untouched pre-existing
+lines, so I reverted that and kept a minimal hand-edited diff.
+
+Why prioritized: sibling-incomplete-fix meta-lens on the Phase-A-merged #85, correctly
+scoped around the JT-gated #82 partial-json area.
