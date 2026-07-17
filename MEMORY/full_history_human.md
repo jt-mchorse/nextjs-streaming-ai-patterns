@@ -610,3 +610,17 @@ lines, so I reverted that and kept a minimal hand-edited diff.
 
 Why prioritized: sibling-incomplete-fix meta-lens on the Phase-A-merged #85, correctly
 scoped around the JT-gated #82 partial-json area.
+
+## 2026-07-17 — Issue #89: README SSE envelope contract drift
+
+The README's headline paragraph claimed all five patterns share one
+`data: {kind, ...}` SSE envelope and every client tags events by `kind`. That's
+only true for the error-recovery pattern. Tool-use and partial-json tag their
+variants by the SSE `event:` field (event types), and stream-text just emits
+`data: {text}` — which is exactly the mechanism D-006 decided ("client unions
+over event types, dispatches in one place"). So the code was correct per D-006
+and the README's phrasing was the drift; I checked D-005/D-006 first to be sure I
+wasn't papering over a real code violation. Rewrote the paragraph to describe the
+event-type mechanism (with `kind` noted as the checkpoint pattern's own
+discriminator) and added a code-tied lock test mirroring the #85 doc-drift lock.
+architecture.md was already accurate, so it's untouched. Shipped as PR #90.
