@@ -21,10 +21,12 @@ file, read from disk by a Server Component at request time (D-004),
 so what you see is exactly what runs — no copy-paste-and-rot.
 
 Five patterns ship today. The contract that ties them together is one
-SSE transport (D-005, D-006): every route handler emits the same
-`data: {kind, ...}` envelope, every client tags events by `kind` and
-dispatches in one place. AbortController propagates end-to-end (D-007),
-so interruption is a browser primitive all the way down.
+SSE transport (D-005, D-006): every route handler emits `data: <json>`
+frames, tagged by the SSE `event:` field, so each client unions over the
+event types and dispatches in one place (D-006). The checkpoint pattern
+additionally carries a `kind` discriminator inside its default data frames.
+AbortController propagates end-to-end (D-007), so interruption is a browser
+primitive all the way down.
 
 - **Streaming text** (#1) — a route handler streams Anthropic's text
   deltas as SSE; the client reads via `ReadableStream` and progressively
