@@ -16,8 +16,17 @@ export const dynamic = "force-dynamic";
  * finish.
  */
 export async function GET(req: NextRequest): Promise<Response> {
+  // Use `new URL(req.url)` rather than `req.nextUrl` so the route works
+  // identically when called with a plain `Request` (the in-process test shape)
+  // and when called via the Next.js routing layer. `nextUrl` is a `NextRequest`
+  // extension and is `undefined` on a plain `Request`, so the property access
+  // threw an opaque `TypeError: Cannot read properties of undefined (reading
+  // 'searchParams')` before the handler did anything (#91). `error-recovery`
+  // has read its query param this way since #58; this was the last route that
+  // hadn't — see `test/api-routes-accept-plain-request.test.ts` for the lock.
+  const url = new URL(req.url);
   const prompt =
-    req.nextUrl.searchParams.get("prompt") ??
+    url.searchParams.get("prompt") ??
     "Write a short paragraph about why streaming output beats waiting for the whole message.";
 
   const encoder = new TextEncoder();

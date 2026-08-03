@@ -624,3 +624,37 @@ wasn't papering over a real code violation. Rewrote the paragraph to describe th
 event-type mechanism (with `kind` noted as the checkpoint pattern's own
 discriminator) and added a code-tied lock test mirroring the #85 doc-drift lock.
 architecture.md was already accurate, so it's untouched. Shipped as PR #90.
+
+## 2026-07-31 — `stream-text` threw on a plain `Request` (#91, PR #92)
+
+`error-recovery` has read its query param through `new URL(req.url)` since #58,
+carrying a comment that spells out why: `req.nextUrl` is a `NextRequest`
+extension, so a route reading it only works via the Next.js routing layer, not
+when handed a plain `Request`. `stream-text` kept `req.nextUrl` and therefore
+threw an opaque `TypeError: Cannot read properties of undefined (reading
+'searchParams')` before the handler did anything.
+
+The tell was already in the test suite: `error-recovery-route.test.ts` builds a
+plain `new Request(...)`, while `stream-text-route.test.ts` was forced to build a
+`NextRequest`. The in-process test shape that comment describes was available to
+one route and not the other, purely because of where the fix stopped. Sweeping
+all five routes confirmed `stream-text` was the last `req.nextUrl` site —
+`tool-use`, `partial-json` and `optimistic` touch only `req.signal` and
+`req.json()` — so this completes a uniform contract rather than shuffling the
+inconsistency along.
+
+Having now applied the same one-line fix twice, I locked the contract instead of
+waiting for a sixth route: a source scan over every `app/api/**/route.ts`,
+stripping comments first, since the routes *document* why they avoid `nextUrl`
+and that prose would otherwise trip the scan explaining it.
+
+A test-design note worth keeping. My first behavioral test asserted the streamed
+body contained the prompt, and it failed — the mock streamer emits a fixed
+fixture and ignores the prompt entirely, deliberately, because it is
+deterministic by design. Spying on `streamText` instead asserts the stronger
+property: the param actually reached the streamer, not merely that nothing threw.
+Verified the lock fails on the pre-fix tree and passes after; 355 tests green.
+
+The transferable lens: **a fix whose rationale is written into a comment is a
+high-yield sibling-hunt seed.** The comment states a general contract; grep its
+key phrase across sibling files and see which sites never got it.
