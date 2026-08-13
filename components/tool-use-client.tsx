@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { isAbortError, pumpSseFrames } from "@/lib/sse-stream";
+import { isAbortError, parseSseFrame, pumpSseFrames } from "@/lib/sse-stream";
 
 /**
  * Tool-use streaming UI (#2).
@@ -139,12 +139,10 @@ export function ToolUseClient() {
     }
 
     function handleFrame(frame: string): void {
-      let eventName = "message";
-      let dataLine = "";
-      for (const line of frame.split("\n")) {
-        if (line.startsWith("event: ")) eventName = line.slice(7).trim();
-        else if (line.startsWith("data: ")) dataLine += line.slice(6);
-      }
+      // `?? "message"` keeps this client's existing default event name; the
+      // shared parser reports a missing `event:` line as null (#93).
+      const { event, data: dataLine } = parseSseFrame(frame);
+      const eventName = event ?? "message";
       if (!dataLine) return;
       let payload: Record<string, unknown>;
       try {
