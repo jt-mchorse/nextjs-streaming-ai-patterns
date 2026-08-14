@@ -658,3 +658,19 @@ Verified the lock fails on the pre-fix tree and passes after; 355 tests green.
 The transferable lens: **a fix whose rationale is written into a comment is a
 high-yield sibling-hunt seed.** The comment states a general contract; grep its
 key phrase across sibling files and see which sites never got it.
+
+## 2026-08-13 — Four copies of the SSE frame parser, disagreeing four ways (#93)
+
+**Duration:** ~50 min · **Issue:** #93 · **PR:** #94
+
+This repo is a patterns reference for streaming in Next.js, and it shipped four inlined copies of the SSE frame parser — one per client. Extracting all four verbatim into a scratch file and running one input table through them side by side produced a three-way disagreement on four separate inputs. None of it was derivable by reading any single copy; it was visible only in the matrix.
+
+The space after a field name is optional in the SSE wire format, but three of the four tested for `"data: "` with the space, so a compact `data:{"x":1}` failed the test, left the buffer empty, and the whole frame was discarded — no throw, no log, nothing. `event:` without a space gave three different answers, one of them a default that matches no case in the downstream switch, which is a silent drop wearing a different hat. One client assigned where the other three appended, losing the first of two `data:` lines. And one never trimmed the value, so under CRLF framing the event name kept its carriage return and every equality check downstream failed.
+
+The pointer was sitting in `lib/sse-stream.ts`'s own docstring. That file exists because each client used to inline the *read loop*, they diverged, and #60 centralised it. The parser right next to that loop was left duplicated and drifted the same way. When a file exists because duplication caused a bug, it's worth asking what else was duplicated alongside it and never moved.
+
+Consolidating a function that has no single "pre-fix" version needs a different anti-vacuous check, so each divergence case was replayed against all four originals and asserted to fail on exactly the copies that had the bug. That pins the tests to real behaviour differences rather than to my reading of them.
+
+Two things left alone deliberately: multi-line `data:` is still joined without the spec's newline separator (all four agreed on that, and it's what makes a split JSON object reassemble), and each client keeps its own default event name, because that difference is load-bearing in the switch. Consolidate the parsing, not the policy.
+
+**Also spotted, not filed:** `pumpSseFrames` drops a trailing partial frame if a stream ends without a `\n\n`. Real, but not reachable from this repo's own routes.

@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { resumeTokenPosition } from "@/lib/checkpoint-stream";
 import { pluralizeCount } from "@/lib/plural";
 import { phaseOnFirstChunk, type RecoveryPhase } from "@/lib/recovery-phase";
+import { parseSseFrame } from "@/lib/sse-stream";
 
 type Phase = RecoveryPhase;
 
@@ -232,12 +233,10 @@ interface ParsedFrame {
 }
 
 function parseFrame(frame: string): ParsedFrame | null {
-  let event: string | null = null;
-  let dataLine = "";
-  for (const line of frame.split("\n")) {
-    if (line.startsWith("event: ")) event = line.slice("event: ".length);
-    else if (line.startsWith("data: ")) dataLine = line.slice("data: ".length);
-  }
+  // This client keeps `null` rather than "message" as its no-event-line
+  // default; that difference is load-bearing in the switch below, so it stays
+  // at the call site while the parsing itself is shared (#93).
+  const { event, data: dataLine } = parseSseFrame(frame);
   if (dataLine.length === 0) return null;
   try {
     return { event, data: JSON.parse(dataLine) };

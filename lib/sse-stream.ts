@@ -32,6 +32,66 @@ export function isAbortError(e: unknown): boolean {
  * (`interrupted` for an `AbortError`, otherwise `error`). A frame split across
  * multiple reads is buffered until its `\n\n` terminator arrives.
  */
+/** One parsed SSE frame. `event` is null when the frame carried no `event:` line. */
+export interface SseFrame {
+  readonly event: string | null;
+  /** Concatenated `data:` field values, or `""` when the frame carried none. */
+  readonly data: string;
+}
+
+/**
+ * Parse one `\n`-delimited SSE frame into its `event` and `data` fields.
+ *
+ * This existed in four inlined copies — one per streaming client — and they had
+ * diverged on four separate inputs (#93), three of them silently: a dropped
+ * frame produces no throw, no log, and no state change. That is the same drift
+ * `pumpSseFrames` was extracted to stop in #60; the parser beside it was simply
+ * left behind.
+ *
+ * The wire format's rules that the copies disagreed on:
+ *
+ * - **The space after the field name is optional.** `data:{"x":1}` is as legal
+ *   as `data: {"x":1}`, and exactly one leading space is stripped if present.
+ *   Three of the four copies used `startsWith("data: ")`, so the compact form
+ *   failed the test, left `dataLine` empty, and the whole frame was discarded.
+ * - **`data:` lines accumulate.** `error-recovery-client` assigned (`=`) where
+ *   the other three appended (`+=`), so a payload split across two `data:`
+ *   lines kept only the last line and then failed to parse.
+ * - **The value must be trimmed.** `error-recovery-client` did not, so under
+ *   CRLF framing the event name kept its `\r` and every `event === "..."`
+ *   comparison downstream silently failed.
+ * - **Comment lines (`: keepalive`) and unknown fields (`id:`, `retry:`) are
+ *   ignored.** All four already did this, but by falling through rather than
+ *   by saying so; it is explicit here.
+ *
+ * Multi-line `data:` is joined without a separator rather than with the spec's
+ * `\n`. All four copies agreed on that and it is what makes a JSON object split
+ * across `data:` lines reassemble, so it is preserved deliberately here rather
+ * than changed under cover of a divergence fix.
+ */
+export function parseSseFrame(frame: string): SseFrame {
+  let event: string | null = null;
+  let data = "";
+  for (const line of frame.split("\n")) {
+    // A leading colon marks a comment (the conventional keep-alive). Checked
+    // before field parsing because ": data: x" is a comment, not a data line.
+    if (line.startsWith(":")) continue;
+    const colon = line.indexOf(":");
+    if (colon === -1) continue;
+    const field = line.slice(0, colon);
+    // Strip exactly one optional space after the colon, then trim the rest, so
+    // CRLF framing does not leave a `\r` welded to the value.
+    let value = line.slice(colon + 1);
+    if (value.startsWith(" ")) value = value.slice(1);
+    value = value.trim();
+    if (field === "event") event = value;
+    else if (field === "data") data += value;
+    // `id:` and `retry:` are real SSE fields this repo has no use for, and any
+    // other field name is unknown. Both are ignored, as before.
+  }
+  return { event, data };
+}
+
 export async function pumpSseFrames(
   reader: ReadableStreamDefaultReader<Uint8Array>,
   onFrame: (frame: string) => void,

@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import { parseSseFrame } from "@/lib/sse-stream";
+
 interface StreamingTextClientProps {
   prompt: string;
 }
@@ -80,15 +82,11 @@ export function StreamingTextClient({ prompt }: StreamingTextClientProps) {
     };
 
     function handleFrame(frame: string): void {
-      let eventName = "message";
-      let data = "";
-      for (const line of frame.split("\n")) {
-        if (line.startsWith("event:")) {
-          eventName = line.slice("event:".length).trim();
-        } else if (line.startsWith("data:")) {
-          data += line.slice("data:".length).trimStart();
-        }
-      }
+      // This copy was already the most spec-correct of the four (optional
+      // space, trimmed value); the shared parser preserves that behaviour and
+      // adds accumulate-and-ignore-comments (#93).
+      const { event, data } = parseSseFrame(frame);
+      const eventName = event ?? "message";
       if (eventName === "done") {
         return;
       }
