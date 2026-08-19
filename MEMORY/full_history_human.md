@@ -736,3 +736,71 @@ from `lib/` is read for, and it's the argument #93 already accepted.
 Repo fact worth remembering: prettier is not CI-enforced here. 63 files already
 fail `npx prettier --check`; CI runs lint, typecheck, test and build only. I
 formatted my two files and left the rest alone.
+
+## 2026-08-19 — a lenient parser feeding a strict-looking check (#98)
+
+Grepping this repo for prose assertions turned up a one-line trailing comment
+in the error-recovery route: `const dropOnce = checkpoint === 0; // resume
+requests never drop`. Running a 15-row variant table of `?checkpoint=` values
+through the route in-process, printing frames / text-frames / event-kinds, was
+enough.
+
+```
+"0"        15  12  {data:14, error:1}    documented drop
+"5"       159 132  {data:158, done:1}    documented clean resume
+"999999"    1   0  {done:1}              <- 200 OK, demo shows nothing
+"1e5"     164 136  {data:163, done:1}    <- resumed from 1, not 100000
+"1e400"   164 136  {data:163, done:1}    <- resumed from 1
+"13.9"    150 124  {data:149, done:1}    <- resumed from 13
+```
+
+The route did `Number.parseInt(raw, 10)` and then checked
+`Number.isInteger(n) && n >= 0`. That check reads like validation and can never
+be false for a numeric *prefix* string, because `parseInt` has already thrown
+the rest away. The general shape is worth remembering: **when a lenient parser
+feeds a strict-looking check, the check is decorative.** `abc`, `""`, `NaN`,
+`-3` and `0x10` all clamped to 0 correctly; the prefix class was the one shape
+neither validated nor clamped, and it produced a *different, plausible*
+position with no signal.
+
+The worse half was `?checkpoint=999999`: HTTP 200, one `event: done` frame,
+zero text frames. Well-formed SSE, correct status, and a demo whose entire
+point is showing recovered prose rendering nothing.
+
+**I got the scope wrong first and the test suite caught it.** My filed proposal
+also put an upper bound in `checkpoint-stream`'s `validateOptions`. I built it,
+and it turned a named existing test red: "startAfter beyond TOTAL_TOKENS yields
+no text events and no checkpoints." That test is right, so I reverted the
+library half and posted a correction on the issue before shipping.
+
+The distinction is the interesting part, and it generalises. `validateOptions`'
+existing *lower* bounds reject values that make the generator do something
+**actively wrong** — `dropAfter = 0` fires the drop on the first text event,
+contradicting its own docstring. An out-of-range *upper* value is a coherent
+no-op: "yield the tokens after n" with `n >= TOTAL_TOKENS` correctly yields
+nothing. A lower bound and an upper bound are not automatically the same kind
+of guard, and the 200-with-zero-text is an operator-input problem, so the clamp
+belongs at the operator-input boundary — the route.
+
+I wrote a test asserting *why* the library needs no upper bound, including that
+`dropAfter` past the end still means "no drop", so a future author reading only
+the route fix doesn't "complete" it in the library. That turns "I didn't change
+that one" into a recorded decision.
+
+Two smaller details. `Number.isSafeInteger`, not `isInteger`:
+`Number("99999999999999999999")` is `1e20`, which `isInteger` reports true for
+while no longer being the value typed. And the `TOTAL_TOKENS` boundary is
+inclusive on purpose — resuming past the last token is reachable from a clean
+run that dropped on the final token, and getting that off by one would turn a
+real resume into a spurious replay.
+
+Every test asserts frame counts and event kinds rather than exceptions, because
+the `999999` case produced a perfectly valid 200 and an exception-shaped
+assertion would have missed the whole defect.
+
+One hunt was declined and is recorded so it isn't refiled: `parseSseFrame`
+trims the `data` value as well as the event name, which *would* lose a
+meaningful space if a JSON payload were split across `data:` lines at one. All
+four in-repo routes emit `JSON.stringify(...)` on a single line, so it is
+unreachable — consistent with the earlier "declined as churn" note on the same
+seam.
