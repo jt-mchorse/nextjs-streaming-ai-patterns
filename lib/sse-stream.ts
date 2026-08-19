@@ -98,10 +98,39 @@ export async function pumpSseFrames(
 ): Promise<void> {
   const decoder = new TextDecoder();
   let buf = "";
+  // A `\r` at the very end of a chunk is held back rather than normalized in
+  // place: we cannot yet tell whether it is a lone-CR terminator or the first
+  // half of a `\r\n` whose `\n` arrives in the next read. Normalizing it
+  // eagerly would turn `...\r` + `\n...` into `\n\n` and manufacture a frame
+  // boundary that isn't in the stream — the same read-straddling class the
+  // existing "separator split across two reads" case covers.
+  let carriageCarry = "";
   while (true) {
     const { value, done } = await reader.read();
     if (done) break;
-    buf += decoder.decode(value, { stream: true });
+    // Normalize line terminators before searching for the separator (#95).
+    //
+    // The WHATWG SSE spec ends a line with ANY of `\r\n`, `\n`, or `\r`, so a
+    // blank line — the event separator — has three byte forms. `indexOf("\n\n")`
+    // finds exactly one of them: a CRLF blank line is `\r \n \r \n`, which
+    // contains no adjacent `\n\n`. Pre-fix, a CRLF- or CR-framed body therefore
+    // accumulated every byte in `buf`, never entered the inner loop, and
+    // resolved SUCCESSFULLY having called `onFrame` zero times. The component
+    // landed on its normal completion path with no content and no error.
+    //
+    // That was not a hypothetical: `parseSseFrame` below was deliberately
+    // hardened for CRLF in #93 ("under CRLF framing the event name kept its
+    // `\r`"), and that fix could never fire, because this layer could not
+    // deliver a CRLF frame for it to parse. Normalizing here — rather than
+    // matching all three separators — makes the two layers agree and keeps the
+    // parser's `\r` trim harmless rather than load-bearing.
+    let chunk = carriageCarry + decoder.decode(value, { stream: true });
+    carriageCarry = "";
+    if (chunk.endsWith("\r")) {
+      carriageCarry = "\r";
+      chunk = chunk.slice(0, -1);
+    }
+    buf += chunk.replace(/\r\n|\r/g, "\n");
     let idx: number;
     while ((idx = buf.indexOf("\n\n")) !== -1) {
       const frame = buf.slice(0, idx);
@@ -109,4 +138,27 @@ export async function pumpSseFrames(
       onFrame(frame);
     }
   }
+  // A held-back `\r` that never got its `\n` was a lone-CR terminator after
+  // all; the stream is over, so resolve it now. Done before the flush below so
+  // a body ending `...\r\r` still separates its last frame properly.
+  if (carriageCarry !== "") {
+    buf += "\n";
+    let idx: number;
+    while ((idx = buf.indexOf("\n\n")) !== -1) {
+      const frame = buf.slice(0, idx);
+      buf = buf.slice(idx + 2);
+      onFrame(frame);
+    }
+  }
+  // Anything still in `buf` here is an UNTERMINATED tail, and it is dropped
+  // deliberately — see the named contract test "does not emit a trailing
+  // partial frame with no terminator" in `test/sse-stream.test.ts`.
+  //
+  // Flushing it was tried as part of #95 and reverted: an unterminated tail
+  // means the stream was truncated mid-frame, so emitting it would hand
+  // `parseSseFrame` a half-written payload whose `data:` is very likely
+  // truncated JSON. Dropping is the conservative direction. Whether a
+  // truncated tail should instead surface as an *error* — rather than either
+  // being silently dropped or silently delivered — is a real design question,
+  // filed separately rather than decided here.
 }

@@ -674,3 +674,65 @@ Consolidating a function that has no single "pre-fix" version needs a different 
 Two things left alone deliberately: multi-line `data:` is still joined without the spec's newline separator (all four agreed on that, and it's what makes a split JSON object reassemble), and each client keeps its own default event name, because that difference is load-bearing in the switch. Consolidate the parsing, not the policy.
 
 **Also spotted, not filed:** `pumpSseFrames` drops a trailing partial frame if a stream ends without a `\n\n`. Real, but not reachable from this repo's own routes.
+
+## 2026-08-14 — the parser was hardened for a wire format the pump couldn't deliver (#95)
+
+`pumpSseFrames` split the read buffer on the literal string `"\n\n"`. The SSE
+spec ends a line with any of `\r\n`, `\n`, or `\r`, so the event separator — a
+blank line — has three byte forms, and `indexOf("\n\n")` finds exactly one of
+them. A CRLF blank line is `\r \n \r \n`: no adjacent `\n\n` anywhere in it.
+
+The loss was total rather than partial. A CRLF- or CR-framed body yielded
+**zero** frames: every byte piled up in the buffer, the inner loop never ran,
+and the function resolved *successfully* having called `onFrame` zero times.
+The component landed on its normal completion path with no content and no
+error.
+
+This came out of a second-order sibling hunt on a PR merged during this same
+session's Phase A. #94 had just consolidated four inlined SSE frame parsers
+into one shared module, so I read the new module and asked what the layer above
+it does. The thread was a docstring: `parseSseFrame` trims its values
+*because*, in #93's words, "under CRLF framing the event name kept its `\r` and
+every `event === "..."` comparison downstream silently failed". A docstring
+that justifies a fix by naming a wire format is a claim that the wire format
+reaches it — and this one couldn't. The fix one layer down was unreachable.
+Worth keeping as a lens, particularly since this repo had come back empty on
+the previous two runs and the freshly-shipped diff is what broke the drought.
+
+The fix had a hazard of its own that nearly went in. Normalizing each decoded
+chunk with a plain `replace(/\r\n|\r/g, "\n")` is wrong across a read boundary:
+a chunk ending in `\r` followed by a chunk starting with `\n` becomes `\n\n`
+and manufactures a frame boundary that isn't in the stream. The chunk-final
+`\r` has to be held back until the next read resolves it, and an unresolved
+carry at end-of-stream is a lone-CR terminator after all. Three tests cover
+that straddle from both directions. The general rule: any per-chunk text
+normalization inside a streaming decoder needs the same carry treatment
+`TextDecoder`'s own `{stream: true}` gets — if the pattern you're rewriting can
+span two reads, you must buffer its prefix.
+
+I also built the wrong half first, and a named test caught it. The issue
+proposed flushing an unterminated trailing frame, and that turned
+`does not emit a trailing partial frame with no terminator` red. The test is
+right: a truncated tail is very likely truncated JSON, and delivering it would
+hand the parser a payload that either fails or, worse, parses into a partial
+object. So the flush was reverted, the separator fix kept, and the drop pinned
+in the new file too — including under CRLF framing, so the normalization can't
+quietly start flushing truncated tails. This is the same playbook as the
+pyasync#90 episode: grep the suite for a test that names the contract before
+calling it a bug.
+
+The real question underneath went to JT as #97, because it's a third option
+neither side currently takes — reject loudly rather than drop silently or
+deliver a partial. The sharp constraint there is that an abort *also* leaves a
+partial frame in the buffer, so a naive "throw on non-empty buf" would
+reclassify every Interrupt click as `error` instead of `interrupted`, which is
+exactly the regression #60 was fixed to prevent.
+
+Neither behaviour fires against this repo's own routes — every bundled SSE
+producer emits LF and terminates every frame. This is robustness against a
+conforming upstream, which is what a patterns library exporting these functions
+from `lib/` is read for, and it's the argument #93 already accepted.
+
+Repo fact worth remembering: prettier is not CI-enforced here. 63 files already
+fail `npx prettier --check`; CI runs lint, typecheck, test and build only. I
+formatted my two files and left the rest alone.
