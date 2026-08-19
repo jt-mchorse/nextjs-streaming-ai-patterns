@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 
 import {
   CheckpointStreamDropped,
+  TOTAL_TOKENS,
   streamCheckpoints,
 } from "@/lib/checkpoint-stream";
 
@@ -9,6 +10,62 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const DROP_AFTER_TOKENS = 12;
+
+/**
+ * Resolve `?checkpoint=` to a usable resume position, or 0.
+ *
+ * The route's posture has always been "anything invalid means a fresh
+ * request" — `abc`, `""`, `NaN`, `-3` and `0x10` all became 0 and took the
+ * documented drop branch. That posture is kept exactly. What changes is the
+ * one shape the previous code could not see (#98).
+ *
+ * It read `Number.parseInt(raw, 10)` and then checked
+ * `Number.isInteger(n) && n >= 0`. That check *looks* like validation and can
+ * never fail for a numeric-prefix string, because `parseInt` has already
+ * discarded the rest of it. Measured:
+ *
+ *   ?checkpoint=1e5    -> resumed from 1       (parseInt stops at the `e`)
+ *   ?checkpoint=1e400  -> resumed from 1
+ *   ?checkpoint=13.9   -> resumed from 13
+ *   ?checkpoint=5abc   -> resumed from 5
+ *   ?checkpoint=" 7 "  -> resumed from 7
+ *
+ * Each is a *different, plausible* position from the one the caller asked for,
+ * delivered with no signal. `Number("1e5")` is `100000` and `Number("13.9")` is
+ * `13.9`; the leniency is entirely `parseInt`'s prefix scan.
+ *
+ * Out-of-range is clamped here too. `startAfter > TOTAL_TOKENS` produced a 200
+ * with a single `event: done` frame and zero text frames — a well-formed
+ * response, a correct status, and a demo whose entire point is showing recovered
+ * prose rendering nothing. A demo endpoint should show the demo, so a nonsense
+ * value here means "start over", like every other nonsense value.
+ *
+ * The bound lives HERE and deliberately not in `checkpoint-stream`'s
+ * `validateOptions`. That guard rejects values that make the generator do
+ * something actively wrong (`dropAfter = 0` fires the drop on the *first* text
+ * event, contradicting its own docstring). An out-of-range upper value is a
+ * different class: `streamCheckpoints({ startAfter: n })` means "yield the
+ * tokens after n", and yielding nothing when `n >= TOTAL_TOKENS` is the coherent
+ * answer, which is what the named test "startAfter beyond TOTAL_TOKENS yields no
+ * text events and no checkpoints" pins. The route is the operator-input
+ * boundary; that is where a clamp belongs.
+ *
+ * `TOTAL_TOKENS` is exactly the boundary, inclusive: resuming past the *last*
+ * token is reachable from a clean run that dropped on the final token, and an
+ * empty-but-complete stream is the right answer there.
+ */
+function parseCheckpointParam(raw: string): number {
+  // A plain non-negative decimal integer literal and nothing else. Rejects the
+  // whole prefix class (`1e5`, `13.9`, `5abc`), surrounding whitespace, signs,
+  // and `0x`/`0b` forms — all of which fall through to 0, as they largely
+  // already did.
+  if (!/^\d+$/.test(raw)) return 0;
+  const n = Number(raw);
+  // `Number.isSafeInteger` rather than `isInteger`: a 20-digit literal parses to
+  // a float that is an "integer" but no longer the value that was typed.
+  if (!Number.isSafeInteger(n) || n > TOTAL_TOKENS) return 0;
+  return n;
+}
 
 /**
  * GET /api/error-recovery?checkpoint=N
@@ -38,8 +95,7 @@ export async function GET(req: NextRequest): Promise<Response> {
   // shape) and when called via the Next.js routing layer.
   const url = new URL(req.url);
   const checkpointRaw = url.searchParams.get("checkpoint") ?? "0";
-  const checkpointNum = Number.parseInt(checkpointRaw, 10);
-  const checkpoint = Number.isInteger(checkpointNum) && checkpointNum >= 0 ? checkpointNum : 0;
+  const checkpoint = parseCheckpointParam(checkpointRaw);
   const dropOnce = checkpoint === 0; // resume requests never drop
 
   const encoder = new TextEncoder();
