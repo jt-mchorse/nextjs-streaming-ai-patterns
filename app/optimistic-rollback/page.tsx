@@ -26,7 +26,7 @@ export default function OptimisticRollbackPage() {
         </p>
         <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--panel)] px-3 py-1 text-xs text-[var(--muted)]">
           <span className="inline-flex h-2 w-2 rounded-full bg-[var(--accent)]" />
-          <span>deterministic 50/50 oracle — both branches reproducible</span>
+          <span>deterministic oracle — first click succeeds, then 50/50; both branches reproducible</span>
         </div>
       </header>
 

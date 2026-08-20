@@ -44,7 +44,8 @@ primitive all the way down.
   `isComplete` flag so UI fields fade in from their skeletons as each
   slot first contains a value.
 - **Optimistic updates with rollback** (#4) — React 19 `useOptimistic` +
-  a deterministic 50/50 decision oracle keyed by `(id, click_count)` on
+  a deterministic decision oracle keyed by `(id, click_count)` — the first
+  click on an item always succeeds, subsequent clicks split 50/50 — on
   the server (D-010). Successes commit; failures roll back with a
   rendered reason and a border-flash animation. The rollback path is
   reproducible by construction, so the UX is testable, not aspirational.
@@ -143,7 +144,8 @@ tour's `TIMELINE` constant is the source of truth for what each
 recording covers: homepage → `/streaming-text` → `/tool-use`
 (with a mid-stream Interrupt click) → `/partial-json` →
 `/optimistic-rollback` (two clicks on a rollback item — the second
-hits the deterministic 50/50 oracle D-010 and triggers the rollback
+hits the deterministic oracle D-010 (first click succeeds, subsequent
+clicks 50/50) and triggers the rollback
 animation) → `/error-recovery` (the route handler always drops the
 first request, so the auto-resume pill is guaranteed). The mode pill
 in every page header makes the no-key mock mode (D-003) visible in
