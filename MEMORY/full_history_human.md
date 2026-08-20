@@ -804,3 +804,65 @@ meaningful space if a JSON payload were split across `data:` lines at one. All
 four in-repo routes emit `JSON.stringify(...)` on a single line, so it is
 unreachable — consistent with the earlier "declined as churn" note on the same
 seam.
+
+## 2026-08-20 — the page claimed 50/50 while a two-click session is 80/20 (#100)
+
+D-010's rationale has always stated the property correctly: first-click bias
+keeps the happy path visible, and *subsequent* clicks split 50/50. Every
+restatement but one dropped that qualifier — the lib header, an inline comment,
+two places in the README, two in `docs/architecture.md`, and the copy a visitor
+actually reads at `app/optimistic-rollback/page.tsx:29`. One UI label 28 lines
+below the wrong one, on the same page, had it right.
+
+Measured over the five demo ids, clicks 2..11 give 25/25 and clicks 2..1001
+give 2500/2500 — exactly even, so the hash half is genuinely exact. The
+unqualified claim was falsified entirely by the deliberate first-click bias
+that `decide` introduces a few lines below the comment asserting it. Clicks
+1..2 give 8/2: a visitor who clicks twice sees the rollback 20% of the time,
+while the file's own header says that path "can't be a rare event; it has to
+fire reliably enough for a casual visitor to observe it".
+
+The repo's own test already knew. It is named "approximately 50/50 over the
+demo ids × clicks 2..200 (first-click bias excluded)" — it had to exclude click
+1 to pass, and nothing propagated that back to the prose. When a test name
+carries an exclusion, the exclusion is evidence that an unqualified claim is
+false somewhere else.
+
+The second half of the issue was `decisionSplitOver` guarding `clickRange` and
+not `ids`, so the vacuous `{0, 0}` its own guard exists to prevent was still
+reachable through the other operand of the same product. That guard's comment
+states the reason and it applies verbatim. Degenerate *elements* were already
+covered — `[""]` and `[null]` both throw from `decide` — so it was only the
+empty container that slipped through, the same container-versus-element split
+as chunking-strategies-lab's metric-map guards.
+
+The lock matches a *family* of qualifier phrasings rather than one exact
+sentence, because pinning one string would just move the drift somewhere else,
+and it also asserts D-010's own wording still contains the phrase it is
+measuring against.
+
+Two process notes, both from the lock catching me. Its first regex matched
+"first click" with a space, and I had written "first-click" with a hyphen in
+my own new docstring — so it flagged a line that was actually correct. Run a
+new doc lock against the docs you just wrote, not only the ones you are fixing.
+It also flagged the `clickRange` guard comment, which mentions a "50/50 split"
+property test — a meta-reference, not a claim about the oracle. Rather than
+build an exemption mechanism I reworded the comment. A lock with no exemptions
+stays trustworthy.
+
+I deliberately did not change the split. The first-click bias is intentional
+and D-010 records why; the defect is the description, not the behaviour.
+Whether a casual visitor *should* see the rollback more often than 20% is a
+product question about the demo's teaching value, and it would be a D-010
+revisit with its own issue.
+
+**Why this work, this session:** the static `priority:high` queue was globally
+empty; this came from reading `lib/optimistic-decision.ts`'s prose claims and
+running them.
+
+**Open questions / blockers:** none new. `#97` and `#82` remain JT-gated
+decision-revisits.
+
+**Next session:** the numeric query-param sweep is closed here — `#98` fixed
+`error-recovery`'s `?checkpoint=`, and the other four API routes read no
+numeric params at all.
