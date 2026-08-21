@@ -866,3 +866,62 @@ decision-revisits.
 **Next session:** the numeric query-param sweep is closed here — `#98` fixed
 `error-recovery`'s `?checkpoint=`, and the other four API routes read no
 numeric params at all.
+
+---
+
+## 2026-08-21 — asking for a slow stream and getting an instant one (#102)
+
+The three mock streamers share a validation helper that rejects a delay of
+`NaN`, `Infinity`, or a negative number. Its comment explains why it exists: the
+32-bit `setTimeout` clamp. It names the hazard correctly and then guards only
+half of it.
+
+A *finite* delay of `2**31` or more hits exactly the same clamp. Measured across
+all three streamers: `2**31 - 2` and `2**31 - 1` are honoured and the stream
+stays pending; `2**31`, `2**32`, `5e9` and `MAX_SAFE_INTEGER` all deliver their
+first event in nought to four milliseconds. The cliff is precisely `2**31 - 1`.
+
+What makes this worse than a plain range bug is the direction. You ask for a
+very slow stream and you get an instantaneous one — the opposite of the request,
+with no error. `Infinity` at least failed loudly. `5e9` quietly dumped every
+token at once, which is the same broken-demo symptom the guard's own comment
+attributes to `NaN`. Node does print a `TimeoutOverflowWarning`, but to stderr,
+where the demo UI never sees it.
+
+Then there's the half I nearly missed. The helper checks `baseDelayMs` and
+`jitterMs` separately, but what actually reaches the timer is
+`baseDelayMs + floor(rand() * jitterMs)` — an operand the guard never inspects.
+So two individually legal options can combine into an illegal delay. With a base
+of 2147483598 and a jitter of 200, eleven runs in twelve collapsed to a
+millisecond and the twelfth honoured the delay. The same configuration works or
+breaks depending on a random draw, which is considerably harder to diagnose than
+something that always fails. The fix bounds the sum at construction, since
+`baseDelayMs + jitterMs` is the most it can ever reach.
+
+The most interesting part was that the guard's stated reason turned out to be
+factually wrong. It claimed `Infinity` "hung forever on the first sleep (~24-50
+day setTimeout clamp)". It doesn't — Node clamps `Infinity` to one millisecond,
+exactly like `NaN`, and it fires immediately. I've corrected the comment rather
+than deleting it, and recorded the measurement, because the wrong belief is
+plausibly the reason nothing capped delays from above: if you think large values
+are slow, putting a ceiling on them never occurs to you. A false reason produces
+a wrong scope.
+
+This also corrects a portfolio note. The `setTimeout` clamp was recorded as
+swept, with this repo marked clean — but that sweep covered the two retry
+helpers, and the streamers' validation family was never in scope. When a note
+says a repo is clean for a class, the question is which files the sweep actually
+enumerated.
+
+`checkpoint-stream.ts` genuinely isn't affected, and the test file says so:
+its validator guards integer indices into an event sequence, not delays, so
+they never reach a timer.
+
+Two probe mistakes worth remembering. My first timing run passed a `seed`, and
+`mockTextStream` skips the sleep entirely when a seed is set — so every value
+came back instant and looked clamped, including ones that aren't. The tell was
+that the supposedly-clamped row produced no overflow warning. And my first draft
+of the tests used `expect(() => stream(opts)).toThrow()`, which never fires:
+these are async generators, so the validator doesn't run until the first
+`next()`. Thirty-nine tests failed vacuously in the wrong direction before I
+noticed the repo already had the right idiom in its own suite.
