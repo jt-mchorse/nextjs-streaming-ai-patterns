@@ -52,23 +52,60 @@ const TOOL_ARGS_FULL = JSON.stringify({ city: "Austin", units: "celsius" });
 const TOOL_RESULT = { city: "Austin", condition: "sunny", temperature_c: 22 };
 
 /**
+ * Largest delay `setTimeout` honours. Above this Node warns
+ * `TimeoutOverflowWarning: ... does not fit into a 32-bit signed integer.
+ * Timeout duration was set to 1.` on stderr and fires after ~1 ms, so a
+ * deliberately-slow stream silently becomes an instantaneous one (#102).
+ *
+ * Measured, first event delivered with a 250 ms budget: `2**31 - 2` and
+ * `2**31 - 1` stay pending; `2**31`, `2**32`, `5e9` and `MAX_SAFE_INTEGER` all
+ * fire in 0-4 ms. The bound is the clamp itself, not a round number.
+ */
+const MAX_TIMEOUT_MS = 2 ** 31 - 1;
+
+/**
  * Validate `MockToolStreamOptions` at the entry of `mockToolStream` (#26).
  * Sibling to `validateOptions` in `mock-stream.ts` and `mock-json-stream.ts`.
  */
 function validateOptions(options: MockToolStreamOptions): void {
-  if (options.baseDelayMs !== undefined) {
-    if (!Number.isFinite(options.baseDelayMs) || options.baseDelayMs < 0) {
+  // The finiteness/sign checks below close the NaN and Infinity halves of the
+  // hazard. The comment on this guard has always named the 32-bit `setTimeout`
+  // clamp as the reason -- and a *finite* delay at or above `2**31` hits that
+  // same clamp, reproducing the NaN outcome exactly: every token dumped
+  // instantly, streaming UX silently broken. `Infinity` at least fails loud;
+  // `5e9` silently did the opposite of what was asked (#102).
+  for (const [field, value] of [
+    ["baseDelayMs", options.baseDelayMs],
+    ["jitterMs", options.jitterMs],
+  ] as const) {
+    if (value === undefined) continue;
+    if (!Number.isFinite(value) || value < 0) {
       throw new RangeError(
-        `MockToolStreamOptions.baseDelayMs must be a finite non-negative number; got ${options.baseDelayMs}`,
+        `MockToolStreamOptions.${field} must be a finite non-negative number; got ${value}`,
+      );
+    }
+    if (value > MAX_TIMEOUT_MS) {
+      throw new RangeError(
+        `MockToolStreamOptions.${field} must be <= ${MAX_TIMEOUT_MS} (2**31 - 1), the largest delay ` +
+          `setTimeout honours; above it the timer fires after ~1ms instead, turning a slow ` +
+          `stream into an instantaneous one; got ${value}`,
       );
     }
   }
-  if (options.jitterMs !== undefined) {
-    if (!Number.isFinite(options.jitterMs) || options.jitterMs < 0) {
-      throw new RangeError(
-        `MockToolStreamOptions.jitterMs must be a finite non-negative number; got ${options.jitterMs}`,
-      );
-    }
+  // `setTimeout` receives `baseDelayMs + floor(rand() * jitterMs)`, not either
+  // field alone, so the two checks above can both pass while the value that
+  // actually reaches the timer is over the clamp. Measured with
+  // `baseDelayMs=2147483598` and `jitterMs=200` -- both individually legal --
+  // 11 of 12 runs collapsed to ~1ms and 1 honoured the delay, the same config
+  // working or breaking on a jitter draw. Bound the maximum the sum can reach,
+  // at construction, rather than leaving it to chance at each token.
+  const maxDelay = (options.baseDelayMs ?? 0) + (options.jitterMs ?? 0);
+  if (maxDelay > MAX_TIMEOUT_MS) {
+    throw new RangeError(
+      `MockToolStreamOptions: baseDelayMs + jitterMs must be <= ${MAX_TIMEOUT_MS} (2**31 - 1); ` +
+        `got ${maxDelay}. Each field is individually in range, but setTimeout receives ` +
+        `their sum, and above the clamp it fires after ~1ms instead of waiting`,
+    );
   }
 }
 
