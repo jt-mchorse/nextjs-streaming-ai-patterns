@@ -39,7 +39,7 @@ nextjs-streaming-ai-patterns/
 │   ├── mock-json-stream.ts           ← deterministic partial-JSON token stream
 │   ├── sse-stream.ts                 ← shared SSE read-loop pump (pumpSseFrames/isAbortError)
 │   ├── partial-json.ts               ← incremental JSON parser (D-008)
-│   ├── optimistic-decision.ts        ← deterministic 50/50 oracle (D-010)
+│   ├── optimistic-decision.ts        ← deterministic oracle, 50/50 after click 1 (D-010)
 │   ├── checkpoint-stream.ts          ← checkpoint protocol (D-011)
 │   ├── recovery-phase.ts             ← error-recovery phase model (phaseOnFirstChunk)
 │   ├── plural.ts                     ← count-label pluralization helper (pluralizeCount)
@@ -156,7 +156,8 @@ distinct mechanism on top of the same SSE envelope (D-005, D-006).
   best-effort partial `value` plus an `isComplete` flag so UI fields fade
   in from their skeletons as each slot first contains a value.
 - **`app/optimistic-rollback/`** (#4) — React 19 `useOptimistic` + a
-  deterministic 50/50 decision oracle keyed by `(id, click_count)` on
+  deterministic decision oracle keyed by `(id, click_count)` — the first
+  click on an item always succeeds, subsequent clicks split 50/50 — on
   the server (`lib/optimistic-decision.ts`, D-010). Successes commit;
   failures roll back with a rendered reason and a border-flash
   animation. The rollback path is reproducible by construction.
