@@ -28,14 +28,20 @@
  *
  * Environment variables:
  *
- *   CAPTURE_PACE_MS   per-step wait in ms (default 250; smoke test
- *                     passes 0)
+ *   CAPTURE_PACE_MS   per-step wait in ms (default 250). Must be a
+ *                     non-negative integer written in plain decimal --
+ *                     `1e3` and `1_000` are rejected, not silently read
+ *                     as 1 (#104). Empty/whitespace-only is treated as
+ *                     unset.
  *   CAPTURE_HEADED    "1" to launch a visible browser; default
  *                     headless. Headed mode is what JT uses for final
  *                     recordings so the cursor is visible.
  *   CAPTURE_OUT       output path for the recorded video (default
  *                     docs/demo.webm)
  *   CAPTURE_BASE_URL  base URL to drive (default http://localhost:3000).
+ *                     Must be absolute; validated in `readOptions`, before
+ *                     a browser is launched. Empty/whitespace-only is
+ *                     treated as unset.
  *                     The script does NOT spawn the dev server — JT
  *                     runs `npm run dev` in another terminal first.
  *                     Keeping the lifecycle out of this script means a
@@ -117,25 +123,106 @@ export const TIMELINE: readonly DemoStop[] = [
   },
 ];
 
-interface CaptureOptions {
+export interface CaptureOptions {
   readonly baseUrl: string;
   readonly outPath: string;
   readonly headed: boolean;
   readonly paceMs: number;
 }
 
-function readOptions(argv: readonly string[]): CaptureOptions {
+export const DEFAULT_BASE_URL = "http://localhost:3000";
+export const DEFAULT_OUT_PATH = "docs/demo.webm";
+export const DEFAULT_PACE_MS = 250;
+
+/**
+ * Read an environment variable, treating a set-but-*empty* value as unset.
+ *
+ * `??` defaults on `null`/`undefined` only, so `CAPTURE_BASE_URL= npm run
+ * capture` — and an empty line in a `.env` file — reached `new URL()` with an
+ * empty string and threw a bare `TypeError: Invalid URL` (#104).
+ *
+ * `lib/anthropic-stream.ts` already does exactly this for `ANTHROPIC_MODEL`,
+ * and its reason transfers verbatim: "The pre-#32 shape passed an empty string
+ * verbatim to the SDK, which surfaced as an API error rather than failing loud
+ * against the local fallback." #32 was scoped to `lib/`; `scripts/` was never
+ * swept.
+ */
+function envOrDefault(name: string, fallback: string): string {
+  const raw = (process.env[name] ?? "").trim();
+  return raw.length > 0 ? raw : fallback;
+}
+
+/**
+ * A non-negative integer, or `null` if `raw` is not one.
+ *
+ * Deliberately not `Number.parseInt`. The guard's message has always said
+ * "must be a non-negative integer", and `parseInt` enforces no such thing --
+ * it consumes a numeric *prefix* and discards the rest. Measured (#104):
+ *
+ *     "250"      -> 250      "1e3"    -> 1        <- 1000x low
+ *     "250abc"   -> 250      "1_000"  -> 1        <- 1000x low
+ *     "+250"     -> 250      "12,000" -> 12       <- 1000x low
+ *     "  250  "  -> 250      "0x10"   -> 0
+ *                            "3.9"    -> 3
+ *
+ * `1e3` and `1_000` are the two natural ways to write "one thousand
+ * milliseconds", and both silently became **1 ms** -- in the one knob whose
+ * entire job is to slow each interaction down enough to be visible on camera.
+ * The capture races through every stop and produces unusable footage, with
+ * nothing in the log to say the value was misread.
+ *
+ * `3.9 -> 3` is rejected rather than truncated for the same reason: silently
+ * accepting a value the stated contract excludes is what this is fixing.
+ *
+ * `Number.isFinite` alone would not have caught any of the above, and could
+ * only ever have caught `NaN` -- `parseInt` cannot return `Infinity` -- so the
+ * old check read as broader than it was.
+ */
+function parseNonNegativeInt(raw: string): number | null {
+  if (!/^\+?\d+$/.test(raw.trim())) return null;
+  const n = Number(raw.trim());
+  return Number.isSafeInteger(n) && n >= 0 ? n : null;
+}
+
+export function readOptions(argv: readonly string[]): CaptureOptions {
   const headed =
     argv.includes("--headed") || process.env.CAPTURE_HEADED === "1";
-  const baseUrl = process.env.CAPTURE_BASE_URL ?? "http://localhost:3000";
-  const outPath = process.env.CAPTURE_OUT ?? "docs/demo.webm";
-  const paceRaw = process.env.CAPTURE_PACE_MS ?? "250";
-  const paceMs = Number.parseInt(paceRaw, 10);
-  if (!Number.isFinite(paceMs) || paceMs < 0) {
+  const baseUrl = envOrDefault("CAPTURE_BASE_URL", DEFAULT_BASE_URL);
+  const outPath = envOrDefault("CAPTURE_OUT", DEFAULT_OUT_PATH);
+
+  const paceRaw = envOrDefault("CAPTURE_PACE_MS", String(DEFAULT_PACE_MS));
+  const paceMs = parseNonNegativeInt(paceRaw);
+  if (paceMs === null) {
     throw new Error(
-      `CAPTURE_PACE_MS must be a non-negative integer; got ${paceRaw}`,
+      `CAPTURE_PACE_MS must be a non-negative integer in milliseconds; got ` +
+        `${JSON.stringify(paceRaw)}. Exponent and separator forms are not ` +
+        `accepted -- write 1000, not 1e3 or 1_000.`,
     );
   }
+
+  // Validated HERE rather than where it is used. `new URL(stop.slug,
+  // opts.baseUrl)` first runs inside `runCapture`'s loop -- after
+  // `chromium.launch()` and `context.newPage()` -- so an unusable base URL
+  // threw a bare `TypeError: Invalid URL` with a browser already live and a
+  // video recording context already open, and with nothing in the message
+  // naming the variable at fault. The pace guard above already demonstrates
+  // the right shape: fail in `readOptions`, before any of that (#104).
+  //
+  // Classified by attempting the parse rather than pattern-matched: the set of
+  // things `new URL` accepts as a base is exactly what matters here, and
+  // reimplementing it would carry false-positive risk on working setups where
+  // asking it carries none.
+  try {
+    new URL("/", baseUrl);
+  } catch {
+    const hint = /^[\w.-]+(:\d+)?(\/|$)/.test(baseUrl)
+      ? " (it looks like a scheme is missing -- try http://" + baseUrl + ")"
+      : "";
+    throw new Error(
+      `CAPTURE_BASE_URL must be an absolute URL; got ${JSON.stringify(baseUrl)}${hint}`,
+    );
+  }
+
   return { baseUrl, outPath, headed, paceMs };
 }
 
