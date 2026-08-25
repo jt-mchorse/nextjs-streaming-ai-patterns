@@ -925,3 +925,74 @@ of the tests used `expect(() => stream(opts)).toThrow()`, which never fires:
 these are async generators, so the validator doesn't run until the first
 `next()`. Thirty-nine tests failed vacuously in the wrong direction before I
 noticed the repo already had the right idiom in its own suite.
+
+---
+
+## 2026-08-24 — Issue #104: `CAPTURE_PACE_MS=1e3` silently meant 1 ms
+
+**What got done.** `scripts/capture_demo.ts::readOptions` reads three
+environment variables. None of them was covered — the smoke test validates
+`TIMELINE` against `app/page.tsx` and could not reach option parsing at all,
+because `readOptions` wasn't exported. The script's own header docstring claimed
+"smoke test passes 0" for `CAPTURE_PACE_MS`; nothing in `test/` referenced it.
+
+**The pace guard named a contract its parser didn't enforce.** The message has
+always said "must be a non-negative integer", and `Number.parseInt` enforces no
+such thing — it consumes a numeric *prefix* and discards the rest:
+
+```
+"250"     -> 250      "1e3"    -> 1        <- 1000x low
+"250abc"  -> 250      "1_000"  -> 1        <- 1000x low
+"+250"    -> 250      "12,000" -> 12       <- 1000x low
+"  250 "  -> 250      "0x10"   -> 0
+                      "3.9"    -> 3
+```
+
+`1e3` and `1_000` are the two natural ways to write "one thousand
+milliseconds", and both became **1 ms** — in the one knob whose entire job is to
+slow each interaction down enough to be visible on camera. The capture races
+through every stop and produces unusable footage, with nothing in the log to say
+the value was misread. Worth noting the paired `Number.isFinite` check could
+only ever have caught `NaN`, since `parseInt` cannot return `Infinity`; it read
+as broader than it was.
+
+**`??` does not default an empty string.** `process.env.X ?? "default"` defaults
+on `null`/`undefined` only, so `CAPTURE_BASE_URL= npm run capture` — and an
+empty line in a `.env` file — passed an empty string straight through:
+
+```
+""                 TypeError: Invalid URL
+"localhost:3000"   TypeError: Invalid URL     <- missing scheme
+```
+
+**The lateness was the harm, not the bad value.** That `TypeError` was thrown
+from inside `runCapture`'s loop — *after* `chromium.launch()` and
+`context.newPage()`, so a browser was live and a video recording context was
+open — and the message named neither the variable nor the script. Meanwhile the
+pace guard two feet away already demonstrated the right shape: throw in
+`readOptions`, before any of that. `CAPTURE_OUT=""` failed the other way,
+silently: `dirname("")` is `"."`, so Playwright recorded into the repository root
+and the closing line read `move/rename it to ` with nothing after it.
+
+**This class was already fixed one directory over.** `lib/anthropic-stream.ts`
+handles exactly this for `ANTHROPIC_MODEL`, and its comment states the reason in
+terms that transfer verbatim: "The pre-#32 shape passed an empty string verbatim
+to the SDK, which surfaced as an API error rather than failing loud against the
+local fallback." #32 was scoped to `lib/`; `scripts/` was never swept.
+
+**Two deliberate choices.** The URL is *classified* by attempting the parse
+rather than pattern-matched, because the set of things `new URL` accepts as a
+base is exactly what matters and reimplementing it would carry false-positive
+risk on working setups where asking carries none — the same posture as
+rag-production-kit's `--host` classifier. And the accepted rows (`"250"`,
+`"  250  "`, `"0"`, `"+250"`, `"1000"`) are pinned alongside the rejected ones: a
+value-domain fix that over-rejects is a different bug, not a stricter one.
+
+**Why this was prioritized.** `nextjs-streaming-ai-patterns` is a priority-tier
+repo (D-009) whose entire open queue is JT-gated decision-revisits, so the issue
+came from a firsthand probe. `scripts/` was the surface the last six PRs did not
+touch.
+
+**Tests.** 46 new (`test/capture-demo-options.test.ts`); 21 fail against a
+narrowed revert of the three behaviours. Suite 473 → 519 green, `tsc --noEmit`
+clean, `eslint` clean.
