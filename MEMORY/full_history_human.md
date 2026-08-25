@@ -996,3 +996,53 @@ touch.
 **Tests.** 46 new (`test/capture-demo-options.test.ts`); 21 fail against a
 narrowed revert of the three behaviours. Suite 473 → 519 green, `tsc --noEmit`
 clean, `eslint` clean.
+
+## 2026-08-25 — #95's CRLF fix had reached half the SSE clients (#106)
+
+**What got done.** `#95` fixed the SSE separator scan in `pumpSseFrames`: the
+spec ends a line with any of `\r\n`, `\n`, or `\r`, so the blank-line event
+separator has three byte forms and `indexOf("\n\n")` finds exactly one. Four
+client components read SSE, and only two used the pump. The other two carried
+their own pre-`#95` loop, and on a CRLF- or CR-framed body they discarded the
+entire stream — zero frames, no throw, no log. `streaming-text-client` then
+called `setStatus("done")` on an empty pane; `error-recovery-client` fell
+through to "connection closed mid-stream" and resumed forever against a stream
+that was arriving fine.
+
+**How it was found.** The import lines. Two clients import `isAbortError`,
+`parseSseFrame` *and* `pumpSseFrames`; two import `parseSseFrame` only. A shorter
+import list from a shared module is a cheap, high-signal tell that a site missed
+a centralization. `pumpSseFrames`'s own comment then confirmed the scope: it says
+normalizing there "makes **the two layers** agree", and there are four clients.
+
+**A design call changed mid-plan, and why.** The issue proposed migrating both
+components onto `pumpSseFrames`. Reading `error-recovery-client` closely showed
+that is the wrong shape: it returns from *inside* frame handling on `done` and
+`error` events, and wraps each individual `reader.read()` in its own `try` to
+tell a network drop from an SSE error frame. The pump has no early stop. What is
+actually duplicated is not the read loop but the **framing rules**, so those
+moved into `createSseFramer` and the pump became a thin loop over it. A component
+that needs its own control flow is not a reason to copy the rules.
+
+**Shipped a lock, not just a fix.** A test asserts that no file under
+`components/` scans for a separator itself — the check that would have caught
+this when `#95` shipped. It strips comments before matching, because the new
+explanatory notes quote the old shape, and a lock must not trip on the prose
+explaining its own fix.
+
+**Reachability, said plainly in the issue.** Every route in this repo emits
+`\n\n`, so the shipped demo never triggers it. That was equally true when `#95`
+was filed and fixed. The argument here is not a new hazard; it is that a fix
+already judged worth making landed at two of four sites.
+
+**Open questions.** Filed as #107, not worked: `parseSseFrame` trims each `data:`
+line *before* accumulating them, so a JSON payload split across two lines at a
+space reassembles without it — and still parses. Its docstring contains both
+halves of that contradiction, and the trim's stated reason is declared
+non-load-bearing by `pumpSseFrames`'s own comment.
+
+**Tests.** 60 new (`test/sse-framing-parity.test.ts`) over 8 bodies × 4 read
+chunk sizes, anchored to the measured pre-fix counts. Verified non-vacuous twice:
+appending one re-inlined `indexOf` line to a component fires the lock, and
+removing only the normalization regex turns 9 of 60 red. Suite 519 → 579 green,
+`tsc` clean, prettier clean.
