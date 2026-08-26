@@ -89,9 +89,17 @@ describe("parseSseFrame — locks on the canonical form this repo emits", () => 
 
   it("strips exactly one space, leaving any others in the value", () => {
     // Spec behaviour: one optional space is part of the framing, the rest is
-    // payload. (The trailing trim then removes it here, which is what the most
-    // correct of the four copies already did.)
-    expect(parseSseFrame("data:  x").data).toBe("x");
+    // payload.
+    //
+    // This assertion used to expect "x", with a parenthetical conceding that
+    // "the trailing trim then removes it here" -- i.e. it asserted the opposite
+    // of its own name and of the sentence above it. #107 removed the per-line
+    // trim from `data` because it was deleting whitespace at every multi-line
+    // split point, so the second space now survives and the test's name is
+    // true. The `event` field, which is what the trim was actually added for
+    // (#93), still gets the full trim; see the `event keeps the full trim`
+    // block in `sse-frame-data-accumulation.test.ts`.
+    expect(parseSseFrame("data:  x").data).toBe(" x");
   });
 
   it("reports an empty data value as empty, so callers still drop the frame", () => {
