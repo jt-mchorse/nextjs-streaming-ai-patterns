@@ -1046,3 +1046,59 @@ chunk sizes, anchored to the measured pre-fix counts. Verified non-vacuous twice
 appending one re-inlined `indexOf` line to a component fires the lock, and
 removing only the normalization regex turns 9 of 60 red. Suite 519 → 579 green,
 `tsc` clean, prettier clean.
+
+## 2026-08-26 — a trim that ran before the join it was meant to survive (#107)
+
+**What got done.** `parseSseFrame` trimmed every field value *before*
+accumulating `data:` lines, so a payload split across two lines lost whitespace
+at the seam — and the corrupted result still `JSON.parse`d cleanly, so a text
+delta just quietly lost a space. `event` keeps the full trim; `data` now strips a
+single trailing `\r` and nothing else.
+
+**This was a filed-but-unworked followup from the previous run,** not a fresh
+hunt. The repo had zero `priority:high` issues, two JT-gated decision-revisits,
+and one actionable `priority:med` — which a previous session had already measured
+in full. Check the followup list before hunting.
+
+**The defect shape: a per-item normalizer that runs before a join.** The trim ran
+per line, and the separator-less join is precisely what reassembles a split
+payload, so the normalizer ate exactly the bytes at the seams. Worth asking of
+any per-element cleanup: are these elements later concatenated?
+
+**The docstring carried both halves of the contradiction.** The trim is justified
+by a rule about `event` ("under CRLF framing the event name kept its `\r`"). Two
+paragraphs later, joining without a separator is justified as "what makes a JSON
+object split across `data:` lines reassemble, so it is preserved deliberately".
+A rule stated for one field and applied to all fields is the whole bug.
+
+**The strongest moment of the run: a pre-existing test blocked me, and its own
+name argued for my change.** The test is called *"strips exactly one space,
+leaving any others in the value"*. Its comment's first sentence says "one
+optional space is part of the framing, the rest is payload". Then a parenthetical
+concedes "the trailing trim then removes it here", and the assertion expects
+`"x"` rather than `" x"` — the opposite of its own title. I posted a correction
+on the issue before committing, named the edited assertion explicitly, kept the
+original wording, and added a note about what changed rather than rewriting it to
+look like it had always said that. And the anti-vacuous revert turns *that very
+assertion* red along with twelve others — which is what shows the edit is
+load-bearing rather than cosmetic. If you must edit a pre-existing assertion,
+show it going red under the revert.
+
+**Narrow a guard to its stated reason; don't delete it because the reason is
+covered elsewhere.** The trim existed for CRLF, and `#106` moved normalization
+into `createSseFramer`, whose own comment says that "keeps the parser's `\r` trim
+harmless rather than load-bearing". I could have deleted it outright. Keeping a
+single trailing-`\r` strip costs nothing and still protects a direct caller of
+the exported parser who never went through the framer.
+
+**One behaviour change, stated rather than hidden.** `data:` followed by three
+spaces used to trim to `""` and now yields `"  "`. I checked all four consumers:
+each guards with `!dataLine` and then `JSON.parse` inside a try/catch that
+returns on failure, so the frame is skipped either way — by the catch instead of
+by the emptiness guard. No in-repo route can emit that shape. Pinned as its own
+test.
+
+**Tests.** 28 new. Restoring the old per-line trim turns 13 of 43 red across both
+files, with 0 controls red: the mid-word split, the single-line trailing space,
+every `event keeps the full trim` row, and every canonical in-repo lock stay
+green. Suite 579 → 607, tsc and eslint clean.
