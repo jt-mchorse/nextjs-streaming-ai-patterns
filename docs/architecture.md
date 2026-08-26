@@ -37,7 +37,7 @@ nextjs-streaming-ai-patterns/
 │   ├── mock-stream.ts                ← deterministic text streamer
 │   ├── mock-tool-stream.ts           ← deterministic tool-use frames
 │   ├── mock-json-stream.ts           ← deterministic partial-JSON token stream
-│   ├── sse-stream.ts                 ← shared SSE read-loop pump (pumpSseFrames/isAbortError)
+│   ├── sse-stream.ts                 ← SSE framing seam (createSseFramer/pumpSseFrames/parseSseFrame/isAbortError)
 │   ├── partial-json.ts               ← incremental JSON parser (D-008)
 │   ├── optimistic-decision.ts        ← deterministic oracle, 50/50 after click 1 (D-010)
 │   ├── checkpoint-stream.ts          ← checkpoint protocol (D-011)

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { parseSseFrame } from "@/lib/sse-stream";
+import { createSseFramer, parseSseFrame } from "@/lib/sse-stream";
 
 interface StreamingTextClientProps {
   prompt: string;
@@ -49,24 +49,31 @@ export function StreamingTextClient({ prompt }: StreamingTextClientProps) {
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
-        let buffer = "";
+        // The wire-format rules live in `createSseFramer`, not here. This loop
+        // used to scan for `"\n\n"` itself, which is the pre-#95 shape: the SSE
+        // spec ends a line with any of `\r\n`, `\n`, or `\r`, so a CRLF- or
+        // CR-framed body contains no adjacent `\n\n` and this component
+        // discarded the ENTIRE stream — 0 frames, no throw, then `setStatus
+        // ("done")` on an empty pane. #95 fixed that in `pumpSseFrames`, which
+        // this component does not use, so the fix never reached it (#106).
+        //
+        // The read loop stays local because it has something to say: the
+        // `cancelled` check between reads. Only the framing is shared.
+        const framer = createSseFramer();
 
         while (true) {
           const { value, done } = await reader.read();
           if (done) break;
           if (cancelled) return;
-          buffer += decoder.decode(value, { stream: true });
-
-          // Parse SSE event-frames as they accumulate. Frames are separated by
-          // a blank line (\n\n); within a frame, we only care about `data:`
-          // and `event:` lines.
-          let sep: number;
-          while ((sep = buffer.indexOf("\n\n")) !== -1) {
-            const frame = buffer.slice(0, sep);
-            buffer = buffer.slice(sep + 2);
+          // Within a frame, we only care about `data:` and `event:` lines.
+          for (const frame of framer.push(
+            decoder.decode(value, { stream: true }),
+          )) {
             handleFrame(frame);
           }
         }
+        if (cancelled) return;
+        for (const frame of framer.flush()) handleFrame(frame);
         setStatus("done");
       } catch (err) {
         if (cancelled) return;

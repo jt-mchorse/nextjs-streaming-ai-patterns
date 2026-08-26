@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { resumeTokenPosition } from "@/lib/checkpoint-stream";
 import { pluralizeCount } from "@/lib/plural";
 import { phaseOnFirstChunk, type RecoveryPhase } from "@/lib/recovery-phase";
-import { parseSseFrame } from "@/lib/sse-stream";
+import { createSseFramer, parseSseFrame } from "@/lib/sse-stream";
 
 type Phase = RecoveryPhase;
 
@@ -96,7 +96,15 @@ export function ErrorRecoveryClient() {
 
     const reader = resp.body.getReader();
     const decoder = new TextDecoder();
-    let buffer = "";
+    // Framing rules come from the shared framer (#106). This loop previously
+    // split on `"\n\n"` itself — the pre-#95 shape — so a CRLF- or CR-framed
+    // body yielded zero frames and fell through to "connection closed
+    // mid-stream", triggering an endless resume cycle against a stream that was
+    // arriving fine. The read loop stays local: it has to classify each
+    // individual `reader.read()` failure as a network drop (reconnect) rather
+    // than an SSE `error` frame, and it returns early from inside frame
+    // handling on `done`/`error`, neither of which `pumpSseFrames` can express.
+    const framer = createSseFramer();
 
     while (true) {
       let read;
@@ -118,10 +126,9 @@ export function ErrorRecoveryClient() {
         scheduleResume();
         return;
       }
-      buffer += decoder.decode(read.value, { stream: true });
-      const frames = buffer.split("\n\n");
-      buffer = frames.pop() ?? "";
-      for (const frame of frames) {
+      for (const frame of framer.push(
+        decoder.decode(read.value, { stream: true }),
+      )) {
         if (frame.trim().length === 0) continue;
         const parsed = parseFrame(frame);
         if (!parsed) continue;
