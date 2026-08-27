@@ -59,7 +59,11 @@ export interface SseFrame {
  *   lines kept only the last line and then failed to parse.
  * - **The value must be trimmed.** `error-recovery-client` did not, so under
  *   CRLF framing the event name kept its `\r` and every `event === "..."`
- *   comparison downstream silently failed.
+ *   comparison downstream silently failed. That is a rule about `event`, and
+ *   applying it to `data` broke the accumulation two paragraphs down (#107):
+ *   the trim ran *per line, before accumulation*, so a payload split at a
+ *   space lost it. `event` keeps the full trim; `data` strips a single
+ *   trailing `\r` and nothing else.
  * - **Comment lines (`: keepalive`) and unknown fields (`id:`, `retry:`) are
  *   ignored.** All four already did this, but by falling through rather than
  *   by saying so; it is explicit here.
@@ -67,7 +71,10 @@ export interface SseFrame {
  * Multi-line `data:` is joined without a separator rather than with the spec's
  * `\n`. All four copies agreed on that and it is what makes a JSON object split
  * across `data:` lines reassemble, so it is preserved deliberately here rather
- * than changed under cover of a divergence fix.
+ * than changed under cover of a divergence fix. It only actually
+ * reassembles since #107 -- until then the per-line trim deleted whitespace at
+ * every split point, so this paragraph described a property the function did
+ * not have.
  */
 export function parseSseFrame(frame: string): SseFrame {
   let event: string | null = null;
@@ -79,13 +86,39 @@ export function parseSseFrame(frame: string): SseFrame {
     const colon = line.indexOf(":");
     if (colon === -1) continue;
     const field = line.slice(0, colon);
-    // Strip exactly one optional space after the colon, then trim the rest, so
-    // CRLF framing does not leave a `\r` welded to the value.
+    // Strip exactly one optional space after the colon -- spec behaviour, and
+    // the half of the old trim that was always right.
     let value = line.slice(colon + 1);
     if (value.startsWith(" ")) value = value.slice(1);
-    value = value.trim();
-    if (field === "event") event = value;
-    else if (field === "data") data += value;
+    if (field === "event") {
+      // Event names carry no meaningful surrounding whitespace, and the
+      // `event === "..."` comparisons the trim was added for (#93) are exactly
+      // this field. The full trim stays here.
+      event = value.trim();
+    } else if (field === "data") {
+      // A single trailing `\r` only (#107). The old `value.trim()` ran *per
+      // line, before accumulation*, so a payload split across two `data:`
+      // lines lost whitespace at the split point -- and the corrupted result
+      // still parsed cleanly, so a text delta just quietly lost a space:
+      //
+      //     data: {"text":"hello \ndata: world"}   ->  {"text":"helloworld"}
+      //     data: {"text":"hello\ndata:  world"}   ->  {"text":"helloworld"}
+      //     data: {"text":"hel\ndata: lo"}         ->  {"text":"hello"}  (correct)
+      //
+      // That contradicted the paragraph above, which says joining without a
+      // separator "is what makes a JSON object split across `data:` lines
+      // reassemble, so it is preserved deliberately". The trim broke the
+      // feature its own docstring preserves deliberately.
+      //
+      // Keeping the `\r` strip preserves what the trim's stated reason
+      // actually protects, for a direct caller of this exported function who
+      // did not come through `createSseFramer` -- which normalizes `\r\n` and
+      // `\r` to `\n`, and whose comment already says that normalization
+      // "keeps the parser's `\r` trim harmless rather than load-bearing".
+      // Since #106 every in-repo SSE reader goes through the framer, so no
+      // in-repo frame reaching here carries a `\r` at all.
+      data += value.endsWith("\r") ? value.slice(0, -1) : value;
+    }
     // `id:` and `retry:` are real SSE fields this repo has no use for, and any
     // other field name is unknown. Both are ignored, as before.
   }
