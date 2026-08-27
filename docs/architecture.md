@@ -37,6 +37,7 @@ nextjs-streaming-ai-patterns/
 │   ├── mock-stream.ts                ← deterministic text streamer
 │   ├── mock-tool-stream.ts           ← deterministic tool-use frames
 │   ├── mock-json-stream.ts           ← deterministic partial-JSON token stream
+│   ├── stream-delay.ts               ← one copy of the setTimeout-clamp guard the three mock streamers share (#110)
 │   ├── sse-stream.ts                 ← SSE framing seam (createSseFramer/pumpSseFrames/parseSseFrame/isAbortError)
 │   ├── partial-json.ts               ← incremental JSON parser (D-008)
 │   ├── optimistic-decision.ts        ← deterministic oracle, 50/50 after click 1 (D-010)
@@ -106,6 +107,19 @@ is the canonical Next 15 streaming endpoint. The Client Component is
 and yields `text_delta` events. If unset, it yields from
 `lib/mock-stream.ts`'s deterministic fixture with realistic per-token
 jitter (skipped when seeded for tests).
+
+The three mock streamers share one delay guard, in `lib/stream-delay.ts`.
+`setTimeout` clamps any delay over `2**31 - 1` to 1 ms, so a deliberately slow
+stream silently becomes an instantaneous one with only a `TimeoutOverflowWarning`
+on stderr (#102) — and the operand it clamps is `baseDelayMs + floor(rand() *
+jitterMs)`, not either field alone. That rule was inlined three times, and all
+three copies defaulted an omitted field to `0` in the sum while their generators
+defaulted it to a real delay, so the guard checked a smaller number than the one
+that reached the timer and approved exactly the config that overflows (#110).
+Each module now names its defaults once, and passes the same constants to the
+guard and to the generator, so the two cannot disagree by construction.
+`checkpoint-stream.ts` is deliberately not a caller: its options are integer
+indices into an event sequence and never reach `setTimeout`.
 
 Both branches yield the same `{ text: string }` shape, so the route
 handler never branches on mode. The page footer surfaces which mode

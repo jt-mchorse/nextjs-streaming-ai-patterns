@@ -19,6 +19,8 @@
  * client component honest.
  */
 
+import { validateDelayOptions } from "@/lib/stream-delay";
+
 export type ToolStreamEvent =
   | { type: "text_delta"; text: string }
   | { type: "tool_use_start"; tool_use_id: string; tool_name: string }
@@ -26,6 +28,7 @@ export type ToolStreamEvent =
   | { type: "tool_use_stop" }
   | { type: "tool_result"; tool_use_id: string; result: unknown }
   | { type: "message_stop"; stop_reason: "end_turn" | "interrupted" };
+
 
 export interface MockToolStreamOptions {
   /** Per-frame delay in ms. Default 30. */
@@ -51,62 +54,36 @@ const TOOL_USE_ID = "toolu_demo_01";
 const TOOL_ARGS_FULL = JSON.stringify({ city: "Austin", units: "celsius" });
 const TOOL_RESULT = { city: "Austin", condition: "sunny", temperature_c: 22 };
 
-/**
- * Largest delay `setTimeout` honours. Above this Node warns
- * `TimeoutOverflowWarning: ... does not fit into a 32-bit signed integer.
- * Timeout duration was set to 1.` on stderr and fires after ~1 ms, so a
- * deliberately-slow stream silently becomes an instantaneous one (#102).
- *
- * Measured, first event delivered with a 250 ms budget: `2**31 - 2` and
- * `2**31 - 1` stay pending; `2**31`, `2**32`, `5e9` and `MAX_SAFE_INTEGER` all
- * fire in 0-4 ms. The bound is the clamp itself, not a round number.
- */
-const MAX_TIMEOUT_MS = 2 ** 31 - 1;
 
 /**
- * Validate `MockToolStreamOptions` at the entry of `mockToolStream` (#26).
- * Sibling to `validateOptions` in `mock-stream.ts` and `mock-json-stream.ts`.
+ * Per-token delay applied when `baseDelayMs` is omitted.
+ *
+ * Read by the generator below AND passed to `validateDelayOptions`, so the
+ * guard models the value that actually reaches `setTimeout`. Before #110 the
+ * guard hard-coded `0` here while the generator used this number, and the
+ * config it approved was the one that overflowed the 32-bit clamp.
+ */
+const DEFAULT_BASE_DELAY_MS = 30;
+
+/** Jitter applied when `jitterMs` is omitted. Same two-readers rule (#110). */
+const DEFAULT_JITTER_MS = 30;
+
+/**
+ * Validate `MockToolStreamOptions`'s delay fields.
+ *
+ * The rule lives in `lib/stream-delay.ts` (#110). It was inlined here, in
+ * `mock-json-stream.ts` and in `mock-tool-stream.ts` as three byte-identical
+ * copies, and all three defaulted an omitted field to `0` while their
+ * generators defaulted it to a real delay -- one rule in three places is how
+ * a rule gets fixed in two of them. The `label` keeps the error messages
+ * byte-identical to the copy this replaces.
  */
 function validateOptions(options: MockToolStreamOptions): void {
-  // The finiteness/sign checks below close the NaN and Infinity halves of the
-  // hazard. The comment on this guard has always named the 32-bit `setTimeout`
-  // clamp as the reason -- and a *finite* delay at or above `2**31` hits that
-  // same clamp, reproducing the NaN outcome exactly: every token dumped
-  // instantly, streaming UX silently broken. `Infinity` at least fails loud;
-  // `5e9` silently did the opposite of what was asked (#102).
-  for (const [field, value] of [
-    ["baseDelayMs", options.baseDelayMs],
-    ["jitterMs", options.jitterMs],
-  ] as const) {
-    if (value === undefined) continue;
-    if (!Number.isFinite(value) || value < 0) {
-      throw new RangeError(
-        `MockToolStreamOptions.${field} must be a finite non-negative number; got ${value}`,
-      );
-    }
-    if (value > MAX_TIMEOUT_MS) {
-      throw new RangeError(
-        `MockToolStreamOptions.${field} must be <= ${MAX_TIMEOUT_MS} (2**31 - 1), the largest delay ` +
-          `setTimeout honours; above it the timer fires after ~1ms instead, turning a slow ` +
-          `stream into an instantaneous one; got ${value}`,
-      );
-    }
-  }
-  // `setTimeout` receives `baseDelayMs + floor(rand() * jitterMs)`, not either
-  // field alone, so the two checks above can both pass while the value that
-  // actually reaches the timer is over the clamp. Measured with
-  // `baseDelayMs=2147483598` and `jitterMs=200` -- both individually legal --
-  // 11 of 12 runs collapsed to ~1ms and 1 honoured the delay, the same config
-  // working or breaking on a jitter draw. Bound the maximum the sum can reach,
-  // at construction, rather than leaving it to chance at each token.
-  const maxDelay = (options.baseDelayMs ?? 0) + (options.jitterMs ?? 0);
-  if (maxDelay > MAX_TIMEOUT_MS) {
-    throw new RangeError(
-      `MockToolStreamOptions: baseDelayMs + jitterMs must be <= ${MAX_TIMEOUT_MS} (2**31 - 1); ` +
-        `got ${maxDelay}. Each field is individually in range, but setTimeout receives ` +
-        `their sum, and above the clamp it fires after ~1ms instead of waiting`,
-    );
-  }
+  validateDelayOptions(options, {
+    label: "MockToolStreamOptions",
+    baseDefault: DEFAULT_BASE_DELAY_MS,
+    jitterDefault: DEFAULT_JITTER_MS,
+  });
 }
 
 function makePrng(seed: number): () => number {
@@ -168,8 +145,8 @@ export async function* mockToolStream(
   options: MockToolStreamOptions = {},
 ): AsyncGenerator<ToolStreamEvent, void, unknown> {
   validateOptions(options);
-  const base = options.baseDelayMs ?? 30;
-  const jitter = options.jitterMs ?? 30;
+  const base = options.baseDelayMs ?? DEFAULT_BASE_DELAY_MS;
+  const jitter = options.jitterMs ?? DEFAULT_JITTER_MS;
   const seed = options.seed;
   const rand = seed !== undefined ? makePrng(seed) : Math.random;
   const signal = options.signal;
