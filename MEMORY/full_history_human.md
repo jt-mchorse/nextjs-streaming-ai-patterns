@@ -1102,3 +1102,49 @@ test.
 files, with 0 controls red: the mid-word split, the single-line trailing space,
 every `event keeps the full trim` row, and every canonical in-repo lock stay
 green. Suite 579 → 607, tsc and eslint clean.
+
+
+## 2026-08-27 - #110: a correct comment above an incorrect line
+
+`#102` capped the mock streamers' delays because `setTimeout` clamps anything
+over `2**31 - 1` to one millisecond: ask for a deliberately slow stream, get an
+instantaneous one, with a warning on stderr as the only clue. It also added a
+guard for the *sum*, and the comment it wrote is exactly right - `setTimeout`
+receives `baseDelayMs + floor(rand() * jitterMs)`, not either field alone, so
+both per-field checks can pass while the value reaching the timer is over the
+clamp.
+
+The line under that comment computed something else. The guard defaulted an
+omitted field to `0`; the generator defaults it to 30 (80 and 40 in the JSON
+streamer). So with `jitterMs` left out, the guard checked `MAX + 0` and passed,
+and the generator computed `MAX + floor(rand() * 30)` and overflowed on
+twenty-nine draws in thirty. Measured on the real modules, a requested delay of
+about 24.8 days delivered its first event after three milliseconds. A correct
+comment above an incorrect line is the hardest kind to see, because reading the
+comment satisfies you.
+
+The test file written for that guard could not have caught it. Every boundary
+case in it passes *both* fields - and with both present, `?? 0` and `?? 30` are
+the same expression. The one shape that separates them is an omitted field, and
+that is the shape it never constructs. This is the chunking-lab lesson one step
+over: an invariant test is only as wide as its input types, and "omitted versus
+present" is a shape, not a value.
+
+So the acceptance signal was that every pre-existing test passes unchanged, with
+no assertion edited. If the fix had moved a boundary for a config that already
+passed, it would have been the wrong fix.
+
+The defect was one quantity with two spellings, so the fix gives it one. Each
+module declares its defaults once and hands the same identifier to the guard and
+to the generator, which is a stronger property than "both were updated" - they
+cannot disagree at all now. The rule itself moved into one shared module,
+justified by the defect rather than by taste: three byte-identical copies, all
+wrong the same way, is what three copies does. The other triplicated helpers in
+those files stayed put, because they are duplicated but not wrong, and a bug fix
+is not the place to smuggle a refactor.
+
+Two documentation locks fired along the way and both were right to. The new
+module had to be named in the architecture doc, and the doc's symbol allow-list
+needed `setTimeout` and `TimeoutOverflowWarning` admitted - a list with a hard
+pin on its exact contents, so widening it had to be a reviewed edit. That is the
+second repo today where a symbol lock needed a runtime name let in.

@@ -231,6 +231,8 @@ const SOURCE_EXTS = [".ts", ".tsx"] as const;
 const EXTERNAL_SYMBOLS: ReadonlyArray<string> = [
   "ReadableStream", // web streams API (client incremental read)
   "useOptimistic", // React 19 hook (optimistic-rollback pattern)
+  "setTimeout", // web/Node timer API -- the 32-bit clamp the mock streamers bound (#110)
+  "TimeoutOverflowWarning", // the Node warning that clamp emits on stderr (#110)
 ] as const;
 
 // Return-object / result field names the doc legitimately references that are
@@ -365,7 +367,17 @@ describe("docs/architecture.md names only symbols that exist (#76 / portfolio-op
   it("EXTERNAL_SYMBOLS is the exact pinned set", () => {
     // Hard-pin so a future loose edit widening the external allow-list is a
     // conscious, reviewed change.
-    expect([...EXTERNAL_SYMBOLS]).toEqual(["ReadableStream", "useOptimistic"]);
+    expect([...EXTERNAL_SYMBOLS]).toEqual([
+      "ReadableStream",
+      "useOptimistic",
+      // Widened in #110, consciously: the architecture doc now describes the
+      // 32-bit `setTimeout` clamp and the `TimeoutOverflowWarning` Node emits
+      // at it. Both are runtime APIs, not repo declarations, which is exactly
+      // what this allow-list is for -- and the hard pin is what made adding
+      // them a reviewed edit rather than silent drift.
+      "setTimeout",
+      "TimeoutOverflowWarning",
+    ]);
   });
 
   it("DOC_FIELDS is the exact pinned set", () => {
