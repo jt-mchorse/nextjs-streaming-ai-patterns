@@ -1148,3 +1148,41 @@ module had to be named in the architecture doc, and the doc's symbol allow-list
 needed `setTimeout` and `TimeoutOverflowWarning` admitted - a list with a hard
 pin on its exact contents, so widening it had to be a reviewed edit. That is the
 second repo today where a symbol lock needed a runtime name let in.
+
+## 2026-08-28 - issue #112: the lock that could not see a fourth copy
+
+No actionable filed issue here - two decision revisits and a manual video capture -
+so this was a hunt. Counting commits per module pointed at the quiet files, which
+were clean. The hit came from the opposite direction: the freshest file in the repo,
+the shared delay guard whose fix I merged this morning.
+
+That fix is good, and its test is thorough. But its comment claims something the
+test cannot do: that it is "the lock that a fourth copy cannot reintroduce the
+split". Every structural assertion iterates a literal three-entry table, so a fourth
+module is not checked - it is not seen.
+
+Proving it took two stages, and the second is the part worth remembering. I added a
+fourth module carrying the exact defect and the lock stayed green, but the full
+suite went red - on a different guard, for the unrelated reason that the new module
+was not named in the architecture doc. It would have been easy to read that as "the
+suite caught it". Adding one line to the doc took the whole suite to 631 passing
+with the defect sitting in the tree.
+
+The repo already had the right idiom, which is what made this worth filing rather
+than arguing about. The test guarding the sibling class - components re-inlining the
+frame scan - discovers its population from the directory and says so: a fifth client
+that pastes the loop again fails there. Six other tests discover too. The newest lock
+was the outlier.
+
+The refactor that made the fix testable was turning the rule into a predicate that
+returns named violations, rather than a series of inline assertions. That lets the
+anti-vacuous arm point the real rule at a constructed module, so the proof that the
+rule has teeth lives in the suite without committing a broken streamer. I pinned
+both directions, because a predicate that flagged everything would also make the
+main assertion meaningless.
+
+One correction along the way. I justified stripping comments before scanning by
+asserting that the three streamers quote the old shape while explaining the fix.
+They do not - only the shared guard does, and it is excluded from the scan. My own
+test went red on my own claim. I kept the test and reframed it to prove the
+mechanism on a constructed input, which is the version I can actually defend.
