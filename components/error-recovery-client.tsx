@@ -106,35 +106,24 @@ export function ErrorRecoveryClient() {
     // handling on `done`/`error`, neither of which `pumpSseFrames` can express.
     const framer = createSseFramer();
 
-    while (true) {
-      let read;
-      try {
-        read = await reader.read();
-      } catch (err) {
-        if (aborted.current) return;
-        // Network drop without an SSE error frame — reconnect.
-        setRecoveryReason(
-          `connection error: ${err instanceof Error ? err.message : String(err)}`,
-        );
-        scheduleResume();
-        return;
-      }
-      if (read.done) {
-        // Stream ended without `done` or `error` event — treat as
-        // unexpected EOF and reconnect.
-        setRecoveryReason("connection closed mid-stream");
-        scheduleResume();
-        return;
-      }
-      for (const frame of framer.push(
-        decoder.decode(read.value, { stream: true }),
-      )) {
+    /**
+     * Handle a batch of complete frames; `true` means the run is over and the
+     * caller must stop reading.
+     *
+     * One path for both the frames `push` returns and the frames `flush`
+     * returns (#114). Extracted rather than looping twice, because the
+     * `done`/`error` branches below `return` out of the whole run — a second
+     * bare loop over `flush()` would drop exactly those, which is the bug this
+     * fixes in a new place.
+     */
+    function handleFrames(frames: readonly string[]): boolean {
+      for (const frame of frames) {
         if (frame.trim().length === 0) continue;
         const parsed = parseFrame(frame);
         if (!parsed) continue;
         if (parsed.event === "done") {
           setPhase("done");
-          return;
+          return true;
         }
         if (parsed.event === "error") {
           const data = parsed.data as { reason?: string; last_token?: number };
@@ -149,7 +138,7 @@ export function ErrorRecoveryClient() {
             data.last_token,
           );
           scheduleResume();
-          return;
+          return true;
         }
         // Default — text or checkpoint event.
         const ev = parsed.data as
@@ -169,6 +158,41 @@ export function ErrorRecoveryClient() {
           lastCheckpoint.current = ev.last_token;
         }
       }
+      return false;
+    }
+
+    while (true) {
+      let read;
+      try {
+        read = await reader.read();
+      } catch (err) {
+        if (aborted.current) return;
+        // Network drop without an SSE error frame — reconnect.
+        setRecoveryReason(
+          `connection error: ${err instanceof Error ? err.message : String(err)}`,
+        );
+        scheduleResume();
+        return;
+      }
+      if (read.done) {
+        // Flush BEFORE concluding the stream ended badly (#114). The framer
+        // holds back a trailing `\r` — at a chunk boundary a lone-CR
+        // terminator is indistinguishable from the first half of a `\r\n` —
+        // and only `flush()` resolves it. On a CR-framed body the frame it
+        // still holds is the LAST one, which in this protocol is the `done`
+        // event: without this, a stream that completed correctly fell through
+        // to the branch below and resumed forever. That is the same symptom
+        // #95/#106 fixed, reached through the half of the framer contract
+        // adopting the shared framer left unchecked.
+        if (handleFrames(framer.flush())) return;
+        // Stream ended without `done` or `error` event — treat as
+        // unexpected EOF and reconnect.
+        setRecoveryReason("connection closed mid-stream");
+        scheduleResume();
+        return;
+      }
+      if (handleFrames(framer.push(decoder.decode(read.value, { stream: true }))))
+        return;
     }
   }
 
