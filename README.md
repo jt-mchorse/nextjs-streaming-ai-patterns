@@ -66,7 +66,7 @@ together).
 
 See [`docs/architecture.md`](docs/architecture.md) for the patterns
 catalog, the request flow, and the design decisions behind each one
-(D-002…D-012). Quick diagram:
+(D-002…D-013). Quick diagram:
 
 ```mermaid
 flowchart LR

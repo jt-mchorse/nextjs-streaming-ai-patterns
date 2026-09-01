@@ -73,6 +73,11 @@ export function StreamingTextClient({ prompt }: StreamingTextClientProps) {
           }
         }
         if (cancelled) return;
+        // Decoder before framer (#115, D-013) — see `pumpSseFrames`. All three
+        // SSE read paths carry this in the same order; the lock in
+        // `test/sse-framing-parity.test.ts` is what keeps the third one from
+        // being forgotten, which is the shape #114 was.
+        for (const frame of framer.push(decoder.decode())) handleFrame(frame);
         for (const frame of framer.flush()) handleFrame(frame);
         setStatus("done");
       } catch (err) {

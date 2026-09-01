@@ -38,7 +38,7 @@ nextjs-streaming-ai-patterns/
 │   ├── mock-tool-stream.ts           ← deterministic tool-use frames
 │   ├── mock-json-stream.ts           ← deterministic partial-JSON token stream
 │   ├── stream-delay.ts               ← one copy of the setTimeout-clamp guard the three mock streamers share (#110)
-│   ├── sse-stream.ts                 ← SSE framing seam (createSseFramer/pumpSseFrames/parseSseFrame/isAbortError)
+│   ├── sse-stream.ts                 ← SSE framing seam (createSseFramer/pumpSseFrames/parseSseFrame/isAbortError; decoder flush D-013)
 │   ├── partial-json.ts               ← incremental JSON parser (D-008)
 │   ├── optimistic-decision.ts        ← deterministic oracle, 50/50 after click 1 (D-010)
 │   ├── checkpoint-stream.ts          ← checkpoint protocol (D-011)
@@ -81,6 +81,29 @@ sequenceDiagram
   R-->>C: event: done\ndata: {}\n\n
   C->>B: stop cursor blink
 ```
+
+### Reading a stream: decoder, then framer (D-013)
+
+Every SSE reader in the repo runs the same two-step teardown, in this order:
+
+```ts
+for (const frame of framer.push(decoder.decode())) onFrame(frame); // decoder flush
+for (const frame of framer.flush()) onFrame(frame);                // framer flush
+```
+
+The framer flush resolves a held-back lone `\r` terminator, which is what
+#114 was about. The decoder flush releases a trailing incomplete UTF-8 sequence
+that `{ stream: true }` was holding for the rest of a codepoint that never
+arrived — as `U+FFFD` (#115).
+
+The second one changes no frame today, and that is measured rather than
+assumed: across LF/CRLF/CR-framed bodies with multibyte payloads, every
+byte-truncation of each, and read-chunk sizes {1, 2, 3, 5, whole}, the frames
+are identical either way. It is present because the bytes it recovers are the
+only evidence that a stream ended mid-character, and **#97** is open on whether
+a truncated tail should surface as an error rather than being dropped. The
+equivalence test is also the tripwire for that: the day the framer starts
+emitting its unterminated remainder, it goes red and points at D-013.
 
 ## Why a route handler instead of pure RSC streaming
 
