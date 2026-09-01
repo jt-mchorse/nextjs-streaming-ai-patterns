@@ -1186,3 +1186,18 @@ asserting that the three streamers quote the old shape while explaining the fix.
 They do not - only the shared guard does, and it is excluded from the scan. My own
 test went red on my own claim. I kept the test and reframed it to prove the
 mechanism on a constructed input, which is the version I can actually defend.
+
+## 2026-08-31 — Issue #114: `error-recovery-client` never flushed its SSE framer
+**Duration:** ~1 session block · **Branch:** `session/2026-08-31-0800-issue-114`
+
+- `createSseFramer` holds back a trailing `\r`, because at a chunk boundary a lone-CR terminator is indistinguishable from the first half of a `\r\n`, and only `flush()` resolves it. Two components drive the framer directly; only one of them flushed. Measured, a CR-framed body yields 2 frames with the flush and 1 without.
+- The dropped frame is always the **last** one, and in this component's protocol the last frame is the `done` event. Losing it doesn't shorten the pane — it falls through to "connection closed mid-stream" and schedules a resume, which is verbatim the symptom this component's own comment says #95/#106 fixed.
+- The per-frame body is now a `handleFrames` function returning "the run is over", so the flush frames take the same path as the push frames — including the early returns on `done` and `error`, which a second bare loop would have skipped. The flush runs *before* the "closed mid-stream" branch, because resolving the held frame is what decides whether the stream ended badly at all.
+- **Why nothing caught it:** the parity test's helper was introduced as "the structure both `streaming-text-client` and `error-recovery-client` now use", exercising "the same two calls in the same order" — a survey claim about two files where only one had been read. And the structural lock in the same file states its rule negatively ("does not re-inline the framing rules"), which a component satisfies by doing nothing at all. A negative lock catches a wrong adoption, never a partial one.
+- 11 new assertions, 635 → 646 green across 36 files. Removing the flush again turns the new positive lock red.
+
+**Why this work, this session:** the repo's three open issues are two decision-revisits and a demo capture, so the session hunted. The lens was the merged #106/#112 wording — a helper docstring claiming both components share a structure is a claim about files, and claims about files are testable.
+
+**Open questions / blockers:** none for this issue. #115 filed and deferred.
+
+**Next session:** #115 (decoder flush) if #97 is decided, since the two interact.
