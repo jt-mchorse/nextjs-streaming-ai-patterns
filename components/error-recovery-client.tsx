@@ -184,6 +184,10 @@ export function ErrorRecoveryClient() {
         // to the branch below and resumed forever. That is the same symptom
         // #95/#106 fixed, reached through the half of the framer contract
         // adopting the shared framer left unchecked.
+        // Decoder before framer (#115, D-013) — see `pumpSseFrames`. Both
+        // flushes feed `handleFrames`, so a `done` event released by either
+        // one still returns instead of falling through to the resume branch.
+        if (handleFrames(framer.push(decoder.decode()))) return;
         if (handleFrames(framer.flush())) return;
         // Stream ended without `done` or `error` event — treat as
         // unexpected EOF and reconnect.

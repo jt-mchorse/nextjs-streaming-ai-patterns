@@ -244,5 +244,19 @@ export async function pumpSseFrames(
       onFrame(frame);
     }
   }
+  // Flush the DECODER before the framer (#115). `{ stream: true }` holds back a
+  // trailing incomplete UTF-8 sequence waiting for the rest of it; if the body
+  // ended mid-codepoint those bytes are never emitted at all, so the framer
+  // never learns they existed. The argument-less call releases them as U+FFFD.
+  //
+  // Measured: this changes no frame today. Across LF/CRLF/CR-framed bodies with
+  // multibyte payloads, every byte-truncation of each, and read-chunk sizes
+  // {1,2,3,5,whole}, the frames emitted are identical with and without it — the
+  // held bytes only exist when the stream ended mid-codepoint, which means the
+  // framer is holding an unterminated tail, which `flush()` deliberately drops.
+  // It is here because it is free and provably neutral, and because #97 is open
+  // about whether that truncated tail should surface as an error: if it ever
+  // does, U+FFFD is the evidence, and it has to have survived to be it (D-013).
+  for (const frame of framer.push(decoder.decode())) onFrame(frame);
   for (const frame of framer.flush()) onFrame(frame);
 }

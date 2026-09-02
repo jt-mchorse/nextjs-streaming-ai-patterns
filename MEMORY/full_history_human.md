@@ -1201,3 +1201,32 @@ mechanism on a constructed input, which is the version I can actually defend.
 **Open questions / blockers:** none for this issue. #115 filed and deferred.
 
 **Next session:** #115 (decoder flush) if #97 is decided, since the two interact.
+
+## 2026-09-01 — Issue #115: flushing the decoder, and saying what that is worth
+**Branch:** `session/2026-09-01-0753-issue-115`
+
+- All three SSE readers decoded with `{ stream: true }` and never made the
+  final argument-less `decode()` call that releases a trailing incomplete
+  character. The issue reported that as bytes being dropped instead of becoming
+  a replacement character, and at the decoder that is exactly right.
+- At the layer anyone actually reads — frames — it turns out to change nothing.
+  Brute-forcing eight bodies across all three SSE separator forms, every
+  byte-truncation of each, and five read-chunk sizes produced zero differing
+  frame sequences, because the held bytes only exist when the stream ended
+  mid-character, and a stream that ended mid-character also ended mid-frame,
+  and the framer drops unterminated frames on purpose.
+- So the flush shipped anyway, on all three paths, with a decision (D-013) that
+  says out loud it fixes nothing today: it costs a line per path, the exhaustive
+  equivalence proves it safe rather than hopefully safe, and #97 is still open on
+  whether a truncated tail should be an error. If that ever becomes yes, the
+  replacement character is the evidence, and it has to have survived. The
+  equivalence test is the tripwire for exactly that day.
+
+**Why this work, this session:** #115 was split out of #114 last run and
+deliberately not ridden along; it was the repo's only open issue that was not a
+decision revisit, and its first acceptance criterion asked for precisely this
+measured judgement call.
+
+**Open questions / blockers:** #97 unchanged and still JT's call.
+
+**Next session:** #97 and #82 both need decisions; #16 is the demo capture.

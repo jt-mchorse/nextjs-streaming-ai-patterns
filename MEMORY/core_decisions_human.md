@@ -157,3 +157,24 @@ This is the same posture as the earlier deterministic-demo decisions: D-003 (the
 **Reversibility:** Cheap. If we later want the binary committed in this same PR's pattern, it's one `npm run capture` + `git add docs/demo.webm` + README embed away. The decision documents the *split*, not a hard line against binaries in the repo.
 
 **Related issues:** #12, #16
+
+## D-013 — Every SSE read path flushes its `TextDecoder`, even though it changes no frame today (2026-09-01)
+
+**Decision:** All three SSE read paths — `pumpSseFrames`, `streaming-text-client`, `error-recovery-client` — make the argument-less `decoder.decode()` call before flushing the framer. A structural lock in `test/sse-decoder-flush.test.ts` requires it of any file that decodes with `{ stream: true }`.
+
+**Why:** `TextDecoder` with `{ stream: true }` holds back a trailing incomplete UTF-8 sequence, waiting for the rest of it. If the body ends mid-codepoint those bytes are never emitted at all; the argument-less call releases them as `U+FFFD`. All three paths made the streaming call and never the flushing one (#115).
+
+The honest case for the change is layered, and the measurement is what makes it a decision rather than a reflex. At the decoder the difference is real: `"data: café"` cut mid-`é` decodes to `"data: caf"` streamed and `"data: caf�"` flushed. At the *frame* the difference is **nil**. Across eight bodies covering LF, CRLF and CR framing, lone-CR terminators and multibyte payloads, times every byte-truncation of each, times read-chunk sizes {1, 2, 3, 5, whole}, the frames emitted are identical with and without the flush — zero differing cases. The held bytes only exist when the stream ended mid-codepoint, which means the framer is holding an unterminated tail, which `flush()` deliberately drops.
+
+So this is not a bug fix and is not presented as one. It is adopted because it costs one line per path; because the exhaustive equivalence proves it *safe* rather than merely hoped-safe; and because #97 is open about whether a truncated tail should surface as an error rather than being silently dropped. If #97 ever says yes, `U+FFFD` is the evidence that bytes were lost — and it has to have survived to be it. The equivalence assertion doubles as the tripwire: the day `flush()` starts emitting the remainder, it goes red and points at this decision.
+
+One adjacent hazard was checked and is not a bug: `error-recovery-client` constructs its `TextDecoder` inside `run()`, so each resume gets a fresh one and no held bytes leak from an aborted stream into the next.
+
+**Alternatives considered:**
+- Leave it and wait for #97 — rejected: that leaves three files to remember at a moment when whoever decides #97 will be thinking about framing, not decoding.
+- Flush only in `pumpSseFrames` — rejected: that is exactly the partial-adoption shape #114 had just finished fixing in this same seam.
+- Also emit the framer's unterminated remainder — rejected: that is #97's question, and the `flush()` comment already owns it.
+
+**Reversibility:** Cheap. One line per read path and one structural test.
+
+**Related issues:** #115, #114, #97
