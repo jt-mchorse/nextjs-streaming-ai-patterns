@@ -1230,3 +1230,67 @@ measured judgement call.
 **Open questions / blockers:** #97 unchanged and still JT's call.
 
 **Next session:** #97 and #82 both need decisions; #16 is the demo capture.
+
+## 2026-09-02 — #118: the guard shipped yesterday had the defect it was written to catch
+
+#115 landed a structural lock: *no file decodes with `{ stream: true }` without
+also flushing*. It exists because #114 had just finished cleaning up a partial
+adoption in the same seam, and the point of a lock like that is to make the next
+partial adoption impossible.
+
+It discovered its population from a private listing of `["lib", "components"]`,
+one level deep. Two things sat outside it. `app/` — where every SSE route
+handler lives, and where a route proxying an *upstream* stream would decode one
+— was not scanned at all. And `readdirSync` returns one level, so anything
+nested inside `lib/` or `components/` would drop out silently: no error, no
+warning, just a smaller set, which reads exactly like a clean scan.
+
+Measured rather than argued. I dropped a decoder that uses `{ stream: true }`
+and never flushes into `app/api/_probe_route.ts` and into `lib/sub/_probe.ts`,
+then ran the lock: **14/14 passing, neither one seen.** Both probes removed
+afterwards.
+
+**The repo already had the right answer two files over.**
+`test/architecture-doc.test.ts` defines `SOURCE_DIRS = ["lib", "components",
+"app"]` and walks it recursively; `test/api-routes-accept-plain-request.test.ts`
+walks `app/api` recursively too. The new lock was the outlier. When a test needs
+to enumerate source files, look for the existing enumerator before writing one.
+
+So the fix is a *shared definition*, not a second correct copy:
+`test/support/source-files.ts` now owns `SOURCE_DIRS`, `SOURCE_EXTS` and the
+recursive walk, and both locks call it. Two locks with two populations is
+precisely how #114's partial adoption got past the guard that should have caught
+it, and having just paid for that once is a poor reason to set it up again.
+
+**I built the plausible wrong fix and rejected it.** Adding `"app"` to the
+still-flat listing looks like the one-word fix. Against `app/`'s nested layout
+it finds almost nothing while *looking* like coverage — worse than the honest
+gap, because it stops anyone from looking again.
+
+**And one thing I deliberately did not touch.** The anti-vacuous arm is a
+hand-written list of exactly the three real decoder paths. A hand-listed lock
+normally can't grow, and that's usually the bug — but here the list's job is to
+make a scan that matches *nothing* loud, and a legitimate fourth decoder turning
+it red is the guard working: it forces a human to look. Ask what a list is *for*
+before converting it to discovery. Under the anti-vacuous revert it stays green,
+which is correct — it is about the population's contents, not its size.
+
+A free bonus fell out of sharing: `architecture-doc.test.ts` already asserts
+"`SOURCE_DIRS` is the exact pinned set", so the decoder lock's population is now
+pinned too without writing a new assertion. Sharing a definition inherits its
+guards.
+
+Restoring the flat two-directory walk turns 5 assertions red — the four new
+population ones plus that pinned-set assertion. Suite 660 → 664; `eslint` and
+`tsc --noEmit` clean (the baseline was clean, and both unused-import warnings
+this introduced were removed).
+
+**Why this work, this session:** all three of this repo's other open issues are
+JT-gated decision-revisits (#97, #82) or the demo capture (#16). The lens was
+"a guard shipped yesterday is the freshest surface" — read the previous run's
+own new guards.
+
+**Open questions / blockers:** none. D-013 is untouched; this widens a guard's
+discovered population to match the one it already claimed.
+
+**Next session:** #97 and #82 both still need a JT decision.
