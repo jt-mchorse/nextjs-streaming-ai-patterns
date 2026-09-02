@@ -29,7 +29,11 @@
 
 import { describe, it, expect } from "vitest";
 import { readFileSync, existsSync, readdirSync } from "node:fs";
-import { resolve, join } from "node:path";
+import { resolve } from "node:path";
+// One definition of "where source lives", shared with the #115 decoder-flush
+// lock (#118). Two locks had two answers and the narrower one was scanning a
+// population smaller than it claimed.
+import { SOURCE_DIRS, SOURCE_EXTS, sourceFiles as relSourceFiles } from "./support/source-files";
 
 const ROOT = resolve(__dirname, "..");
 const ARCH_PATH = resolve(ROOT, "docs/architecture.md");
@@ -221,8 +225,6 @@ describe("docs/architecture.md is current with the shipped patterns", () => {
 // exception sets carry the rest: `EXTERNAL_SYMBOLS` (framework/web/SDK) and
 // `DOC_FIELDS` (return-object fields the doc names that aren't module symbols).
 
-const SOURCE_DIRS = ["lib", "components", "app"] as const;
-const SOURCE_EXTS = [".ts", ".tsx"] as const;
 
 // Framework / web / SDK identifiers the doc names in backticks that are NOT
 // repo declarations. Multi-word only (single-word Pascal like `Anthropic` /
@@ -279,18 +281,6 @@ function candidateSymbols(md: string): string[] {
 }
 
 /** Recursively collect `*.ts` / `*.tsx` files under a directory. */
-function sourceFiles(dir: string): string[] {
-  const abs = resolve(ROOT, dir);
-  if (!existsSync(abs)) return [];
-  const files: string[] = [];
-  for (const entry of readdirSync(abs, { withFileTypes: true })) {
-    if (entry.name === "node_modules" || entry.name.startsWith(".")) continue;
-    const full = join(abs, entry.name);
-    if (entry.isDirectory()) files.push(...sourceFiles(join(dir, entry.name)));
-    else if (SOURCE_EXTS.some((e) => entry.name.endsWith(e))) files.push(full);
-  }
-  return files;
-}
 
 /** Every top-level declaration name across the source dirs -- exported or
  *  internal. Matches `function`/`function*`, `const`/`let`/`var`, `class`,
@@ -302,8 +292,10 @@ function repoDeclaredSymbols(): Set<string> {
     /(?:^|\n)[ \t]*(?:export[ \t]+)?(?:default[ \t]+)?(?:async[ \t]+)?(?:function\*?|const|let|var|class|type|interface|enum)[ \t]+([A-Za-z_$][A-Za-z0-9_$]*)/g;
   const names = new Set<string>();
   for (const dir of SOURCE_DIRS) {
-    for (const file of sourceFiles(dir)) {
-      const text = readFileSync(file, "utf8");
+    for (const rel of relSourceFiles(dir)) {
+      // `relSourceFiles` returns repo-relative paths; the private walker this
+      // replaced returned absolute ones (#118).
+      const text = readFileSync(resolve(ROOT, rel), "utf8");
       for (const m of text.matchAll(decl)) names.add(m[1]);
     }
   }
