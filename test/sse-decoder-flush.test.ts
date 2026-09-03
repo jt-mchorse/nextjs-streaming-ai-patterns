@@ -24,12 +24,14 @@
  * survived to be it. The equivalence assertion below is also the tripwire: the
  * day `flush()` starts emitting the remainder, it goes red and points here.
  */
-import { readdirSync, readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
 import { createSseFramer } from "@/lib/sse-stream";
+import { readSourceFiles, SOURCE_DIRS } from "./support/source-files";
 
 const encoder = new TextEncoder();
 
@@ -195,16 +197,23 @@ describe("every SSE read path flushes its decoder", () => {
     return src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
   }
 
-  function sourceFiles(): Array<readonly [string, string]> {
-    const out: Array<readonly [string, string]> = [];
-    for (const dir of ["lib", "components"]) {
-      const base = join(process.cwd(), dir);
-      for (const name of readdirSync(base)) {
-        if (!name.endsWith(".ts") && !name.endsWith(".tsx")) continue;
-        out.push([`${dir}/${name}`, readFileSync(join(base, name), "utf8")]);
-      }
-    }
-    return out;
+  /**
+   * The population this lock scans (#118).
+   *
+   * Was a private listing of `["lib", "components"]`, one level deep. That
+   * misses two things: `app/`, where every SSE route handler lives and where a
+   * route proxying an upstream stream would decode one; and any subdirectory
+   * of `lib/` or `components/`, since `readdirSync` returns one level. Both
+   * were confirmed by dropping a non-flushing decoder into `app/api/` and into
+   * `lib/sub/` and watching this file stay green.
+   *
+   * `readSourceFiles` is the repo's shared answer, recursive over
+   * `SOURCE_DIRS` — the same walk `architecture-doc.test.ts` uses. Shared
+   * rather than copied: two locks with two populations is how the partial
+   * adoption in #114 slipped past the guard that was supposed to see it.
+   */
+  function sourceFiles(root?: string): Array<readonly [string, string]> {
+    return readSourceFiles(root);
   }
 
   it("no file decodes with { stream: true } without also flushing", () => {
@@ -232,5 +241,68 @@ describe("every SSE read path flushes its decoder", () => {
       "lib/sse-stream.ts",
     ]);
     expect(offenders).toEqual([]);
+  });
+
+  // The population is the thing #118 was about, so it gets its own assertions
+  // against real files on disk rather than reasoning about the walk. Each probe
+  // is the exact defect this lock exists to catch — a decoder using
+  // `{ stream: true }` that never makes the argument-less call — planted where
+  // the old private listing could not see it.
+  const PROBE = [
+    "export async function probe(body: ReadableStream<Uint8Array>) {",
+    "  const reader = body.getReader();",
+    "  const decoder = new TextDecoder();",
+    "  let out = '';",
+    "  for (;;) {",
+    "    const { done, value } = await reader.read();",
+    "    if (done) break;",
+    "    out += decoder.decode(value, { stream: true });",
+    "  }",
+    "  return out;",
+    "}",
+  ].join("\n");
+
+  /** Build a throwaway tree with the repo's source dirs and one planted file. */
+  function treeWith(relPath: string): string {
+    const root = mkdtempSync(join(tmpdir(), "flush-lock-"));
+    for (const dir of SOURCE_DIRS) mkdirSync(join(root, dir), { recursive: true });
+    const abs = join(root, relPath);
+    mkdirSync(join(abs, ".."), { recursive: true });
+    writeFileSync(abs, PROBE, "utf8");
+    return root;
+  }
+
+  it.each([
+    ["a route handler under app/", "app/api/upstream-proxy/route.ts"],
+    ["a nested module under lib/", "lib/streaming/decode.ts"],
+    ["a nested component", "components/panels/live-feed.tsx"],
+  ])("finds a non-flushing decoder in %s", (_label, relPath) => {
+    // Both of the first two were verified against the pre-#118 listing by
+    // planting them in the real tree: the lock passed 14/14 and never saw
+    // either. `app/` was absent from the dir list, and `readdirSync` returned
+    // one level so nothing nested was reachable.
+    const root = treeWith(relPath);
+    try {
+      const found = sourceFiles(root).map(([path]) => path);
+      expect(found).toContain(relPath);
+
+      const offenders = sourceFiles(root)
+        .filter(([, src]) => /\.decode\([^)]*\{\s*stream:\s*true\s*\}/.test(stripComments(src)))
+        .filter(([, src]) => !/\.decode\(\s*\)/.test(stripComments(src)))
+        .map(([path]) => path);
+      expect(offenders).toEqual([relPath]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("scans app/, which is where a stream-proxying route handler would decode", () => {
+    // Stated separately from the probes because it is true of the *real* tree
+    // and needs no fixture: today `app/` contributes files to the population
+    // even though none of them decodes yet. That is the difference between a
+    // guard that would catch the next one and a guard that would not.
+    const scanned = sourceFiles().map(([path]) => path);
+    expect(scanned.some((p) => p.startsWith("app/"))).toBe(true);
+    expect(scanned.some((p) => p.startsWith("app/api/"))).toBe(true);
   });
 });
