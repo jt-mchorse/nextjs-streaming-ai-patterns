@@ -1294,3 +1294,42 @@ own new guards.
 discovered population to match the one it already claimed.
 
 **Next session:** #97 and #82 both still need a JT decision.
+
+## 2026-09-04 — Issue #120: an id naming an `Object.prototype` member broke the response contract
+**Branch:** `session/2026-09-04-0746-issue-120` · **PR:** #121
+
+`IMPROVEMENTS` is an object literal, so `IMPROVEMENTS[id]` walks the prototype
+chain. The known-id test was a *proxy* for the question it meant: it asked "is
+the looked-up value falsy or zero-length" instead of "is this an own key". For
+an inherited `Object.prototype` member the proxy answers by **arity** —
+`toString` and `valueOf` have arity 0 and so took the intended fallback by
+accident, while `constructor` and `hasOwnProperty` have arity 1 and did not.
+
+The three broken rows returned `undefined` from a function declared to return
+`string`, and `JSON.stringify` drops an undefined value — so
+`POST /api/optimistic {"id":"constructor","click_count":1}` answered
+`200 {"ok":true}` with no `improved_name` key at all, against a route whose
+docstring promises `200 {ok: true, improved_name: string}`. A missing key is
+about the quietest contract break available. It needs one curl: the route
+validates `id` only as "a non-empty string".
+
+TypeScript structurally cannot catch this. `Record<string,
+ReadonlyArray<string>>` types the index access as present, so the only sign
+anyone had ever worried about it was the trailing `?? options[0]`.
+
+The neighbouring fix is the best one I have built this run: `id in IMPROVEMENTS`
+is the obvious spelling and changes **nothing**, because `in` walks the
+prototype chain too. Run against the new test file it fails 22 of 39 — the
+identical set to no fix at all. `Object.hasOwn` is the only one of the three
+obvious spellings that asks the right question.
+
+The test population is `Object.getOwnPropertyNames(Object.prototype)` rather
+than the five names I happened to find, with an anti-vacuous floor, so a member
+a future runtime adds is covered without editing the file. The two
+accidentally-correct rows are pinned separately: right answer for the wrong
+reason still has to stay the right answer.
+
+One negative result worth recording so it isn't re-hunted: I expected
+`ANTHROPIC_API_KEY` with a trailing newline to pass `getStreamMode`'s trim check
+and reach the SDK untrimmed, mirroring how `ANTHROPIC_MODEL` is handled. The SDK
+trims the key itself. Measured before filing anything.
