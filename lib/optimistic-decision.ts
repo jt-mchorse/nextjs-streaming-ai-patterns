@@ -117,10 +117,34 @@ export function decide(input: DecisionInput): Decision {
 }
 
 function pickImprovement(id: string, seed: number): string {
-  const options = IMPROVEMENTS[id];
-  if (!options || options.length === 0) {
+  // `Object.hasOwn`, not `IMPROVEMENTS[id]` truthiness (#120). `IMPROVEMENTS`
+  // is an object literal, so a bare index walks the prototype chain, and the
+  // old `!options || options.length === 0` test was a *proxy* for "is this a
+  // known demo id" that inherited members satisfy or not depending on their
+  // **arity**:
+  //
+  //   constructor     -> Object            .length 1         -> undefined
+  //   hasOwnProperty  -> function          .length 1         -> undefined
+  //   __proto__       -> Object.prototype  .length undefined -> undefined
+  //   toString        -> function          .length 0         -> fallback (by luck)
+  //   valueOf         -> function          .length 0         -> fallback (by luck)
+  //
+  // The three broken rows returned `undefined` from a function declared to
+  // return `string`, and `JSON.stringify` then dropped the key entirely, so
+  // `POST /api/optimistic {"id":"constructor","click_count":1}` answered
+  // `200 {"ok":true}` against a documented `{ok: true, improved_name: string}`.
+  // TypeScript could not see it: `Record<string, ReadonlyArray<string>>` types
+  // the index access as present.
+  //
+  // `id in IMPROVEMENTS` is NOT the fix — `in` walks the prototype chain too,
+  // so every row above is unchanged by it.
+  if (!Object.hasOwn(IMPROVEMENTS, id)) {
     // Custom id (e.g., in tests with arbitrary strings) — fall back to a
     // generic improved name that's still deterministic.
+    return `${id.replace(/\.[^.]+$/, "")}-improved.md`;
+  }
+  const options = IMPROVEMENTS[id];
+  if (!options || options.length === 0) {
     return `${id.replace(/\.[^.]+$/, "")}-improved.md`;
   }
   return options[seed % options.length] ?? options[0];
