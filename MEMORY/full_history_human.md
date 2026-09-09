@@ -1333,3 +1333,50 @@ One negative result worth recording so it isn't re-hunted: I expected
 `ANTHROPIC_API_KEY` with a trailing newline to pass `getStreamMode`'s trim check
 and reach the SDK untrimmed, mirroring how `ANTHROPIC_MODEL` is handled. The SDK
 trims the key itself. Measured before filing anything.
+
+## 2026-09-09 — Issue #122: the "every SSE reader in this repo" lock scanned one flat directory
+**Duration:** ~40 min · **Branch:** `session/2026-09-09-0710-issue-122`
+
+`test/sse-framing-parity.test.ts` opens with "Every SSE reader in this repo must
+frame a body the same way", and both of its structural locks enumerated
+`readdirSync(join(process.cwd(), "components"))`. A scope sentence and an
+enumeration two lines apart, and they denote different sets.
+
+The thing that made this decisive rather than arguable is that the repo already
+owned the right walk. #118 built `test/support/source-files.ts` one session
+earlier — recursive over `lib`, `components`, `app` — precisely because "two
+locks with two populations is how the partial adoption in #114 slipped past the
+guard meant to see it". It migrated the lock it was filed about and not the one
+next door. So I planted two probes in the real tree and ran both locks: the
+framing lock passed 71/71 and saw neither, while `sse-decoder-flush.test.ts`,
+three files away, reported the `app/api/` one immediately. A sibling that
+already sees your probe removes every argument about whether the probe was fair.
+
+Both locks now walk the shared population. Two details were worth getting right.
+`lib/sse-stream.ts` joins the `creators` list under the wider walk, and the lazy
+move is to filter it out to keep the list tidy — but `pumpSseFrames` genuinely
+builds a framer and genuinely flushes it, so a `pumpSseFrames` that stopped
+flushing is a real offender and it is pinned instead. And the re-inline lock now
+needs an exemption for the file that owns `buf.indexOf("\n\n")`; that exemption
+is matched by exact path, with the two plausible wrong spellings built and run
+rather than argued about. `path.includes("sse-stream")` excuses a
+`lib/sse-stream-proxy.ts` and `path.endsWith("sse-stream.ts")` excuses a
+`lib/sub/sse-stream.ts` — both re-inlined framing loops wearing an
+official-looking name. Each fails exactly one test, and that case is a committed
+fixture now.
+
+The anti-vacuous revert turns 10 of 83 red, and two rows stay green: one probe
+site sits inside the old flat `components/` population on purpose, so the revert
+shows the scan was *widened* rather than *moved*.
+
+**Why this work, this session:** all three of this repo's open issues are
+JT-gated (#97 and #82 are decision-revisits, #16 is a demo capture), so the hunt
+was the work. The freshest surface was the guard shipped two sessions ago, and
+the lock beside it had the defect that guard was created to prevent.
+
+**Open questions / blockers:** none for this issue. #123 carries the survey:
+three more locks still own private flat walks, and five copies of
+`stripComments` have already diverged into a strict and a lenient spelling.
+
+**Next session:** #123's first move is a probe per candidate, not a migration —
+two of the three are scoped rules where a flat walk may be correct.
