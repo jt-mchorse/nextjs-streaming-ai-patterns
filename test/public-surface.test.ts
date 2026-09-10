@@ -24,7 +24,8 @@
  * authoritative for this repo shape.
  */
 import { describe, it, expect } from "vitest";
-import { readFileSync, existsSync, readdirSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
+import { sourceFiles } from "./support/source-files";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -52,11 +53,19 @@ function loadPackageJson(): PackageJson {
 }
 
 function listLibModules(): string[] {
-  // Every `.ts` file directly under `lib/` is a public utility module
-  // (no nested subdirs today). We list them at test time rather than
-  // hard-coding the set so adding a new lib module doesn't silently
-  // bypass this test.
-  return readdirSync(LIB_DIR)
+  // Every `.ts` file under `lib/` is a public utility module. Listed at test
+  // time rather than hard-coded, so a new lib module cannot silently bypass
+  // this test.
+  //
+  // Recursive, via the shared walk (#123). The private `readdirSync(LIB_DIR)`
+  // this replaces returned one level, and its own comment said "no nested
+  // subdirs today" — which is a statement about the repo on the day it was
+  // written, not a property the scan enforces. Measured: a `lib/sub/` module
+  // exporting only types (the exact "a re-export silently broke" shape this
+  // rule exists to catch) left all 16 rows green; with the shared walk it is
+  // one named failure.
+  return sourceFiles("lib")
+    .map((rel) => rel.slice("lib/".length))
     .filter((f) => f.endsWith(".ts") && !f.endsWith(".d.ts"))
     .sort();
 }

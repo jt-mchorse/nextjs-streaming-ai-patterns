@@ -61,3 +61,46 @@ export function readSourceFiles(root: string = ROOT): Array<readonly [string, st
   }
   return out;
 }
+
+/**
+ * Strip comments so a source rule matches *code* and not prose (#123).
+ *
+ * Five locks each defined their own copy, and they had already diverged into
+ * two spellings:
+ *
+ *     sse-framing-parity, sse-decoder-flush, stream-delay-defaults
+ *       replace(SLASH ^\s*\/\/.*$ SLASH gm, "")  - whole-line comments only
+ *     streaming-client-cleanup, error-recovery-resume-seam
+ *       replace(SLASH \/\/[^\n]* SLASH g,  "")  - also trailing, after code
+ *
+ * `sse-decoder-flush.test.ts` said of its copy "Same comment-stripping rule
+ * `sse-framing-parity.test.ts` uses" — a parity claim in prose, true of that
+ * pair and false of the other three. Measured: the two spellings disagree on
+ * **18 of the repo's 30 source files**, so this was not academic.
+ *
+ * The rule is decided on the merits rather than by the majority spelling. A
+ * trailing `// ...` after code is prose, and for a lock stated as "must be
+ * PRESENT" the lenient spelling lets that prose satisfy the rule — a trailing
+ * `// we removed DEFAULT_BASE_DELAY_MS` keeps `stream-delay-defaults` green.
+ * That is a false PASS, and the direction that matters here, because these
+ * locks are mostly positive.
+ *
+ * So: strip trailing comments too, with one exception. A `//` preceded by `:`
+ * is a URL scheme, and the unguarded strict spelling truncates the rest of the
+ * line — measured, `app/layout.tsx` has exactly such a line today, and it is
+ * the only file in the repo where the guarded and unguarded strict spellings
+ * differ.
+ *
+ * Two limits are DECLARED rather than modelled, because a helper that pretends
+ * to lex is worse than one whose limits are written down:
+ *
+ *   - a protocol-relative URL (`"//cdn.example.com/x"`) is truncated;
+ *   - a `//` inside an ordinary string literal (`"a // b"`) is truncated.
+ *
+ * Neither is reachable in this repo, and `test/strip-comments.test.ts` pins
+ * both the known-wrong answers and the reachability assertions, so a
+ * declaration cannot quietly become a live bug.
+ */
+export function stripComments(src: string): string {
+  return src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/[^\n]*/g, "$1");
+}

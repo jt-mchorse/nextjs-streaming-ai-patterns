@@ -33,7 +33,8 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
+import { sourceFiles, stripComments } from "./support/source-files";
 import { join } from "node:path";
 
 import { mockJsonStream } from "@/lib/mock-json-stream";
@@ -148,10 +149,6 @@ describe("the shared guard itself", () => {
  * explanation of the fix as the defect. Same reason — and same helper shape —
  * as `test/sse-framing-parity.test.ts`.
  */
-function stripComments(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
-}
-
 /**
  * Every `lib/` module with a delay seam, discovered rather than listed.
  *
@@ -161,8 +158,17 @@ function stripComments(src: string): string {
  * remembering to add it here.
  */
 function delaySeamModules(): string[] {
+  // Recursive, via the shared walk (#123). The docstring above says a fourth
+  // mock streamer "is in scope the moment it has the field, without anyone
+  // remembering to add it here" — and that was true only of `lib/*.ts`.
+  // Measured: a `lib/streaming/` module with a `baseDelayMs` field and a
+  // duplicated `DEFAULT_BASE_DELAY_MS` — a direct #110 reintroduction — left
+  // all 27 rows green. Names stay relative to `lib/` so every caller's
+  // `join(cwd, "lib", file)` keeps working and a nested module reads as
+  // `streaming/foo.ts`.
   const dir = join(process.cwd(), "lib");
-  return readdirSync(dir)
+  return sourceFiles("lib")
+    .map((rel) => rel.slice("lib/".length))
     .filter((name) => name.endsWith(".ts") && name !== "stream-delay.ts")
     .filter((name) => {
       const code = stripComments(readFileSync(join(dir, name), "utf8"));

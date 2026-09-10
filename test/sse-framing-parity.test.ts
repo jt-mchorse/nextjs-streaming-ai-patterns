@@ -36,7 +36,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { createSseFramer, pumpSseFrames } from "@/lib/sse-stream";
-import { readSourceFiles, SOURCE_DIRS } from "./support/source-files";
+import { readSourceFiles, SOURCE_DIRS, stripComments } from "./support/source-files";
 
 const encoder = new TextEncoder();
 
@@ -48,10 +48,6 @@ const encoder = new TextEncoder();
  * by both structural checks below, so they cannot disagree about what counts as
  * code.
  */
-function stripComments(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
-}
-
 /**
  * The population the two structural locks at the bottom of this file scan (#122).
  *
