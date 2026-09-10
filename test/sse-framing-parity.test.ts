@@ -24,13 +24,19 @@
  * has to bring a dropped frame back rather than merely stop matching a
  * separator. `does not re-inline the framing rules` is the check that would
  * have caught the gap when `#95` shipped.
+ *
+ * The two structural locks at the bottom of this file scanned `components/`,
+ * one level deep, under that "every SSE reader in this repo" heading (#122).
+ * They now walk the repo's shared population instead — see `sourceFiles` below.
  */
-import { readdirSync, readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
 import { createSseFramer, pumpSseFrames } from "@/lib/sse-stream";
+import { readSourceFiles, SOURCE_DIRS } from "./support/source-files";
 
 const encoder = new TextEncoder();
 
@@ -44,6 +50,74 @@ const encoder = new TextEncoder();
  */
 function stripComments(src: string): string {
   return src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+}
+
+/**
+ * The population the two structural locks at the bottom of this file scan (#122).
+ *
+ * Was a private `readdirSync(join(process.cwd(), "components"))` inside each of
+ * them — one directory, one level deep — under a docstring that says "Every SSE
+ * reader in this repo". Those are not the same set. `app/api/` is where a route
+ * handler proxying an upstream stream would frame one, and `readdirSync`
+ * returns one level, so a `components/` subdirectory was invisible too.
+ *
+ * Both gaps were confirmed against the real tree before this changed: with a
+ * re-inlined pre-#95 loop planted at `app/api/_probe/route.ts` and a
+ * non-flushing framer at `components/_probesub/probe-client.tsx`, this file
+ * passed 71/71 and saw neither — while `sse-decoder-flush.test.ts`, three files
+ * away, reported the `app/` one immediately. That difference is the whole
+ * finding: the repo already owned the right walk and this lock was not using it.
+ *
+ * `readSourceFiles` is that walk — recursive over `SOURCE_DIRS`, shared with
+ * `sse-decoder-flush.test.ts` and `architecture-doc.test.ts` (#118). Shared
+ * rather than copied, for the reason #118 gives: two locks with two populations
+ * is exactly how the partial adoption in #114 got past the guard meant to see
+ * it, and a silently smaller population reads just like a clean scan.
+ */
+function sourceFiles(root?: string): Array<readonly [string, string]> {
+  return readSourceFiles(root);
+}
+
+/** The separator scan no file but the framer's own module may contain. */
+const SEPARATOR_SCAN = /\.(indexOf|split|lastIndexOf)\(\s*["'`]\\n\\n["'`]\s*\)/;
+
+/**
+ * The one file exempt from the re-inline lock, by exact path.
+ *
+ * `lib/sse-stream.ts` owns `buf.indexOf("\n\n")` — it is the definition every
+ * other file is pointed at, so it necessarily matches the forbidden pattern.
+ *
+ * Exact equality, deliberately: not `path.includes("sse-stream")`, which also
+ * exempts a `lib/sse-stream-proxy.ts`, and not a basename match, which also
+ * exempts a `lib/sub/sse-stream.ts`. Both of those are re-inlined framing loops
+ * wearing an official-looking name, which is the worst input this lock can get.
+ * Both are planted and asserted below rather than argued about here.
+ */
+const FRAMER_MODULE = "lib/sse-stream.ts";
+
+/** Files that build a framer, and the subset of them that never flush it. */
+function framerCreators(files: Array<readonly [string, string]>): {
+  creators: string[];
+  offenders: string[];
+} {
+  const creators: string[] = [];
+  const offenders: string[] = [];
+  for (const [path, src] of files) {
+    const code = stripComments(src);
+    if (!/createSseFramer\(/.test(code)) continue;
+    creators.push(path);
+    if (!/\.flush\(\)/.test(code)) offenders.push(path);
+  }
+  return { creators: creators.sort(), offenders: offenders.sort() };
+}
+
+/** Files that scan for the frame separator themselves, minus the one that owns it. */
+function reinliners(files: Array<readonly [string, string]>): string[] {
+  return files
+    .filter(([path]) => path !== FRAMER_MODULE)
+    .filter(([, src]) => SEPARATOR_SCAN.test(stripComments(src)))
+    .map(([path]) => path)
+    .sort();
 }
 
 function readerOf(
@@ -235,48 +309,170 @@ describe("SSE framing parity", () => {
     });
   });
 
-  it("every component that creates a framer also flushes it", () => {
+  it("every file that creates a framer also flushes it", () => {
     // The positive half of the rule. The lock below states it negatively — no
-    // component may scan for a separator itself — and a component satisfies
-    // that by doing nothing at all, which is how `error-recovery-client`
-    // half-adopted the shared framer and passed (#114). Stating what must be
-    // PRESENT is the form that catches a partial adoption.
-    const dir = join(process.cwd(), "components");
-    const creators: string[] = [];
-    const offenders: string[] = [];
-    for (const name of readdirSync(dir)) {
-      if (!name.endsWith(".tsx") && !name.endsWith(".ts")) continue;
-      const code = stripComments(readFileSync(join(dir, name), "utf8"));
-      if (!/createSseFramer\(/.test(code)) continue;
-      creators.push(name);
-      if (!/\.flush\(\)/.test(code)) offenders.push(name);
-    }
+    // file may scan for a separator itself — and a file satisfies that by doing
+    // nothing at all, which is how `error-recovery-client` half-adopted the
+    // shared framer and passed (#114). Stating what must be PRESENT is the form
+    // that catches a partial adoption.
+    const { creators, offenders } = framerCreators(sourceFiles());
     // Anti-vacuous: a scan that found no creators would satisfy the assertion
-    // below while checking nothing. Both components that drive the framer
-    // directly are named, so losing one is loud rather than silent.
-    expect(creators.sort()).toEqual([
-      "error-recovery-client.tsx",
-      "streaming-text-client.tsx",
+    // below while checking nothing. Every creator is named, so losing one is
+    // loud rather than silent.
+    //
+    // `lib/sse-stream.ts` joins the list with the wider population (#122), and
+    // it is PINNED rather than filtered out: `pumpSseFrames` genuinely builds a
+    // framer and genuinely flushes it, so a `pumpSseFrames` that stopped
+    // flushing is a real offender and should be reported here too. The result
+    // is the same three paths `sse-decoder-flush.test.ts` names, which is what
+    // one shared population buys — the two locks can no longer disagree about
+    // which files exist.
+    expect(creators).toEqual([
+      "components/error-recovery-client.tsx",
+      "components/streaming-text-client.tsx",
+      "lib/sse-stream.ts",
     ]);
     expect(offenders).toEqual([]);
   });
 
-  it("does not re-inline the framing rules in any component", () => {
+  it("does not re-inline the framing rules in any source file", () => {
     // The lock. `#95` fixed the separator scan in one place and two components
     // kept their own copies; nothing failed. A fifth client that pastes the
-    // loop again fails here instead of silently discarding CRLF streams.
-    const dir = join(process.cwd(), "components");
-    const offenders: string[] = [];
-    for (const name of readdirSync(dir)) {
-      if (!name.endsWith(".tsx") && !name.endsWith(".ts")) continue;
-      const src = readFileSync(join(dir, name), "utf8");
-      const code = stripComments(src);
-      if (
-        /\.(indexOf|split|lastIndexOf)\(\s*["'`]\\n\\n["'`]\s*\)/.test(code)
-      ) {
-        offenders.push(name);
+    // loop again fails here instead of silently discarding CRLF streams —
+    // whether it lands in `components/`, in a subdirectory of it, or in an
+    // `app/api/` route handler proxying an upstream stream.
+    expect(reinliners(sourceFiles())).toEqual([]);
+  });
+
+  it("the re-inline exemption points at one real file that really is exempt", () => {
+    // An exemption is a claim, and it has to keep being true. If the framer
+    // moves or `lib/sse-stream.ts` is renamed, the exemption becomes a hole
+    // pointing at nothing — and the lock would still be green, because a name
+    // that matches no file excludes no file. Both halves are asserted: the path
+    // resolves to exactly one file in the population, and that file does match
+    // the pattern it is excused from.
+    const owner = sourceFiles().filter(([path]) => path === FRAMER_MODULE);
+    expect(owner.map(([path]) => path)).toEqual([FRAMER_MODULE]);
+    expect(SEPARATOR_SCAN.test(stripComments(owner[0][1]))).toBe(true);
+  });
+
+  // The population is what #122 is about, so it gets assertions against files
+  // on disk rather than reasoning about the walk. Each probe is the exact
+  // defect one of the locks above exists to catch, planted where the old
+  // private `readdirSync("components")` could not see it. Built in a throwaway
+  // tree — the same shape `sse-decoder-flush.test.ts` uses — so proving the
+  // locks have teeth does not require committing a broken file to `lib/`.
+  const REINLINE_PROBE = [
+    'import { parseSseFrame } from "@/lib/sse-stream";',
+    "export async function probe(body: ReadableStream<Uint8Array>) {",
+    "  const reader = body.getReader();",
+    "  const decoder = new TextDecoder();",
+    '  let buf = "";',
+    "  for (;;) {",
+    "    const { done, value } = await reader.read();",
+    "    if (done) break;",
+    "    buf += decoder.decode(value, { stream: true });",
+    "    let idx: number;",
+    '    while ((idx = buf.indexOf("\\n\\n")) !== -1) {',
+    "      parseSseFrame(buf.slice(0, idx));",
+    "      buf = buf.slice(idx + 2);",
+    "    }",
+    "  }",
+    "}",
+  ].join("\n");
+
+  const NO_FLUSH_PROBE = [
+    'import { createSseFramer } from "@/lib/sse-stream";',
+    "export async function probe(body: ReadableStream<Uint8Array>) {",
+    "  const reader = body.getReader();",
+    "  const decoder = new TextDecoder();",
+    "  const framer = createSseFramer();",
+    "  const out: string[] = [];",
+    "  for (;;) {",
+    "    const { done, value } = await reader.read();",
+    "    if (done) break;",
+    "    out.push(...framer.push(decoder.decode(value, { stream: true })));",
+    "  }",
+    "  return out;",
+    "}",
+  ].join("\n");
+
+  /** Run *fn* against a throwaway tree holding the repo's source dirs and *files*. */
+  function withTree<T>(files: Record<string, string>, fn: (root: string) => T): T {
+    const root = mkdtempSync(join(tmpdir(), "framing-lock-"));
+    try {
+      for (const dir of SOURCE_DIRS) mkdirSync(join(root, dir), { recursive: true });
+      for (const [rel, body] of Object.entries(files)) {
+        const abs = join(root, rel);
+        mkdirSync(join(abs, ".."), { recursive: true });
+        writeFileSync(abs, body, "utf8");
       }
+      return fn(root);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
     }
-    expect(offenders).toEqual([]);
+  }
+
+  const PROBE_SITES: ReadonlyArray<readonly [string, string]> = [
+    ["a route handler under app/", "app/api/upstream-proxy/route.ts"],
+    ["a nested module under lib/", "lib/streaming/frame.ts"],
+    ["a nested component", "components/panels/live-feed.tsx"],
+    ["a component, the one site the old walk did cover", "components/live-feed.tsx"],
+  ];
+
+  it.each(PROBE_SITES)("finds a re-inlined separator scan in %s", (_label, relPath) => {
+    withTree({ [relPath]: REINLINE_PROBE }, (root) => {
+      expect(reinliners(sourceFiles(root))).toEqual([relPath]);
+    });
+  });
+
+  it.each(PROBE_SITES)("finds a framer that is never flushed in %s", (_label, relPath) => {
+    withTree({ [relPath]: NO_FLUSH_PROBE }, (root) => {
+      const { creators, offenders } = framerCreators(sourceFiles(root));
+      expect(creators).toEqual([relPath]);
+      expect(offenders).toEqual([relPath]);
+    });
+  });
+
+  it("the probe sites include three the flat components/ walk could not reach", () => {
+    // Anti-vacuous for the table itself: three of the four rows above are
+    // outside the old population, and the fourth is inside it deliberately —
+    // widening a scan must not lose what it already covered.
+    const outside = PROBE_SITES.filter(
+      ([, rel]) => !rel.startsWith("components/") || rel.slice("components/".length).includes("/"),
+    );
+    expect(outside).toHaveLength(3);
+    expect(PROBE_SITES.some(([, rel]) => rel === "components/live-feed.tsx")).toBe(true);
+  });
+
+  it("exempts the framer's module by exact path, not by name", () => {
+    // The two plausible wrong spellings, run rather than argued.
+    // `path.includes("sse-stream")` excuses the proxy; a basename match excuses
+    // the nested copy. Both are re-inlined framing loops under a name that
+    // looks official, so both wrong spellings fail exactly where it costs most.
+    withTree(
+      {
+        "lib/sse-stream.ts": REINLINE_PROBE,
+        "lib/sse-stream-proxy.ts": REINLINE_PROBE,
+        "lib/sub/sse-stream.ts": REINLINE_PROBE,
+      },
+      (root) => {
+        expect(reinliners(sourceFiles(root))).toEqual([
+          "lib/sse-stream-proxy.ts",
+          "lib/sub/sse-stream.ts",
+        ]);
+      },
+    );
+  });
+
+  it("scans app/, where a stream-proxying route handler would frame one", () => {
+    // True of the *real* tree and needing no fixture: today `app/` contributes
+    // files to the population even though none of them frames yet. That is the
+    // difference between a guard that would catch the next one and a guard that
+    // would not.
+    const scanned = sourceFiles().map(([path]) => path);
+    expect(scanned.some((p) => p.startsWith("app/api/"))).toBe(true);
+    expect(scanned.some((p) => p.startsWith("components/"))).toBe(true);
+    expect(scanned.some((p) => p.startsWith("lib/"))).toBe(true);
   });
 });
