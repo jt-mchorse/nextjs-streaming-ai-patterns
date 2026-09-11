@@ -1446,3 +1446,58 @@ worked, fully specified, and unblocked.
 **Open questions / blockers:** none. #123 is fully closed — four walks
 migrated, five comment-stripping copies removed, two rows closed as correct
 with their reasons recorded in an exemption list that has a rot check.
+
+## 2026-09-11 — a sixth copy of the comment stripper, and a lock counting names (#126)
+
+**What got done.** #123 consolidated five private copies of the `//`-comment
+stripper, chose the stricter rule, and kept the rejected spelling as a fixture
+called `LENIENT` under an explicit instruction: *"nothing should be able to reach
+for the lenient one again."* One file reached for it again, inlined and
+byte-identical — and the lock that exists for exactly this could not see it,
+because it matches `function stripComments` and the sixth copy was an anonymous
+`.replace(...).replace(...)` chain. It counts declarations of a function with that
+name; the claim it stands in for is how many implementations of the rule exist.
+
+The consequence is a lock that rejects correct code, and the polarity is what makes
+it so. #123 reasoned about the lenient spelling allowing a *false pass* on positive
+locks — prose satisfying an "X must be present" rule. This file's scan is negative:
+no route may mention `.nextUrl`, over routes that deliberately document why they
+avoid it. Leaving prose in a negative scan is a false *failure*. Measured: two
+realistic route shapes fail under the lenient rule and pass under the shared one,
+while both agree on a route that really does read `req.nextUrl`. It is latent only
+because every route's note happens to sit on its own line today.
+
+The file was also on the private-`readdirSync` allow-list, with the reason "private
+but already recursive". That reason was true and nothing enforced it — flatten the
+walk and the justification silently becomes false. The shared walker produces the
+identical five paths, so I removed the private walk and *deleted* the exemption
+rather than writing a test for its claim. Deleting the thing a claim is about beats
+enforcing the claim.
+
+**Three corrections to my own work, all caught by my own arms.** My first narrowing
+of the `LENIENT` exemption forbade `LENIENT(src)` and immediately went red on the
+existing, correct call — `src` there is a local string literal, and banning an
+identifier is a proxy for banning a file read. It now checks provenance instead.
+Then, drafting the lenient-versus-shared comparison next to the scan made a
+*seventh* copy, and the new rule-keyed arm caught it; the right answer was to move
+the comparison beside the fixture, not to exempt the file. And the rule-literal scan
+deliberately does not use `stripComments` to exclude comments, because
+`stripComments` truncates lines whose regex literals contain `\*\/` followed by a
+flag group — including its own definition. That is filed separately as #127.
+
+**The doc-symbol lock then fired, and the fix was the same lens a third time.** It
+reported `sourceFiles` and `stripComments` as unresolved, because its ground truth
+is `lib/ components/ app/`. Adding them to `EXTERNAL_SYMBOLS` would have been the
+identical wrong-unit mistake: that set means "not a repo declaration", and these are
+repo declarations. The ground truth widened to `test/support` instead — not all of
+`test/`, which would weaken the lock to "identifier appears anywhere" — and the
+widening is pinned.
+
+**Why this was prioritized.** All three of this repo's open issues are either
+operator-only or decision-revisits waiting on JT, so the work came from hunting, and
+the allow-list was the obvious place to look: being on it is exactly what makes a
+file the one the structural locks read least closely.
+
+**Open questions / blockers:** none for #126. #127 needs a decision on whether
+`stripComments` should keep dropping a line's suffix or refuse, which is a contract
+question rather than a bug fix.
