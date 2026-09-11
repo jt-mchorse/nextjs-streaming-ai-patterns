@@ -31,7 +31,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { createSseFramer } from "@/lib/sse-stream";
-import { readSourceFiles, SOURCE_DIRS } from "./support/source-files";
+import { readSourceFiles, SOURCE_DIRS, stripComments } from "./support/source-files";
 
 const encoder = new TextEncoder();
 
@@ -193,10 +193,6 @@ describe("adding the decoder flush changes no frame today", () => {
 
 describe("every SSE read path flushes its decoder", () => {
   /** Same comment-stripping rule `sse-framing-parity.test.ts` uses. */
-  function stripComments(src: string): string {
-    return src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
-  }
-
   /**
    * The population this lock scans (#118).
    *

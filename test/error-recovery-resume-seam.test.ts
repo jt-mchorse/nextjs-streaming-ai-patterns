@@ -17,12 +17,9 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { stripComments } from "./support/source-files";
 
 const CLIENT = resolve(__dirname, "..", "components", "error-recovery-client.tsx");
-
-function stripComments(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
-}
 
 describe("error-recovery resume-seam (#80)", () => {
   const src = stripComments(readFileSync(CLIENT, "utf-8"));

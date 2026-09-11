@@ -28,7 +28,7 @@
 //      bug.
 
 import { describe, it, expect } from "vitest";
-import { readFileSync, existsSync, readdirSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 // One definition of "where source lives", shared with the #115 decoder-flush
 // lock (#118). Two locks had two answers and the narrower one was scanning a
@@ -397,14 +397,23 @@ describe("docs/architecture.md names only symbols that exist (#76 / portfolio-op
 
 const TREE_DIRS = ["lib", "components"] as const;
 
-/** Basenames of the source modules directly under `dir` (these two dirs are
- *  flat), excluding test / declaration files. */
+/** Basenames of the source modules under `dir`, excluding test / declaration
+ *  files.
+ *
+ *  Recursive, via the shared walk (#123). This was the FOURTH private flat
+ *  walk in `test/` and #123's hand-written survey table did not list it — the
+ *  structural lock in `strip-comments.test.ts`, written for that issue,
+ *  discovered it. Its own comment used to say "these two dirs are flat",
+ *  which is a statement about the repo on the day it was written and not a
+ *  property the scan enforces. Measured: an unlisted `lib/streaming/` module
+ *  left all 20 rows green while the doc tree was silently incomplete — the
+ *  exact harm the block comment above describes for `lib/plural.ts`,
+ *  `lib/recovery-phase.ts` and `lib/sse-stream.ts`. */
 function moduleBasenames(dir: string): string[] {
   const abs = resolve(ROOT, dir);
   if (!existsSync(abs)) return [];
-  return readdirSync(abs, { withFileTypes: true })
-    .filter((e) => e.isFile())
-    .map((e) => e.name)
+  return relSourceFiles(dir, ROOT)
+    .map((rel) => rel.slice(rel.lastIndexOf("/") + 1))
     .filter((n) => SOURCE_EXTS.some((ext) => n.endsWith(ext)))
     .filter((n) => !/\.(test|d)\.tsx?$/.test(n))
     .sort();

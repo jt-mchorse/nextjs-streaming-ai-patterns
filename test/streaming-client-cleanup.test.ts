@@ -19,7 +19,8 @@
  * `partial-json-client` and `error-recovery-client` originally had.
  */
 import { describe, it, expect } from "vitest";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
+import { sourceFiles, stripComments } from "./support/source-files";
 import { resolve } from "node:path";
 
 const ROOT = resolve(__dirname, "..");
@@ -33,14 +34,16 @@ const COMPONENTS_DIR = resolve(ROOT, "components");
 // cleanup body can't push `.abort()` outside the proximity window.
 const UNMOUNT_ABORT = /return\s*\(\s*\)\s*=>[\s\S]{0,160}?\.abort\s*\(/;
 
-function stripComments(src: string): string {
-  return src
-    .replace(/\/\*[\s\S]*?\*\//g, "") // block comments
-    .replace(/\/\/[^\n]*/g, ""); // line comments
-}
-
 function listStreamingClients(): string[] {
-  return readdirSync(COMPONENTS_DIR)
+  // Recursive, via the shared walk (#123). #123 guessed this was the weakest
+  // of the three candidates because the `arrayContaining` floor below means it
+  // cannot go silently *empty*. It can go silently *short*: measured, a
+  // `components/sub/` client owning an AbortController with no unmount cleanup
+  // left all 9 rows green, and produces two named failures once the walk can
+  // see it. A floor stops a discovery collapsing to zero; it says nothing
+  // about a discovery that misses one.
+  return sourceFiles("components")
+    .map((rel) => rel.slice("components/".length))
     .filter((f) => f.endsWith(".tsx"))
     .filter((f) =>
       readFileSync(resolve(COMPONENTS_DIR, f), "utf-8").includes(

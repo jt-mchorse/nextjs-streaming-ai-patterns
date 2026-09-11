@@ -1380,3 +1380,69 @@ three more locks still own private flat walks, and five copies of
 
 **Next session:** #123's first move is a probe per candidate, not a migration —
 two of the three are scoped rules where a flat walk may be correct.
+
+---
+
+## 2026-09-10 — the lock written for the survey found the row the survey missed (#123)
+
+**Focus:** `test/support/source-files.ts` and the five source-scanning
+structural locks that had their own walks and their own comment-stripping.
+
+**What got done.** #123 was filed last night as a worklist with a measured hit
+rate rather than three bugs: two of its three candidates were described as
+scoped rules where a flat walk is defensible, and it asked for a planted probe
+per row before anything changed. So probes first, one per row, each in a
+subdirectory of the directory being scanned. All three went blind, and all
+three catch the probe once the walk can see it — so all three migrate.
+
+One of the guesses in the issue body was wrong in an instructive way. It called
+`streaming-client-cleanup` the weakest candidate because its `arrayContaining`
+floor of four named clients means the discovery cannot go silently *empty*. It
+can go silently *short*: a fifth client in `components/sub/` owning an
+AbortController with no unmount abort produces two named failures once the walk
+is recursive. An anti-vacuous floor is not a completeness check.
+
+**And there was a fourth row the survey did not have.** The structural lock I
+wrote *for* this issue — no test file walks source with a private `readdirSync`
+— found `architecture-doc.test.ts:405`, which #123's hand-written table does
+not list. Its own comment said "these two dirs are flat", which is a statement
+about the repo on the day it was written rather than a property the scan
+enforces; `public-surface` said "no nested subdirs today" in the same spirit.
+An unlisted `lib/streaming/` module left all 20 rows green while the
+architecture doc's tree was silently incomplete — the exact harm that file's own
+block comment describes having happened to `lib/plural.ts`,
+`lib/recovery-phase.ts` and `lib/sse-stream.ts`. Discover the population, do not
+list it — and this time the hand-list was mine, from last night.
+
+**The comment-stripping thread.** Five private copies, already diverged into
+two spellings, disagreeing on 18 of this repo's 30 source files. Decided on the
+merits rather than by majority: three of the five were lenient, and lenient is
+the wrong rule for a lock stated as "must be PRESENT", because a trailing
+comment mentioning the token satisfies it. The stricter rule has its own false
+positive, a URL scheme, and the colon guard that fixes it is load-bearing on
+this repo today — `app/layout.tsx` has a mid-line `https://` href, and dropping
+the guard turns two rows red. Two remaining limits are declared rather than
+modelled, each with a reachability assertion and an arm proving that assertion
+has teeth.
+
+**The honest scope of that half.** Reverting the shared rule to lenient turns
+four rows red, and all four are in the new test file. No consumer lock's verdict
+changes today. The false-pass path is latent, not live; what the consolidation
+buys now is one definition instead of five diverged ones. That is worth saying
+plainly rather than implying a live bug was fixed.
+
+**Two of my own checks were wrong first, and each taught something.** The
+`readdirSync` lock flagged six files that quote `readdirSync(...)` in a comment
+explaining a previous migration — a grep over source cannot tell a call from
+prose about a call. It now runs over `stripComments(text)`, which is the neatest
+possible argument for having consolidated that helper. And the `function
+stripComments` count matched this very file's own comment and regex literal: a
+check that names the thing it forbids will match itself.
+
+**Why this was prioritized.** No `priority:high` here, and the remaining
+`priority:med` issues are JT-gated decision-revisits. #123 was filed and not
+worked, fully specified, and unblocked.
+
+**Open questions / blockers:** none. #123 is fully closed — four walks
+migrated, five comment-stripping copies removed, two rows closed as correct
+with their reasons recorded in an exemption list that has a rot check.
