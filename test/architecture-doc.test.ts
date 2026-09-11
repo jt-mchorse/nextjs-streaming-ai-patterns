@@ -235,6 +235,8 @@ const EXTERNAL_SYMBOLS: ReadonlyArray<string> = [
   "useOptimistic", // React 19 hook (optimistic-rollback pattern)
   "setTimeout", // web/Node timer API -- the 32-bit clamp the mock streamers bound (#110)
   "TimeoutOverflowWarning", // the Node warning that clamp emits on stderr (#110)
+  "readdirSync", // node:fs -- named in the test-side structural-locks section (#126)
+  "nextUrl", // NextRequest extension, absent on a plain Request (#91, #126)
 ] as const;
 
 // Return-object / result field names the doc legitimately references that are
@@ -291,7 +293,17 @@ function repoDeclaredSymbols(): Set<string> {
   const decl =
     /(?:^|\n)[ \t]*(?:export[ \t]+)?(?:default[ \t]+)?(?:async[ \t]+)?(?:function\*?|const|let|var|class|type|interface|enum)[ \t]+([A-Za-z_$][A-Za-z0-9_$]*)/g;
   const names = new Set<string>();
-  for (const dir of SOURCE_DIRS) {
+  // `test/support` as well as `SOURCE_DIRS` (#126). The doc now has a section on
+  // the test-side structural locks, which legitimately names `sourceFiles` and
+  // `stripComments` -- first-party declarations that simply do not live in
+  // shipped source. Putting them in `EXTERNAL_SYMBOLS` would have been the same
+  // wrong-unit mistake #126 is about: that set means "not a repo declaration",
+  // and these are repo declarations. Widening the ground truth to where they are
+  // actually declared keeps the set honest. Deliberately `test/support` and not
+  // all of `test/`: a symbol declared in some individual test file is not part of
+  // the architecture the doc describes, and admitting all of `test/` would weaken
+  // the lock to "identifier appears anywhere".
+  for (const dir of [...SOURCE_DIRS, "test/support"]) {
     for (const rel of relSourceFiles(dir)) {
       // `relSourceFiles` returns repo-relative paths; the private walker this
       // replaced returned absolute ones (#118).
@@ -339,7 +351,7 @@ describe("docs/architecture.md names only symbols that exist (#76 / portfolio-op
     expect(
       unresolved,
       `docs/architecture.md names these multi-word identifiers that resolve to no ` +
-        `top-level declaration in lib/ components/ app/, and are not in EXTERNAL_SYMBOLS ` +
+        `top-level declaration in lib/ components/ app/ test/support/, and are not in EXTERNAL_SYMBOLS ` +
         `or DOC_FIELDS: ${JSON.stringify(unresolved)}. Either fix the doc, or (if the ` +
         `symbol is a genuine framework API / object field) add it to the matching pinned set.`,
     ).toEqual([]);
@@ -369,6 +381,15 @@ describe("docs/architecture.md names only symbols that exist (#76 / portfolio-op
       // them a reviewed edit rather than silent drift.
       "setTimeout",
       "TimeoutOverflowWarning",
+      // Widened in #126, consciously: the doc now has a section on the test-side
+      // structural locks. `readdirSync` is node:fs and `nextUrl` is the
+      // `NextRequest` extension that is `undefined` on a plain `Request` -- both
+      // genuinely not repo declarations. `sourceFiles` and `stripComments` are
+      // named in the same section and are deliberately NOT here: they are repo
+      // declarations, so the fix was to widen the ground truth to `test/support`
+      // rather than to call a first-party helper external.
+      "readdirSync",
+      "nextUrl",
     ]);
   });
 
@@ -380,6 +401,18 @@ describe("docs/architecture.md names only symbols that exist (#76 / portfolio-op
     // The ground-truth scan roots. Widening (a new top-level code dir) should be
     // an intentional edit, not silent drift.
     expect([...SOURCE_DIRS]).toEqual(["lib", "components", "app"]);
+  });
+
+  it("the declaration ground truth includes test/support and nothing wider", () => {
+    // #126 widened `repoDeclaredSymbols` beyond SOURCE_DIRS. Pin the widening so
+    // it cannot creep to all of `test/`, which would weaken this lock to
+    // "identifier appears anywhere in the repo".
+    const src = readFileSync(resolve(ROOT, "test/architecture-doc.test.ts"), "utf8");
+    expect(src).toContain('for (const dir of [...SOURCE_DIRS, "test/support"])');
+    // And the widening must be load-bearing: both helpers it admits resolve.
+    const declared = repoDeclaredSymbols();
+    expect(declared.has("sourceFiles")).toBe(true);
+    expect(declared.has("stripComments")).toBe(true);
   });
 });
 
