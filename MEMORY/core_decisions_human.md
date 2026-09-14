@@ -178,3 +178,61 @@ One adjacent hazard was checked and is not a bug: `error-recovery-client` constr
 **Reversibility:** Cheap. One line per read path and one structural test.
 
 **Related issues:** #115, #114, #97
+
+## D-014 — `stripComments` stays line-suffix-dropping; its limits are declared *and measured*
+
+**Date.** 2026-09-14 · **Reversibility.** Cheap · **Issues.** #127, #126, #123
+
+**Decision.** `stripComments` remains what it is — two regex replacements that drop
+everything after the first `//` not preceded by `:`. It is not taught to track
+string or regex state. Its limits stay *declared*. What changes is that they are
+now **measured** by a repo-wide census rather than asserted unreachable.
+
+**Why.** The helper runs inside every structural lock, so it has to stay cheap and
+predictable, and a helper that *pretends* to lex is worse than one whose limits are
+written down: a partial lexer is wrong in cases nobody enumerated, while a declared
+limit is wrong in cases anybody can read. That argument was already in the
+docstring and it still holds.
+
+What did not hold was the sentence next to it: "Neither is reachable in this repo."
+That claim decayed without anyone re-deciding anything, and the reason is worth
+recording, because the claim was not careless. Its two reachability probes really do
+come back empty — but they run over `readSourceFiles()`, whose population is
+`SOURCE_DIRS` (`lib` + `components` + `app`). The structural locks in
+`test/strip-comments.test.ts` pass **test** files through `stripComments`, and every
+truncation in the repo is in a test file. The probes guarded the corpus that is not
+affected and left the affected one unscanned. The defect was the scope of the
+population, not the reasoning.
+
+There is also a third case that was never declared at all: a regex literal whose
+body ends `\*\/` before its flag group puts two adjacent slashes before the closing
+delimiter, and the preceding backslash satisfies the `[^:]` URL-scheme guard. That is
+`stripComments`' own definition line.
+
+**Measured.** 71 files across `lib`, `components`, `app`, `test`, `scripts`: 27
+truncations before this change, 26 after rewriting `test/readme-patterns-table.test.ts`'s
+`/^\//` to `/^[/]/`. By cause: 22 string-literal, 4 regex-literal. **Zero** in
+`lib`/`components`/`app`/`scripts`, so the locks over shipped source are unaffected
+today — and the census makes that emptiness an enforced property rather than a
+current fact.
+
+**Alternatives considered.**
+- *Teach `stripComments` regex and string state.* Rejected: it is the lexer the
+  docstring correctly refuses, and it would run inside every lock.
+- *Drop the whole line instead of the suffix.* Rejected: a lock stated as "must be
+  PRESENT" would newly fail on 26 lines of real code.
+- *Refuse to strip a file containing a truncation.* Rejected: turns a silent
+  weakening into a hard stop on files that are correct today.
+- *Rewrite all 26 truncating lines.* Rejected: most are in `strip-comments.test.ts`,
+  where a `//` inside a string **is** the deliberate fixture; rewriting them would
+  destroy the tests.
+- *Keep asserting unreachability over a wider corpus.* Rejected: an emptiness
+  assertion that is already false 27 times is not widened, it is replaced by a count.
+
+**Revisit when** a `lib`/`components`/`app` file ever enters the census. The census
+has a separately-named arm for exactly that slice, so it fires with its own message,
+and the line-dropping/refusal tradeoff gets reconsidered with a real instance in hand
+rather than in the abstract.
+
+**Explicitly not decided here.** Whether a structural lock should *refuse* a file it
+cannot strip cleanly, rather than silently reading a truncated one.
