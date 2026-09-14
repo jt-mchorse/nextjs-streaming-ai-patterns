@@ -112,7 +112,11 @@ describe("README Patterns table snapshot", () => {
 
   it("every README slug points to a real app/<slug>/page.tsx on disk", () => {
     for (const row of readmeRows) {
-      const slugNoLead = row.slug.replace(/^\//, "");
+      // `[/]` and not `\/` (#127): a regex literal ending `\/` puts two adjacent
+      // slashes before the closing delimiter, which `stripComments` reads as a
+      // comment opener and truncates — silently blinding every structural lock to
+      // the rest of this line. Character class, same match, nothing to truncate.
+      const slugNoLead = row.slug.replace(/^[/]/, "");
       const pagePath = resolve(ROOT, "app", slugNoLead, "page.tsx");
       expect(existsSync(pagePath), `page file missing: ${pagePath}`).toBe(true);
     }
