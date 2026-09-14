@@ -208,3 +208,64 @@ distinct mechanism on top of the same SSE envelope (D-005, D-006).
 A captured Playwright demo tour driving all five pages is in
 `scripts/capture_demo.ts` (D-012); the binary commit is the
 operationally-gated follow-on tracked in issue #16.
+
+## The test-side structural locks, and the unit they count (#126)
+
+Several locks in `test/` are *source scans*: they read this repo's own
+files and assert a rule over the code. They share two helpers in
+`test/support/source-files.ts` — a recursive walk (`sourceFiles`) and a
+comment stripper (`stripComments`) — because #118, #122 and #123 each
+found a private copy whose population or whose rule disagreed with its
+neighbours'.
+
+`#123` consolidated five copies of the stripper, decided the rule on the
+merits (strip trailing comments too, since a trailing `// ...` after code
+is prose and a positive lock is otherwise satisfied by prose), and kept
+the rejected whole-line-only spelling in `test/strip-comments.test.ts`
+as `LENIENT`, under the instruction that "nothing should be able to reach
+for the lenient one again."
+
+**A sixth copy existed anyway, and the lock for it counted the wrong
+unit.** `it("stripComments is defined exactly once in the repo")` matches
+`/^\s*(export\s+)?function stripComments\b/m` — so it counts
+*declarations of a function with that name*, while the claim it stands in
+for is *how many implementations of the rule exist*.
+`api-routes-accept-plain-request.test.ts` held the rule as an inlined
+`.replace(...).replace(...)` chain with no name, byte-identical to
+`LENIENT`, and the declaration regex returned `false` against it.
+
+The consequence was a lock that rejects correct code. That file's scan is
+negative — no route may mention `.nextUrl` — over routes that
+deliberately *document* why they avoid it, which is why it strips
+comments at all. Under whole-line-only stripping a route whose note sits
+at the **end** of the line it describes leaves that prose in the scanned
+text. Measured: two such shapes fail under the lenient rule and pass
+under the shared one, with both agreeing on a route that really does read
+`req.nextUrl`. Latent only because every route's note happens to sit on
+its own line today.
+
+So the lock is now stated over the **rule**: no test file outside
+`support/source-files.ts` and the `LENIENT` fixture may contain a
+`//`-stripping regex literal. Both arms are kept, because a named copy
+and an inlined one are different shapes and neither arm subsumes the
+other, and both have anti-vacuous arms that rebuild both shapes.
+
+Two smaller things moved with it. The file's private recursive
+`readdirSync` was on `EXEMPT_READDIR_FILES` with the reason "private but
+already recursive" — **true, and unenforced**: flatten the walk and the
+exemption's own justification silently becomes false. The shared walker
+produces the identical five paths, so the walk was replaced and the
+exemption **deleted** rather than reworded. And the `LENIENT` fixture's
+exemption is now narrowed to what it is for: every `LENIENT(x)` argument
+must be a string literal or a local const initialised from one, so an
+exemption for a fixture cannot become an exemption for a scanner. That
+check is written over *provenance* and not over the argument's name — a
+first spelling banned `LENIENT(src)` and went red on the existing, correct
+call, because banning an identifier is a proxy for banning a file read.
+
+One limit is declared rather than modelled: the rule-literal scan excludes
+comments by line position instead of calling `stripComments`, because
+`stripComments` truncates lines whose regex literals contain `\*\/`
+followed by a flag group — including its own definition. That is tracked
+separately in issue #127; using it here would have made this scan blind to
+the literals it searches for.
