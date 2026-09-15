@@ -105,6 +105,31 @@ a truncated tail should surface as an error rather than being dropped. The
 equivalence test is also the tripwire for that: the day the framer starts
 emitting its unterminated remainder, it goes red and points at D-013.
 
+### What the structural locks read: `stripComments` and its census (D-014)
+
+Most locks in `test/` assert something about *code* — "this identifier is
+present", "no test file walks source with a private `readdirSync`" — and so
+they run each file through `stripComments` first, to keep prose about a rule
+from satisfying the rule (#123, #126). `stripComments` is two regex
+replacements: drop `/* ... */`, then drop everything after the first `//` not
+preceded by `:`. It is deliberately not a lexer (D-014): it runs inside every
+lock, and a helper that half-lexes is wrong in cases nobody enumerated, while
+a declared limit is wrong in cases anyone can read.
+
+The cost is that three constructs produce a `//` that is not a comment — a
+protocol-relative URL, a `//` inside a string literal, and a regex literal
+whose body ends `\*\/` before its flag group. The third is `stripComments`'
+own definition line (#127), and it was undeclared until D-014.
+
+These limits used to be *asserted* unreachable. That assertion was scoped to
+`readSourceFiles()` — `lib` + `components` + `app` — while the locks that
+strip actually read **test** files, where all 26 truncations live.
+`test/strip-comments-truncation-census.test.ts` replaces the assertion with a
+count over every directory any lock strips, and keeps a separately-named arm
+on the shipped-source slice: a `lib`/`components`/`app`/`scripts` file entering
+the census fails on its own assertion, because that is the case where a
+truncation would silently weaken a lock over shipped code.
+
 ## Why a route handler instead of pure RSC streaming
 
 React 19 + Next 15 do *not* provide a stable zero-JS pattern for

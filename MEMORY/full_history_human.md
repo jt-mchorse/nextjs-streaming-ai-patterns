@@ -1501,3 +1501,45 @@ file the one the structural locks read least closely.
 **Open questions / blockers:** none for #126. #127 needs a decision on whether
 `stripComments` should keep dropping a line's suffix or refuse, which is a contract
 question rather than a bug fix.
+
+## 2026-09-14 — Session on #127 (58 min)
+
+**Focus.** #127 reported that `stripComments` truncates its own definition line:
+a regex literal whose body ends `\*\/` before its flag group puts two adjacent
+slashes before the closing delimiter, which the helper reads as a comment opener.
+
+**What measuring it changed.** The issue framed this as one missed case in an
+otherwise sound enumeration, and reported 7 affected lines. Reproducing the
+measurement properly gave 27 across 5 files — and only 5 of those were the
+undeclared regex-literal case. The other 22 were the *second declared* case, the
+one the docstring asserted was "not reachable in this repo".
+
+The reason that assertion read as true is the most useful thing this session
+found, and it is not carelessness. The two reachability probes really do come back
+empty, because they run over `readSourceFiles()`, whose population is `lib` +
+`components` + `app`. But the structural locks that strip are the ones in
+`test/strip-comments.test.ts`, and they pass **test** files through
+`stripComments` — which is where every truncation in the repo lives. The probes
+guarded the corpus that is not affected and left the affected one unscanned. The
+defect was the scope of the population, not the reasoning.
+
+**Shipped.** A census (`test/strip-comments-truncation-census.test.ts`) that walks
+every directory any lock strips and pins the count per file and per cause, with a
+separately-named arm asserting the shipped-source slice is empty — so a `lib` file
+entering the set fails on its own assertion rather than as one changed element in
+a 26-entry diff. `test/readme-patterns-table.test.ts`'s `/^\//` became `/^[/]/`
+(verified behaviour-identical); it was the one affected line whose truncation
+served no purpose. D-014 records why the stripper stays as it is.
+
+**Three things worth remembering.** A lock that scans the repo scans itself — the
+census file is written so every `//` it needs is built by concatenation, and an arm
+pins that, or the counts would churn on the file's own maintenance. Pinning per
+file rather than per `file:line` is deliberate: a census that goes red on every
+neighbouring edit gets updated without being read, which is exactly the failure
+mode this issue is an instance of. And a line-local scanner cannot see a multi-line
+block comment — the first detector reported 5 false positives by reading JSDoc
+prose as string literals, and it took two independently written detectors agreeing
+at 27 before the number was trustworthy.
+
+**Open.** PR for #127. Remaining issues are JT-gated decision-revisits (#97, #82)
+and the operator-only demo capture (#16).

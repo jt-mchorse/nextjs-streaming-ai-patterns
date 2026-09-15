@@ -91,15 +91,29 @@ export function readSourceFiles(root: string = ROOT): Array<readonly [string, st
  * the only file in the repo where the guarded and unguarded strict spellings
  * differ.
  *
- * Two limits are DECLARED rather than modelled, because a helper that pretends
- * to lex is worse than one whose limits are written down:
+ * Three limits are DECLARED rather than modelled, because a helper that
+ * pretends to lex is worse than one whose limits are written down (D-014):
  *
  *   - a protocol-relative URL (`"//cdn.example.com/x"`) is truncated;
- *   - a `//` inside an ordinary string literal (`"a // b"`) is truncated.
+ *   - a `//` inside an ordinary string literal (`"a // b"`) is truncated;
+ *   - a regex literal whose body ends `\*\/` before its flag group is
+ *     truncated, because the escaped slash and the closing delimiter are two
+ *     adjacent slashes. That is this function's own definition line (#127).
  *
- * Neither is reachable in this repo, and `test/strip-comments.test.ts` pins
- * both the known-wrong answers and the reachability assertions, so a
- * declaration cannot quietly become a live bug.
+ * These are MEASURED, not asserted unreachable. The previous wording said
+ * "neither is reachable in this repo", and the third case was not listed at
+ * all. The claim was not careless — its two reachability probes really do come
+ * back empty — but they run over `readSourceFiles()`, whose population is
+ * `SOURCE_DIRS` (`lib` + `components` + `app`). The structural locks in
+ * `test/strip-comments.test.ts` pass **test** files through `stripComments`,
+ * and every truncation in the repo is in a test file. The probes guarded the
+ * corpus that is not affected and left the affected one unscanned.
+ *
+ * `test/strip-comments-truncation-census.test.ts` now walks every directory any
+ * lock strips — `lib`, `components`, `app`, `test`, `scripts` — and pins the
+ * count per file, with a separately-named arm asserting the shipped-source
+ * slice is empty. Measured 2026-09-14: 26 truncations, all in `test/`.
+ * `test/strip-comments.test.ts` still pins the known-wrong answers.
  */
 export function stripComments(src: string): string {
   return src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/[^\n]*/g, "$1");
