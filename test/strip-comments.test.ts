@@ -20,11 +20,19 @@
  * URL scheme, and `app/layout.tsx` has exactly such a line today. It is the
  * only file in the repo where guarded and unguarded strict differ.
  */
-import { readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { ROOT, readSourceFiles, sourceFiles, stripComments } from "./support/source-files";
+import {
+  ROOT,
+  readRepoFiles,
+  readSourceFiles,
+  repoFiles,
+  sourceFiles,
+  stripComments,
+} from "./support/source-files";
 
 // The two spellings this replaced, kept here as the comparison the decision
 // was made against. They are not exported from support/ on purpose: nothing
@@ -204,21 +212,88 @@ describe("the lenient spelling rejects correct code in a negative source lock", 
 });
 
 describe("structural: one definition, and no sixth private copy", () => {
-  const testFiles = (): Array<readonly [string, string]> => {
-    const out: Array<readonly [string, string]> = [];
-    for (const rel of sourceFiles("test", ROOT).concat(
-      // `sourceFiles` filters to .ts/.tsx, which is what test files are.
-      [],
-    )) {
-      out.push([rel, readFileSync(join(ROOT, rel), "utf8")]);
-    }
-    return out;
-  };
+  // `test/` only. Used by the one lock in this block whose claim really is
+  // about test files — `no test file walks source with a private readdirSync`,
+  // whose name, corpus and EXEMPT reasons all agree. The two locks whose names
+  // say "the repo" use `readRepoFiles()` instead (#130).
+  const testFiles = (): Array<readonly [string, string]> =>
+    sourceFiles("test", ROOT).map(
+      (rel) => [rel, readFileSync(join(ROOT, rel), "utf8")] as const,
+    );
 
   it("finds the test files (anti-vacuous)", () => {
     const files = testFiles();
     expect(files.length, "the test-file walk found nothing").toBeGreaterThan(10);
     expect(files.map(([rel]) => rel)).toContain("test/support/source-files.ts");
+  });
+
+  // The claim these two locks make is "the repo". These arms pin the *corpus*,
+  // not the result — a widened walk that quietly returned the same `test/` files
+  // would satisfy every other arm in this block, because both rules are clean
+  // over the non-test files today (#130).
+  it("the repo walk reaches what the test walk and SOURCE_DIRS cannot", () => {
+    const repo = repoFiles();
+    const tests = sourceFiles("test", ROOT);
+    const shipped = readSourceFiles().map(([rel]) => rel);
+
+    expect(repo.length, "the repo walk found nothing").toBeGreaterThan(tests.length);
+    // A strict superset of both populations it replaces.
+    for (const rel of [...tests, ...shipped]) expect(repo).toContain(rel);
+
+    // The five files in neither `test/` nor `SOURCE_DIRS`. This is the whole
+    // point of widening to the repo rather than to the dirs SOURCE_DIRS names,
+    // and the list is asserted rather than counted so a file leaving the repo
+    // fails loudly instead of shrinking a number.
+    const unreachableBefore = ["scripts/capture_demo.ts", "next.config.ts", "vitest.config.ts"];
+    for (const rel of unreachableBefore) {
+      expect(tests, `${rel} must not be in the test walk`).not.toContain(rel);
+      expect(shipped, `${rel} must not be in SOURCE_DIRS`).not.toContain(rel);
+      expect(repo, `${rel} must be in the repo walk`).toContain(rel);
+    }
+  });
+
+  it("the repo walk keeps sourceFiles' exclusions", () => {
+    const root = mkdtempSync(join(tmpdir(), "repo-walk-"));
+    try {
+      mkdirSync(join(root, "node_modules", "pkg"), { recursive: true });
+      mkdirSync(join(root, ".next", "cache"), { recursive: true });
+      mkdirSync(join(root, "nested", "deep"), { recursive: true });
+      writeFileSync(join(root, "node_modules", "pkg", "index.ts"), "export {};");
+      writeFileSync(join(root, ".next", "cache", "gen.ts"), "export {};");
+      writeFileSync(join(root, "top.ts"), "export {};");
+      writeFileSync(join(root, "nested", "deep", "buried.tsx"), "export {};");
+      writeFileSync(join(root, "notes.md"), "not source");
+
+      // Root-level *and* arbitrarily deep, which is what "the repo" has to mean;
+      // `node_modules` and dot-directories stay out.
+      expect(repoFiles(root).sort()).toEqual(["nested/deep/buried.tsx", "top.ts"]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("a stripComments outside test/ would be caught (anti-vacuous)", () => {
+    // The defect the widened lock exists for, run against a synthetic tree
+    // rather than asserted in prose. The real repo is clean, so without this
+    // the widened lock is green for the same reason the narrow one was.
+    const root = mkdtempSync(join(tmpdir(), "repo-decl-"));
+    try {
+      mkdirSync(join(root, "lib"), { recursive: true });
+      writeFileSync(
+        join(root, "lib", "sneaky.ts"),
+        'export function stripComments(s: string) {\n  return s;\n}\n',
+      );
+      const decls = readRepoFiles(root)
+        .filter(([, text]) => /^\s*(export\s+)?function stripComments\b/m.test(stripComments(text)))
+        .map(([rel]) => rel);
+      expect(decls).toEqual(["lib/sneaky.ts"]);
+
+      // ...and the narrow walk this replaced does not see it, which is the
+      // whole finding.
+      expect(sourceFiles("test", root)).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it("stripComments is defined exactly once in the repo", () => {
@@ -227,7 +302,13 @@ describe("structural: one definition, and no sixth private copy", () => {
     // `import { stripComments }` nor a *mention* of the name in a comment or a
     // regex literal is a hit — including the ones in this very file, which is
     // how the first spelling of this check failed against itself.
-    const decls = testFiles().filter(([, text]) =>
+    // Over the REPO, which is what the name has always said. This walked
+    // `test/` only until #130, so a `stripComments` in `lib/`, `components/`,
+    // `app/`, `scripts/` or a root-level config left an exact-list assertion
+    // green while reading as a complete census. Widening only to `SOURCE_DIRS`
+    // would not have been enough either: that set reaches none of `test/`,
+    // `scripts/`, or the five root-level files.
+    const decls = readRepoFiles().filter(([, text]) =>
       /^\s*(export\s+)?function stripComments\b/m.test(stripComments(text)),
     );
     expect(
@@ -310,7 +391,11 @@ describe("structural: one definition, and no sixth private copy", () => {
 
   it("the comment-stripping rule is written down in exactly two places", () => {
     const allowed = new Set<string>(RULE_DEFINING_FILES);
-    const offenders = testFiles()
+    // Repo-wide since #130, matching the name. Measured at the time: the rule
+    // literal appears in none of the 35 non-test files, so widening costs no
+    // false failure — and a copy landing in shipped source is the case worth
+    // catching, not the one worth excusing.
+    const offenders = readRepoFiles()
       .filter(([rel]) => !allowed.has(rel))
       .filter(([, text]) => LINE_COMMENT_STRIPPER.test(codeLines(text)))
       .map(([rel]) => rel);

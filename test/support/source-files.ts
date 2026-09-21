@@ -63,6 +63,46 @@ export function readSourceFiles(root: string = ROOT): Array<readonly [string, st
 }
 
 /**
+ * Every first-party `.ts`/`.tsx` file in the repo, as `[relPath, text]`.
+ *
+ * A **different population** from `readSourceFiles`, deliberately, and the two
+ * must not be collapsed into each other (#130):
+ *
+ * - `readSourceFiles` walks `SOURCE_DIRS` — `lib`, `components`, `app` — and
+ *   means *shipped source*. That is the right corpus for a lock about what the
+ *   application does at runtime.
+ * - `readRepoFiles` walks the whole repo and means *the repo*. That is the
+ *   right corpus for a lock whose name says "in the repo" — a structural claim
+ *   about the codebase rather than about the running application.
+ *
+ * `SOURCE_DIRS` reaches neither `test/`, nor `scripts/`, nor the five
+ * root-level files (`next.config.ts`, `playwright.config.ts`,
+ * `vitest.config.ts`, `next-env.d.ts`). A lock that widened only to the dirs
+ * `SOURCE_DIRS` names would still walk a corpus smaller than its own claim,
+ * which is the family of defect #123 → #125 → #126 → #127 → #130 is made of.
+ *
+ * Same exclusions as `sourceFiles`: `node_modules` and any dot-prefixed entry
+ * (which is what keeps `.next/` and `.git/` out).
+ */
+export function repoFiles(root: string = ROOT, dir = ""): string[] {
+  const abs = dir === "" ? resolve(root) : resolve(root, dir);
+  if (!existsSync(abs)) return [];
+  const out: string[] = [];
+  for (const entry of readdirSync(abs, { withFileTypes: true })) {
+    if (entry.name === "node_modules" || entry.name.startsWith(".")) continue;
+    const rel = dir === "" ? entry.name : `${dir}/${entry.name}`;
+    if (entry.isDirectory()) out.push(...repoFiles(root, rel));
+    else if (SOURCE_EXTS.some((e) => entry.name.endsWith(e))) out.push(rel);
+  }
+  return out;
+}
+
+/** `repoFiles`, read. */
+export function readRepoFiles(root: string = ROOT): Array<readonly [string, string]> {
+  return repoFiles(root).map((rel) => [rel, readFileSync(join(root, rel), "utf8")] as const);
+}
+
+/**
  * Strip comments so a source rule matches *code* and not prose (#123).
  *
  * Five locks each defined their own copy, and they had already diverged into
