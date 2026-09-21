@@ -1543,3 +1543,51 @@ at 27 before the number was trustworthy.
 
 **Open.** PR for #127. Remaining issues are JT-gated decision-revisits (#97, #82)
 and the operator-only demo capture (#16).
+
+## 2026-09-21 — Issue #130: the name said "the repo", the walk said `test/`
+**Duration:** 8 min (measured) · **Branch:** `session/2026-09-21-0758-issue-130`
+
+**The premise held; the proposed remedy did not.** I checked every claim in the
+issue firsthand and all of them stand. But its suggested fix — "widen to the dirs
+the claim names", listing `lib/`, `components/`, `app/`, `scripts/` — is itself
+short of the claim. A repo-wide walk finds 76 `.ts`/`.tsx` files, 41 under
+`test/` and 35 outside, and five of those are in neither `SOURCE_DIRS` nor
+`test/` nor `scripts/`: `next.config.ts`, `playwright.config.ts`,
+`vitest.config.ts`, `next-env.d.ts`, and `scripts/capture_demo.ts` (which
+`SOURCE_DIRS` also misses). Applying the suggestion would have left a corpus
+smaller than the name — the exact family the issue is about. Worth reading a
+remedy with the same lens you read the defect.
+
+The general form: a walk expressed as a *list of directories* can never reach the
+repo root, and config files live there.
+
+**Widened, not narrowed.** Narrowing the names would make them honest and leave
+the gap, and a comment stripper landing in `lib/` is worse than one in `test/`.
+`readRepoFiles()` is deliberately a different population from `readSourceFiles()`
+— the latter means *shipped source* and is correct for the locks that consume it
+— and both meanings are written down so neither gets "fixed" into the other.
+
+**The arms pin the corpus, not the result.** Both rules are clean over the 35
+non-test files, so a widening that quietly returned the same `test/` files would
+satisfy every other arm in the block. One arm asserts the new walk is a strict
+superset of both populations it replaces and contains the named files neither
+could reach — as a list, not a count, so a file leaving the repo fails loudly
+rather than shrinking a number.
+
+**Anti-vacuity, stated honestly.** The gap is latent: nothing outside `test/`
+declares `stripComments` today, so repointing the locks changes no observable
+outcome and no arm *can* go red against the real pre-change repo. The equivalent
+falsification is the corpus itself — restoring the pre-#130 population turns 3
+arms red, and applying the issue's own suggested scope turns 2 red.
+
+I also caught myself grafting too generously: I copied the *repointed* test file
+into the pre-change worktree, which made it the fixed state, and it went green
+for a reason that proved nothing.
+
+**Not widened, deliberately.** `no test file walks source with a private
+readdirSync` already has its name, its corpus and its per-file `EXEMPT` reasons
+in agreement. Widening it would be the over-broad neighbour — the third time this
+run that the deliberate non-sweep was the right call.
+
+**Suite:** 749 → 752 green across 40 files. eslint, `tsc --noEmit` and
+`next build` clean.
