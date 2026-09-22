@@ -288,6 +288,36 @@ check is written over *provenance* and not over the argument's name — a
 first spelling banned `LENIENT(src)` and went red on the existing, correct
 call, because banning an identifier is a proxy for banning a file read.
 
+**Two populations, and the name has to match the one it walks (#130).**
+Both of the locks above said "the repo" and walked `test/` — they consumed a
+local test-file helper in that same block, which was nothing more than
+`sourceFiles("test", ROOT)`. Their
+sibling in the same block, `no test file walks source with a private
+readdirSync`, had it right: its name names *test files* and `test/` is
+exactly its corpus. So the block contained both spellings of the same
+question, and only one of them agreed with itself.
+
+`test/support/source-files.ts` now exports two deliberately distinct
+walks, and collapsing either into the other reintroduces the defect:
+
+- `readSourceFiles()` walks `SOURCE_DIRS` (`lib`, `components`, `app`) and
+  means **shipped source** — the right corpus for a lock about what the
+  application does at runtime.
+- `readRepoFiles()` walks the whole repo and means **the repo** — the right
+  corpus for a structural claim about the codebase.
+
+Widening only to the dirs `SOURCE_DIRS` names would *still* have been short
+of the claim: that set reaches neither `test/`, nor `scripts/`, nor the
+root-level `next.config.ts` / `playwright.config.ts` / `vitest.config.ts` /
+`next-env.d.ts`. A lock is pinned on the **corpus**, not only the result —
+both rules are clean over the non-test files today, so a widening that
+quietly returned the same `test/` files would pass every other arm. The
+arm asserts the new walk contains what neither old one could reach.
+
+The `readdirSync` lock was deliberately **not** widened. Its name, its
+corpus and its per-file `EXEMPT` reasons all already agree, and widening
+it would be the over-broad neighbour.
+
 One limit is declared rather than modelled: the rule-literal scan excludes
 comments by line position instead of calling `stripComments`, because
 `stripComments` truncates lines whose regex literals contain `\*\/`
