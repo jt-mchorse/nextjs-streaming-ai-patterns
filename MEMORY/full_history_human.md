@@ -1591,3 +1591,16 @@ run that the deliberate non-sweep was the right call.
 
 **Suite:** 749 → 752 green across 40 files. eslint, `tsc --noEmit` and
 `next build` clean.
+
+## 2026-09-23 — Issue #132: "the five root-level files" listed four
+**Duration:** ~5 min (measured) · **Branch:** session/2026-09-23-0745-issue-132
+
+- `readRepoFiles`' doc block — the load-bearing argument for why it is a different population from `readSourceFiles` — said "five" and listed four. Measured with the shipped walker: 76 files, 46 outside `SOURCE_DIRS`, being 41 in `test/`, 1 in `scripts/` and 4 at the root. The enumeration was complete; only the count word was wrong.
+- The fix is not the word. `test/repo-files-partition.test.ts` pins the claim the sentence summarises — the difference set partitions exactly three ways, disjointly, with nothing left over — as an arithmetic identity rather than a re-listing. Restoring the wrong count leaves the new suite at 5 passed, which is exactly why a one-word fix would have left the repo in the state that produced the defect.
+- The same wrong figure had already propagated into `MEMORY/full_history_ai.md` from the 2026-09-21 session. `MEMORY` is append-only, so this session's block carries a `corrections:` key rather than an edit.
+
+**Why this work, this session:** it was the only filed, unblocked item in the portfolio, and its acceptance criteria already named the interesting half — pin the partition, not the number.
+
+**Open questions / blockers:** none.
+
+**Next session:** the `source-files.ts` population argument has now been worked three sessions running (#130, #131, #132); prefer a different surface.

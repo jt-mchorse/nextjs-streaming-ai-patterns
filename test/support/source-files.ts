@@ -75,11 +75,19 @@ export function readSourceFiles(root: string = ROOT): Array<readonly [string, st
  *   right corpus for a lock whose name says "in the repo" — a structural claim
  *   about the codebase rather than about the running application.
  *
- * `SOURCE_DIRS` reaches neither `test/`, nor `scripts/`, nor the five
+ * `SOURCE_DIRS` reaches neither `test/`, nor `scripts/`, nor the four
  * root-level files (`next.config.ts`, `playwright.config.ts`,
  * `vitest.config.ts`, `next-env.d.ts`). A lock that widened only to the dirs
  * `SOURCE_DIRS` names would still walk a corpus smaller than its own claim,
  * which is the family of defect #123 → #125 → #126 → #127 → #130 is made of.
+ *
+ * That sentence said "five" and listed four until #132. The enumeration was
+ * complete -- `test/` + `scripts/` + the root files really are the whole of
+ * what `SOURCE_DIRS` misses, 41 + 1 + 4 = 46 of 76 -- so only the count word
+ * was wrong, and no lock read it. It is now a claim a test runs rather than a
+ * number in prose: `test/repo-files-partition.test.ts` asserts the difference
+ * set partitions exactly three ways with nothing left over, which is what the
+ * sentence is a summary of.
  *
  * Same exclusions as `sourceFiles`: `node_modules` and any dot-prefixed entry
  * (which is what keeps `.next/` and `.git/` out).
