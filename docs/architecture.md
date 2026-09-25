@@ -130,6 +130,29 @@ on the shipped-source slice: a `lib`/`components`/`app`/`scripts` file entering
 the census fails on its own assertion, because that is the case where a
 truncation would silently weaken a lock over shipped code.
 
+**D-015 (#134): the population is derived, the list is a floor.** The same
+corpus question, one layer over. `strip-comments.test.ts` asserted three
+properties across a literal three-element list, under a comment reading "the
+five files in neither `test/` nor `SOURCE_DIRS`". Measured with the shipped
+walkers the population is exactly five — `next-env.d.ts`, `next.config.ts`,
+`playwright.config.ts`, `scripts/capture_demo.ts`, `vitest.config.ts` — so the
+count was right and the list was short, leaving two files unchecked.
+
+The comment defended its own mechanism: the list "is asserted rather than
+counted so a file leaving the repo fails loudly instead of shrinking a number".
+That is true for a file *leaving* and exactly wrong for one *entering* — a
+transcribed list cannot notice a new member. Both mechanisms are now present
+because they protect opposite directions: the derived set notices an arrival,
+and an `arrayContaining` floor notices a departure. A non-empty check guards the
+new failure mode, since a derived set that shrinks to nothing passes silently.
+
+This is distinct from #132's fix, which corrected `readRepoFiles`' doc block —
+that sentence describes the *root-level* files, where four is the right number,
+while this one describes root-level **plus** `scripts/`, where five is. Two
+adjacent claims with two different correct counts is exactly the situation in
+which transcribing one goes unnoticed — and the counts are live: #132 measured
+76 repo files a day before this run measured 78.
+
 ## Why a route handler instead of pure RSC streaming
 
 React 19 + Next 15 do *not* provide a stable zero-JS pattern for

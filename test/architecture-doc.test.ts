@@ -237,6 +237,8 @@ const EXTERNAL_SYMBOLS: ReadonlyArray<string> = [
   "TimeoutOverflowWarning", // the Node warning that clamp emits on stderr (#110)
   "readdirSync", // node:fs -- named in the test-side structural-locks section (#126)
   "nextUrl", // NextRequest extension, absent on a plain Request (#91, #126)
+  "arrayContaining", // vitest/jest asymmetric matcher -- named by D-015 to say
+  // which mechanism notices a file *leaving* the derived population (#134)
 ] as const;
 
 // Return-object / result field names the doc legitimately references that are
@@ -390,6 +392,13 @@ describe("docs/architecture.md names only symbols that exist (#76 / portfolio-op
       // rather than to call a first-party helper external.
       "readdirSync",
       "nextUrl",
+      // Widened in #134 / D-015, consciously: the doc names the vitest
+      // asymmetric matcher to say which of the two mechanisms notices a file
+      // *leaving* the derived population. A matcher is framework surface, not a
+      // repo declaration -- and the derived set it sits beside is built from
+      // `repoFiles` / `sourceFiles`, which are repo declarations and are
+      // deliberately not listed here.
+      "arrayContaining",
     ]);
   });
 
