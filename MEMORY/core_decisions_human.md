@@ -236,3 +236,61 @@ rather than in the abstract.
 
 **Explicitly not decided here.** Whether a structural lock should *refuse* a file it
 cannot strip cleanly, rather than silently reading a truncated one.
+
+---
+
+## D-015 — the population is derived; the literal list is a floor, not the population
+
+**Date.** 2026-09-25 · **Issue.** #134 · **Reversibility.** cheap
+
+**Decision.** `strip-comments.test.ts` derives the "neither `test/` nor
+`SOURCE_DIRS`" population from the shipped walkers. A literal list survives only
+as an `arrayContaining` floor, alongside a non-empty anti-vacuity check.
+
+**Why.** The block walked a literal three-element list under a comment saying
+"the five files". Measured with the shipped walkers, the population is exactly
+five — `next-env.d.ts`, `next.config.ts`, `playwright.config.ts`,
+`scripts/capture_demo.ts`, `vitest.config.ts` — so the **count was right and the
+list was short**. Two files in the population the comment describes were never
+walked.
+
+**The comment's own justification was backwards, and that is the lesson.** It
+said the list "is asserted rather than counted so a file leaving the repo fails
+loudly instead of shrinking a number". True for a file *leaving*. Exactly wrong
+for one *entering*: a hand-transcribed list cannot notice a new member. A
+justification that names one direction is silent about the other.
+
+So both mechanisms are kept, because they protect opposite directions. The
+derived set notices a file entering; the floor notices one leaving — the
+property the old comment wanted, from a mechanism that actually provides it.
+
+**Why #132 did not reach it.** #132 fixed `readRepoFiles`' *doc block*, which
+said "five" and listed four *root-level* files. This is a different sentence, in
+a different file, about a different population: "neither `test/` nor
+`SOURCE_DIRS`" is the root-level files **plus** `scripts/`, which is why five is
+right here and four was right there. Two adjacent claims with two different
+correct counts is exactly when a transcription goes unnoticed.
+
+**The counts are live and the list was a snapshot.** #132 measured 76 repo files
+and 41 test files one day ago; this run measures 78 and 43, because #133 added
+files. A population that moves between two sessions should never be transcribed.
+
+**AC5, answered rather than left open.** `lib/sse-stream.ts:55`'s "Three of the
+four copies used `startsWith(\"data: \")`" is *not* this shape — it is a
+historical record of four implementations that were consolidated into one. There
+is no live population for it to be wrong about. Don't re-open it.
+
+**On falsification, honestly.** The floor cannot be turned red by any code-side
+probe: it guards a change to the repository, not to this file. The one available
+falsification is pasting the old three-element list back while keeping the floor
+— that reddens it, measured. My first attempt at that probe deleted the floor
+*along with* the derivation and came back green; that was an unfair probe, not a
+result.
+
+**Alternatives considered.**
+- *Add the two missing files to the literal list.* Rejected: fixes today and
+  leaves the mechanism that produced the gap.
+- *Derive and drop the literal entirely.* Rejected: a derived set that shrinks
+  to nothing passes silently.
+- *Unify this with #132's partition test.* Rejected: they pin different
+  populations, and four and five are both correct for theirs.

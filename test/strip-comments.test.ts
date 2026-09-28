@@ -231,6 +231,18 @@ describe("structural: one definition, and no sixth private copy", () => {
   // not the result — a widened walk that quietly returned the same `test/` files
   // would satisfy every other arm in this block, because both rules are clean
   // over the non-test files today (#130).
+  // Members of the "neither `test/` nor `SOURCE_DIRS`" population that have been
+  // there since #131 widened the walk. A *floor*, never the population: its job
+  // is to fail when one of them leaves, and the derived set below is what
+  // notices when something joins (#134).
+  const KNOWN_UNREACHABLE = [
+    "next-env.d.ts",
+    "next.config.ts",
+    "playwright.config.ts",
+    "scripts/capture_demo.ts",
+    "vitest.config.ts",
+  ] as const;
+
   it("the repo walk reaches what the test walk and SOURCE_DIRS cannot", () => {
     const repo = repoFiles();
     const tests = sourceFiles("test", ROOT);
@@ -240,12 +252,41 @@ describe("structural: one definition, and no sixth private copy", () => {
     // A strict superset of both populations it replaces.
     for (const rel of [...tests, ...shipped]) expect(repo).toContain(rel);
 
-    // The five files in neither `test/` nor `SOURCE_DIRS`. This is the whole
-    // point of widening to the repo rather than to the dirs SOURCE_DIRS names,
-    // and the list is asserted rather than counted so a file leaving the repo
-    // fails loudly instead of shrinking a number.
-    const unreachableBefore = ["scripts/capture_demo.ts", "next.config.ts", "vitest.config.ts"];
-    for (const rel of unreachableBefore) {
+    // The files in neither `test/` nor `SOURCE_DIRS` — the whole point of
+    // widening to the repo rather than to the dirs `SOURCE_DIRS` names.
+    //
+    // **Derived, not transcribed (#134).** This block used to walk a literal
+    // three-element list under a comment that said "the five files" and argued
+    // that "the list is asserted rather than counted so a file leaving the repo
+    // fails loudly instead of shrinking a number". That argument is true for a
+    // file *leaving* and exactly backwards for one *entering*: a hand-written
+    // list cannot notice a new member, and two of the five —
+    // `next-env.d.ts` and `playwright.config.ts` — were never walked.
+    //
+    // The two mechanisms below protect opposite directions, which is why both
+    // are here:
+    //
+    // * `derived` walks whatever the population currently is, so a file
+    //   *entering* it is checked automatically.
+    // * `KNOWN_UNREACHABLE` is an `arrayContaining` floor, so a file *leaving*
+    //   fails loudly rather than silently shrinking the derived set — the
+    //   property the old comment wanted, kept, and no longer standing in for
+    //   the population itself.
+    //
+    // The floor is green today by construction and no code-side probe can turn
+    // it red: it guards against a change to the *repository*, not to this file.
+    // Deleting the derivation and pasting the old three-element list back does
+    // redden it (measured, 1 red), which is the one falsification available.
+    const derived = repo.filter((rel) => !tests.includes(rel) && !shipped.includes(rel));
+
+    // A derived rule that walks nothing passes silently, which is the failure
+    // mode that would replace the one #134 fixed.
+    expect(derived.length, "nothing is outside both walks; this arm checks nothing").toBeGreaterThan(
+      0,
+    );
+    expect(derived).toEqual(expect.arrayContaining([...KNOWN_UNREACHABLE]));
+
+    for (const rel of derived) {
       expect(tests, `${rel} must not be in the test walk`).not.toContain(rel);
       expect(shipped, `${rel} must not be in SOURCE_DIRS`).not.toContain(rel);
       expect(repo, `${rel} must be in the repo walk`).toContain(rel);

@@ -1604,3 +1604,38 @@ run that the deliberate non-sweep was the right call.
 **Open questions / blockers:** none.
 
 **Next session:** the `source-files.ts` population argument has now been worked three sessions running (#130, #131, #132); prefer a different surface.
+
+---
+
+### 2026-09-25 — #134: the count was right and the list was short
+
+A comment in `strip-comments.test.ts` announced "the five files in neither
+`test/` nor `SOURCE_DIRS`" above an array with three entries. The population
+really is five, so the number was correct — which is what made this hard to
+spot. Grepping for a wrong count would have found nothing; the thing to compare
+is the prose count against the length of the literal beside it.
+
+The comment then defended the very mechanism that made the list short: it argued
+that asserting a list rather than counting means "a file leaving the repo fails
+loudly instead of shrinking a number". That is true for a file leaving and
+exactly wrong for one arriving, which is how two files ended up unchecked. A
+justification that names one direction is silent about the other.
+
+Both mechanisms are kept now, because they guard opposite directions — the
+derived set notices an arrival, the literal floor notices a departure — plus a
+non-empty check, since a derived set that shrinks to nothing would pass
+silently.
+
+Yesterday's #132 fixed a near-identical sentence one file over and could not
+have caught this one: that sentence is about the root-level files, where four is
+correct, and this one is about root-level plus `scripts/`, where five is. Two
+adjacent claims with two different correct counts is precisely when a
+transcription survives a fix aimed at its neighbour. The counts have already
+moved since yesterday — 76 files became 78 — which is itself the argument.
+
+One thing I nearly got wrong: my first revert probe removed the derivation *and*
+the floor *and* the anti-vacuity check together, and came back green. That is an
+unfair probe, not a result. Redone with only the derivation reverted, it goes
+red. And the floor itself cannot be falsified by any code-side probe at all,
+because it guards a change to the repository rather than to the file — which the
+comment now says outright.
