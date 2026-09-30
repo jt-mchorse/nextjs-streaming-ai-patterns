@@ -1565,3 +1565,21 @@ context_for_next_session:
 decisions_made: [D-015]
 followups: []
 ---
+
+---
+session: 2026-09-30T09:58:37Z
+issue: 136
+focus: env_example_lock_on_the_shared_source_population
+phase: shipped
+duration_min: 1
+delta:
+  files_changed: 1
+  tests_added: 4
+  suite: "761 passed across 42 files; eslint and tsc clean"
+decisions_made: []
+measured: "reads: ANTHROPIC_API_KEY, ANTHROPIC_MODEL (lib/anthropic-stream.ts), CAPTURE_HEADED (scripts/capture_demo.ts, excluded). Probes: file absent 2 red of 4; ANTHROPIC_MODEL dropped 1 red; comment stripping removed 1 red (the unit arm only, because nothing in scope names a variable in a comment)."
+context_for_next_session:
+  - PORTING_A_HELPER_MEANS_PORTING_ITS_CONSTRAINTS_AGAIN_my_first_version_copied_aiapps_private_stripComments_and_readdirSync_walk_and_THIS_REPOS_STRUCTURAL_LOCKS_REJECTED_BOTH_5_red_one_definition_no_private_walk_and_the_truncation_census_USE_test_support_source_files_ts
+  - THE_TRUNCATION_CENSUS_COUNTS_LINES_WHERE_stripComments_TRUNCATES_a_double_slash_inside_a_string_literal_in_a_NEW_TEST_FILE_moves_it_build_the_comment_arm_with_slash_repeat_2
+  - portfolio_ops_80_rag_is_the_last_repo_without_a_lock
+followups: []

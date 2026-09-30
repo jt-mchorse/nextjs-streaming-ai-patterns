@@ -1639,3 +1639,13 @@ unfair probe, not a result. Redone with only the derivation reverted, it goes
 red. And the floor itself cannot be falsified by any code-side probe at all,
 because it guards a change to the repository rather than to the file — which the
 comment now says outright.
+
+## 2026-09-30T09:58:37Z — #136: a lock for the existing .env.example
+
+This repo already had a complete `.env.example`, but nothing kept it in step with
+the code. A new test derives the variables the app reads from its source and
+requires the file to list exactly those. The capture script's `CAPTURE_HEADED`
+switch is excluded with a written reason. The first version copied another repo's
+private helpers and this repo's own structural tests rejected it, so it now uses
+the shared source-file helpers like every other lock here. Part of
+portfolio-ops#80.
