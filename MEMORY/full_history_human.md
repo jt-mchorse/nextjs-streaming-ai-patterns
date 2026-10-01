@@ -1649,3 +1649,14 @@ switch is excluded with a written reason. The first version copied another repo'
 private helpers and this repo's own structural tests rejected it, so it now uses
 the shared source-file helpers like every other lock here. Part of
 portfolio-ops#80.
+
+## 2026-10-01 — Issue #140: a non-object JSON body is a 400, not a 500
+**Duration:** ~2 min · **Branch:** session/2026-10-01-0815-issue-140
+
+- `POST /api/optimistic` with the body `null` threw a TypeError (500). `null` is valid JSON, so `body.id` dereferenced it. Strings, numbers, booleans and arrays were refused only because property access on them returns `undefined`. All of these now get a 400, "body must be a JSON object". A source lock requires the same guard in any route that parses a JSON body. 10 tests; three revert probes all red.
+
+**Why this work, this session:** found by this run's hunt in a priority-tier repo.
+
+**Open questions / blockers:** none. Merge #139 first, then this one (both append to MEMORY).
+
+**Next session:** none queued.
