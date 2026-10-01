@@ -31,15 +31,27 @@ interface RequestBody {
  * try again.
  */
 export async function POST(req: NextRequest): Promise<Response> {
-  let body: RequestBody;
+  let parsed: unknown;
   try {
-    body = (await req.json()) as RequestBody;
+    parsed = await req.json();
   } catch {
     return jsonResponse(
       400,
       { ok: false, reason: "bad request: body was not valid JSON" },
     );
   }
+  // Valid JSON is not necessarily an object (#140). `null` was the one value
+  // whose property access throws, so `body.id` below raised a TypeError and
+  // Next.js answered 500; a string, number, boolean or array reached the `id`
+  // check only by accident (`"x".id` is undefined) and was refused for the
+  // wrong reason.
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return jsonResponse(400, {
+      ok: false,
+      reason: "bad request: body must be a JSON object",
+    });
+  }
+  const body = parsed as RequestBody;
 
   if (typeof body.id !== "string" || body.id.length === 0) {
     return jsonResponse(
