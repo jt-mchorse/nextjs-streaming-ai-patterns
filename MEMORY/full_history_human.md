@@ -1650,6 +1650,18 @@ private helpers and this repo's own structural tests rejected it, so it now uses
 the shared source-file helpers like every other lock here. Part of
 portfolio-ops#80.
 
+## 2026-10-01 — Issue #138: partial-json and tool-use no longer wedge when the stream ends without message_stop
+**Duration:** ~5 min · **Branch:** session/2026-10-01-0810-issue-138
+
+- A clean end of stream with no `message_stop` or `error` frame, including an empty body, used to leave both clients in a non-terminal phase permanently: Run stayed disabled and Interrupt did nothing. They now land in `error` with a message naming the cause. A new `pumpSseFramesToTerminal` lets the frame handler report whether it reached a terminal phase. The handler decides this, not the event name, because both clients skip unparseable frames.
+- 14 new tests (8 behavioural, plus source locks on both clients). All five revert probes go red. The state-machine doc gains the transition.
+
+**Why this work, this session:** high-severity UX wedge found by this run's hunt; it's the resolve-side sibling of #60.
+
+**Open questions / blockers:** none. #97 (truncated tail) is unaffected.
+
+**Next session:** the `/api/optimistic` `null` body 500.
+
 ## 2026-10-01 — Issue #140: a non-object JSON body is a 400, not a 500
 **Duration:** ~2 min · **Branch:** session/2026-10-01-0815-issue-140
 
