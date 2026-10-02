@@ -268,6 +268,13 @@ export const STREAM_ENDED_WITHOUT_TERMINAL =
   "stream ended before a terminal frame (message_stop or error)";
 
 /**
+ * `streaming-text-client`'s version of the same message (#142): its route's
+ * terminal frame is `event: done`, not `message_stop`.
+ */
+export const STREAM_TEXT_ENDED_WITHOUT_DONE =
+  "stream ended before its terminal frame (event: done); the text above may be incomplete";
+
+/**
  * `pumpSseFrames`, reporting whether the caller ever reached a terminal phase.
  *
  * `partial-json-client` and `tool-use-client` set `done` / `interrupted` /
