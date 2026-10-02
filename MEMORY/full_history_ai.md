@@ -1603,3 +1603,22 @@ context_for_next_session:
   - nextjs_api_optimistic_null_body_500_from_the_same_hunt_FILED_SEPARATELY
 followups: []
 ---
+
+---
+session: 2026-10-01T08:10Z
+issue: 140
+focus: VALID_JSON_IS_NOT_AN_OBJECT_null_BODY_WAS_A_TYPEERROR_500
+phase: shipped
+duration_min: 2   # 08:08 plan -> 08:10 close, from date -u
+delta:
+  files_changed: 2
+  tests_added: 10
+  suite: "761 -> 771 green"
+decisions_made: []
+measured: "hunt agent: body null -> TypeError (500); '\"x\"', [], 42, true -> 400 with the id message. Revert probes, control 771: null-only guard 6 red, no array check 3, no guard 7."
+context_for_next_session:
+  - THE_OTHER_NON_OBJECTS_WERE_REFUSED_BY_ACCIDENT_x_dot_id_is_undefined_so_the_reason_was_wrong_and_only_null_crashed_A_GUARD_THAT_PASSES_FOR_THE_WRONG_REASON_IS_A_LENS
+  - ONLY_ONE_ROUTE_PARSES_A_JSON_BODY_TODAY_the_source_lock_has_a_non_zero_control_so_a_second_one_inherits_the_rule
+  - MERGE_ORDER_139_THEN_141_both_append_MEMORY
+followups: []
+---
