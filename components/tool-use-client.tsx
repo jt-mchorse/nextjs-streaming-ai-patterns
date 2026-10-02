@@ -2,7 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { isAbortError, parseSseFrame, pumpSseFrames } from "@/lib/sse-stream";
+import {
+  isAbortError,
+  parseSseFrame,
+  pumpSseFramesToTerminal,
+  STREAM_ENDED_WITHOUT_TERMINAL,
+} from "@/lib/sse-stream";
 
 /**
  * Tool-use streaming UI (#2).
@@ -125,7 +130,12 @@ export function ToolUseClient() {
     let phasePosition: "before" | "after" = "before";
 
     try {
-      await pumpSseFrames(reader, handleFrame);
+      // A clean end with no `message_stop`/`error` frame left the phase
+      // non-terminal for good -- Run disabled, Interrupt inert (#138).
+      if (!(await pumpSseFramesToTerminal(reader, handleFrame))) {
+        setError(STREAM_ENDED_WITHOUT_TERMINAL);
+        setPhase("error");
+      }
     } catch (e) {
       // Interrupt aborts the in-flight read; per docs/tool-use-state-machine.md
       // that's the `interrupted` terminal state, not an error. Without this the
@@ -138,24 +148,25 @@ export function ToolUseClient() {
       }
     }
 
-    function handleFrame(frame: string): void {
+    // Returns true when the frame put the client in a terminal phase (#138).
+    function handleFrame(frame: string): boolean {
       // `?? "message"` keeps this client's existing default event name; the
       // shared parser reports a missing `event:` line as null (#93).
       const { event, data: dataLine } = parseSseFrame(frame);
       const eventName = event ?? "message";
-      if (!dataLine) return;
+      if (!dataLine) return false;
       let payload: Record<string, unknown>;
       try {
         payload = JSON.parse(dataLine) as Record<string, unknown>;
       } catch {
-        return;
+        return false;
       }
       switch (eventName) {
         case "text_delta": {
           const t = typeof payload.text === "string" ? payload.text : "";
           appendText(t, phasePosition);
           setPhase((p) => (p === "tool_completed" || p === "tool_called" || p === "tool_running" ? "streaming_text" : "streaming_text"));
-          return;
+          return false;
         }
         case "tool_use_start": {
           const id = String(payload.tool_use_id ?? "");
@@ -175,14 +186,14 @@ export function ToolUseClient() {
             },
           ]);
           setPhase("tool_called");
-          return;
+          return false;
         }
         case "tool_use_delta": {
           const chunk = typeof payload.partial_json === "string" ? payload.partial_json : "";
           if (currentToolId) {
             updateTool(currentToolId, (t) => ({ ...t, partial_args: t.partial_args + chunk }));
           }
-          return;
+          return false;
         }
         case "tool_use_stop": {
           if (currentToolId) {
@@ -197,26 +208,27 @@ export function ToolUseClient() {
             });
           }
           setPhase("tool_running");
-          return;
+          return false;
         }
         case "tool_result": {
           const id = String(payload.tool_use_id ?? "");
           updateTool(id, (t) => ({ ...t, result: payload.result }));
           phasePosition = "after";
           setPhase("tool_completed");
-          return;
+          return false;
         }
         case "message_stop": {
           const reason = String(payload.stop_reason ?? "end_turn");
           setPhase(reason === "interrupted" ? "interrupted" : "done");
-          return;
+          return true;
         }
         case "error": {
           setError(typeof payload.error === "string" ? payload.error : "unknown error");
           setPhase("error");
-          return;
+          return true;
         }
       }
+      return false;
     }
   }, [phase, appendText, updateTool]);
 

@@ -4,7 +4,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { parsePartialJson } from "@/lib/partial-json";
 import { pluralizeCount } from "@/lib/plural";
-import { isAbortError, parseSseFrame, pumpSseFrames } from "@/lib/sse-stream";
+import {
+  isAbortError,
+  parseSseFrame,
+  pumpSseFramesToTerminal,
+  STREAM_ENDED_WITHOUT_TERMINAL,
+} from "@/lib/sse-stream";
 
 /**
  * Partial-JSON streaming UI (#3).
@@ -81,7 +86,12 @@ export function PartialJsonClient(): React.ReactElement {
     setPhase("streaming");
 
     try {
-      await pumpSseFrames(reader, handleFrame);
+      // A clean end with no `message_stop`/`error` frame left the phase
+      // non-terminal for good -- Run disabled, Interrupt inert (#138).
+      if (!(await pumpSseFramesToTerminal(reader, handleFrame))) {
+        setError(STREAM_ENDED_WITHOUT_TERMINAL);
+        setPhase("error");
+      }
     } catch (e) {
       // Interrupt aborts the in-flight read; that's the `interrupted` terminal
       // state, not an error. Without this the AbortError escaped run() and the
@@ -94,17 +104,18 @@ export function PartialJsonClient(): React.ReactElement {
       }
     }
 
-    function handleFrame(frame: string): void {
+    // Returns true when the frame put the client in a terminal phase (#138).
+    function handleFrame(frame: string): boolean {
       // `?? "message"` keeps this client's existing default event name; the
       // shared parser reports a missing `event:` line as null (#93).
       const { event, data: dataLine } = parseSseFrame(frame);
       const eventName = event ?? "message";
-      if (!dataLine) return;
+      if (!dataLine) return false;
       let payload: Record<string, unknown>;
       try {
         payload = JSON.parse(dataLine) as Record<string, unknown>;
       } catch {
-        return;
+        return false;
       }
       switch (eventName) {
         case "json_delta": {
@@ -114,19 +125,20 @@ export function PartialJsonClient(): React.ReactElement {
           setParsed(r.value);
           setIsComplete(r.isComplete);
           setBufferLen(jsonBuf.length);
-          return;
+          return false;
         }
         case "message_stop": {
           const reason = String(payload.stop_reason ?? "end_turn");
           setPhase(reason === "interrupted" ? "interrupted" : "done");
-          return;
+          return true;
         }
         case "error": {
           setError(typeof payload.error === "string" ? payload.error : "unknown error");
           setPhase("error");
-          return;
+          return true;
         }
       }
+      return false;
     }
   }, [phase]);
 

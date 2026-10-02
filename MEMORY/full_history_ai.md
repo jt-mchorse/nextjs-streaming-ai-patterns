@@ -1583,3 +1583,23 @@ context_for_next_session:
   - THE_TRUNCATION_CENSUS_COUNTS_LINES_WHERE_stripComments_TRUNCATES_a_double_slash_inside_a_string_literal_in_a_NEW_TEST_FILE_moves_it_build_the_comment_arm_with_slash_repeat_2
   - portfolio_ops_80_rag_is_the_last_repo_without_a_lock
 followups: []
+
+---
+session: 2026-10-01T08:07Z
+issue: 138
+focus: A_CLEAN_EOF_WITHOUT_message_stop_WEDGED_TWO_CLIENTS_FOR_GOOD_THE_RESOLVE_SIDE_SIBLING_OF_60
+phase: shipped
+duration_min: 5   # 08:02 plan -> 08:07 close, from date -u
+delta:
+  files_changed: 5
+  tests_added: 14
+  suite: "761 -> 775 green (43 files)"
+decisions_made: []
+measured: "Playwright repro by the hunt agent (page.route serving a 200 SSE body without message_stop): /partial-json stuck in streaming, /tool-use stuck in connecting, Run disabled, Interrupt inert after 10s; control with message_stop reached done. Revert probes, control 775: wrapper always true 3 red, wrapper matching event names 1, partial-json without the post-resolve check 1, tool-use message_stop returning false 1, tool-use raw pump 1. next build clean."
+context_for_next_session:
+  - 60_FIXED_THE_REJECT_PATH_AND_SAID_SO_THE_RESOLVE_PATH_WITH_NO_TERMINAL_FRAME_WAS_THE_UNASKED_SIBLING_the_other_two_clients_had_each_handled_it_in_their_own_inline_loops
+  - THE_HANDLER_DECIDES_TERMINALITY_NOT_THE_EVENT_NAME_both_clients_skip_unparseable_frames_so_a_name_match_would_reintroduce_the_wedge_on_a_broken_error_frame_and_the_neighbour_probe_proves_the_arm_sees_it
+  - NOT_97_that_is_the_truncated_tail_contract_in_pumpSseFrames_which_is_unchanged
+  - nextjs_api_optimistic_null_body_500_from_the_same_hunt_FILED_SEPARATELY
+followups: []
+---

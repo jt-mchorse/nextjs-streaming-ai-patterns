@@ -260,3 +260,41 @@ export async function pumpSseFrames(
   for (const frame of framer.push(decoder.decode())) onFrame(frame);
   for (const frame of framer.flush()) onFrame(frame);
 }
+
+/**
+ * The message a client shows when the body ended without a terminal frame (#138).
+ */
+export const STREAM_ENDED_WITHOUT_TERMINAL =
+  "stream ended before a terminal frame (message_stop or error)";
+
+/**
+ * `pumpSseFrames`, reporting whether the caller ever reached a terminal phase.
+ *
+ * `partial-json-client` and `tool-use-client` set `done` / `interrupted` /
+ * `error` only from inside their frame handler, on a `message_stop` or `error`
+ * frame. A body that ended cleanly without one -- complete frames that never
+ * include it, or an empty body -- resolved `pumpSseFrames` normally and left the
+ * phase non-terminal *forever*: Run disabled because the client still read as
+ * in flight, Interrupt inert because the fetch had already finished (#138, the
+ * resolve-side sibling of #60's reject-side wedge).
+ *
+ * The handler says whether it reached a terminal phase rather than this
+ * function matching event names, because a client's handler is what decides:
+ * both skip a frame with no `data:` and a frame whose JSON does not parse, so an
+ * `event: error` frame with a broken payload reaches no terminal phase, and a
+ * name match here would call it terminal and leave the wedge in place.
+ *
+ * Rejections propagate unchanged, so an abort still lands on `interrupted`
+ * through the caller's `isAbortError` classification (#60). Not #97: that is
+ * about a *truncated* trailing frame, which `pumpSseFrames` still drops.
+ */
+export async function pumpSseFramesToTerminal(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  onFrame: (frame: string) => boolean,
+): Promise<boolean> {
+  let reachedTerminal = false;
+  await pumpSseFrames(reader, (frame) => {
+    if (onFrame(frame)) reachedTerminal = true;
+  });
+  return reachedTerminal;
+}

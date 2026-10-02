@@ -17,7 +17,7 @@ and gives reviewers something concrete to push back against.
 | `tool_completed` | `tool_result` arrived; UI shows the tool result alongside the call.   |
 | `done`           | Terminal. `message_stop` with `stop_reason: "end_turn"`.              |
 | `interrupted`    | Terminal. Either `message_stop` with `stop_reason: "interrupted"`, or the local `AbortController.abort()` resolved the fetch with an `AbortError`. |
-| `error`          | Terminal. Any thrown exception, non-200 response, or `event: error` frame. |
+| `error`          | Terminal. Any thrown exception, non-200 response, `event: error` frame, or a body that ends with no `message_stop`/`error` frame (#138). |
 
 ## Transitions
 
@@ -41,6 +41,7 @@ tool_completed ──message_stop(end_turn)──▶ done
 <any non-terminal> ──message_stop(interrupted)──▶ interrupted
 <any non-terminal> ──AbortController.abort()──▶ interrupted
 <any state>        ──event:error / HTTP non-200 / throw──▶ error
+<any non-terminal> ──body ends, no message_stop or error frame──▶ error   (#138)
 
 done / interrupted / error ──Run──▶ connecting   (re-run resets the timeline)
 ```
