@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from "react";
 
-import { createSseFramer, parseSseFrame } from "@/lib/sse-stream";
+import {
+  createSseFramer,
+  parseSseFrame,
+  STREAM_TEXT_ENDED_WITHOUT_DONE,
+} from "@/lib/sse-stream";
 
 interface StreamingTextClientProps {
   prompt: string;
@@ -32,6 +36,9 @@ export function StreamingTextClient({ prompt }: StreamingTextClientProps) {
   useEffect(() => {
     const controller = new AbortController();
     let cancelled = false;
+    // The route always ends with `event: done`; a body that ends without it was
+    // cut short (#142).
+    let sawDone = false;
 
     (async () => {
       setStatus("streaming");
@@ -79,6 +86,11 @@ export function StreamingTextClient({ prompt }: StreamingTextClientProps) {
         // being forgotten, which is the shape #114 was.
         for (const frame of framer.push(decoder.decode())) handleFrame(frame);
         for (const frame of framer.flush()) handleFrame(frame);
+        // A proxy timeout, a server crash mid-stream or an empty 200 body all
+        // end the read cleanly. This used to set `done` regardless, so a cut
+        // stream rendered as a finished answer -- the cursor gone, no error
+        // (#142). The same rule #138 gave the two `pumpSseFrames` clients.
+        if (!sawDone) throw new Error(STREAM_TEXT_ENDED_WITHOUT_DONE);
         setStatus("done");
       } catch (err) {
         if (cancelled) return;
@@ -100,6 +112,7 @@ export function StreamingTextClient({ prompt }: StreamingTextClientProps) {
       const { event, data } = parseSseFrame(frame);
       const eventName = event ?? "message";
       if (eventName === "done") {
+        sawDone = true;
         return;
       }
       if (eventName === "error") {
