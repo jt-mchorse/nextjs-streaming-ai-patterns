@@ -273,6 +273,44 @@ async function runCapture(): Promise<void> {
 }
 
 /**
+ * A run has started once the page's own `phase:` readout leaves `idle`.
+ *
+ * The page's state, not a timer, because both ways this script used to fail
+ * were timing guesses (#144): a click on the server-rendered button before
+ * React attached its handler did nothing, and an Interrupt scheduled 4.5 s
+ * after Run landed after the ~2.2 s mock stream had already finished.
+ */
+export function hasStarted(phaseText: string | null): boolean {
+  const phase = (phaseText ?? "").trim();
+  return phase !== "" && phase !== "idle";
+}
+
+/** The `/tool-use` phases in which a tool call is on screen and the stream is still live. */
+export const TOOL_CALL_PHASES: ReadonlyArray<string> = ["tool_called", "tool_running", "tool_completed"];
+
+/**
+ * Click `button` until the page reports a started run. A click that lands
+ * before hydration is a no-op on the server-rendered markup, so retry a bounded
+ * number of times rather than trust the first one.
+ */
+async function startRun(
+  page: import("playwright").Page,
+  button: import("playwright").Locator,
+  phase: import("playwright").Locator,
+  attempts = 6,
+): Promise<void> {
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    await button.click({ timeout: 5_000 });
+    const deadline = Date.now() + 2_000;
+    while (Date.now() < deadline) {
+      if (hasStarted(await phase.textContent())) return;
+      await page.waitForTimeout(100);
+    }
+  }
+  throw new Error(`run did not start after ${attempts} clicks (phase stayed idle)`);
+}
+
+/**
  * Per-page interaction. Each stop performs whatever click/keypress
  * makes the pattern visible on camera; the page's own streaming
  * timers do the rest. Pace `paceMs` is added between actions so a
@@ -280,10 +318,10 @@ async function runCapture(): Promise<void> {
  *
  * Selector strategy: prefer `getByTestId` against the testids already
  * defined in the components (`run-button`, `interrupt-button`,
- * `item-<name>`, `error-recovery-output`). When a page doesn't expose
- * a button (streaming-text, partial-json, error-recovery — they
- * auto-start on mount), the function simply returns and the timeline
- * `holdMs` carries the camera.
+ * `item-<name>`, `error-recovery-output`). streaming-text and
+ * error-recovery auto-start on mount, so the function returns and the
+ * timeline `holdMs` carries the camera. partial-json does NOT -- its only
+ * effect is the unmount teardown -- so it is started from its button (#144).
  */
 async function interactFor(
   page: import("playwright").Page,
@@ -299,16 +337,31 @@ async function interactFor(
       // Auto-starts on mount (see StreamingTextClient useEffect).
       return;
     case "/tool-use": {
-      // Click Run; let the tool-call render; click Interrupt mid-stream.
-      await page.getByTestId("run-button").click();
-      await wait(4_500 + paceMs);
-      await page.getByTestId("interrupt-button").click();
+      // Click Run; let the tool call render; click Interrupt mid-stream.
+      // On the page's phase, not a timer (#144): the mock stream is ~2.2 s end
+      // to end with the tool call at ~0.8 s, so the old fixed 4.5 s wait always
+      // found Interrupt disabled. No pace between the tool call and Interrupt
+      // for the same reason -- the window is about a second.
+      const phase = page.getByTestId("phase").locator("code");
+      await wait(paceMs);
+      await startRun(page, page.getByTestId("run-button"), phase);
+      await phase.filter({ hasText: new RegExp(`^(${TOOL_CALL_PHASES.join("|")})$`) }).waitFor({ timeout: 10_000 });
+      await page.getByTestId("interrupt-button").click({ timeout: 5_000 });
+      await phase.filter({ hasText: /^interrupted$/ }).waitFor({ timeout: 5_000 });
       return;
     }
-    case "/partial-json":
-      // Auto-starts (see partial-json-client). The camera watches the
-      // fields populate.
+    case "/partial-json": {
+      // Started from "Plan a trip": partial-json-client has no start-on-mount
+      // effect, so the old "auto-starts" comment filmed an idle page (#144).
+      // The camera then watches the fields populate.
+      await wait(paceMs);
+      await startRun(
+        page,
+        page.getByRole("button", { name: "Plan a trip" }),
+        page.locator("span", { hasText: "phase:" }).locator("code").first(),
+      );
       return;
+    }
     case "/optimistic-rollback": {
       // Two clicks on the same item: the first commits (happy path), the
       // second resolves via the deterministic 50/50 oracle keyed by
