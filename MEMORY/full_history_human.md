@@ -1685,3 +1685,15 @@ as an error. A new check covers every component that reads the stream itself. 8
 new tests. My first version of the source check matched the constant's import,
 which a reverted fix leaves in place, so it now requires the constant where it is
 thrown or set.
+
+## 2026-10-05 — the demo capture script runs to the end (#144)
+
+`npm run capture` drives a browser through all five pattern pages to record the
+demo video. It had never been able to finish. It clicked Interrupt on the
+tool-use page four and a half seconds after Run, but the demo stream lasts
+about two seconds, so the button was always disabled by then. Its Run click
+could also land before the page was interactive. And the partial-JSON page,
+which the script assumed starts by itself, needs a button click. Each step now
+waits for the page's own phase readout instead of a timer. I ran the full tour
+against a local dev server: it completed and wrote a 3 MB video. Recording and
+committing the final demo still waits on JT's review (#16).

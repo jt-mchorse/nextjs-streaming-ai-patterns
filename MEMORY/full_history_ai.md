@@ -1641,3 +1641,24 @@ context_for_next_session:
   - BEHAVIOURAL_HARNESS_vi_mock_react_useState_records_setters_useEffect_runs_once_PLUS_vi_stubGlobal_React_createElement_because_the_test_transform_emits_a_BARE_React_createElement
 followups: []
 ---
+
+---
+session: 2026-10-05T08:27Z
+duration_min: 6   # computed: started 08:22Z -> 08:27Z
+issue: 144
+branch: session/2026-10-05-0823-issue-144
+focus: npm_run_capture_COULD_NOT_FINISH_interrupt_on_a_4_5s_timer_vs_a_2_2s_stream_pre_hydration_run_click_and_partial_json_never_started
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 10
+  suite: "793 -> 803 green; lint, tsc clean; full tour run end to end against next dev on port 3917 (stopped by PID)"
+decisions_made: []
+measured: "main: TimeoutError at /tool-use, interrupt-button disabled; dev log GET /tool-use with no /api/tool-use. Fixed: six stops complete, 3.1 MB webm, /api/tool-use closed at 1371 ms (interrupted), /api/partial-json requested. Effect lock red with a planted run() in partial-json's effect."
+context_for_next_session:
+  - THE_SCRIPT_WAS_NEVER_RUNNABLE_its_smoke_test_checked_TIMELINE_only_A_SCRIPT_NOBODY_RUNS_IS_A_CLAIM_run_it
+  - EVERY_STEP_NOW_WAITS_ON_THE_PAGES_OWN_phase_READOUT_never_a_timer_the_mock_tool_stream_is_2_2s_with_the_tool_call_at_0_8s
+  - GOTCHA_ps_IS_ALIASED_TO_A_POETRY_COMMAND_IN_THIS_SHELL_use_bin_ps_and_npx_next_dev_spawns_npm_node_next_server_kill_the_recorded_chain_only
+  - 16_STAYS_OPEN_recording_and_committing_docs_demo_needs_JTs_visual_review_the_script_now_produces_a_take
+followups: []
+---
