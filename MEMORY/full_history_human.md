@@ -1672,3 +1672,16 @@ portfolio-ops#80.
 **Open questions / blockers:** none. Merge #139 first, then this one (both append to MEMORY).
 
 **Next session:** none queued.
+
+## 2026-10-02 — a cut stream no longer renders as a finished answer (#142)
+
+The streaming-text page ignored the server's `event: done` and marked the stream
+finished whenever the response body ended. A stream cut short by a proxy
+timeout, a server crash, or an empty response therefore looked complete: the
+cursor disappeared and no error showed. #138 had already made "ended without its
+final event" an error for the two other streaming pages. This one runs its own
+read loop, so the check written for #138 couldn't see it. It now reports the cut
+as an error. A new check covers every component that reads the stream itself. 8
+new tests. My first version of the source check matched the constant's import,
+which a reverted fix leaves in place, so it now requires the constant where it is
+thrown or set.

@@ -1622,3 +1622,22 @@ context_for_next_session:
   - MERGE_ORDER_139_THEN_141_both_append_MEMORY
 followups: []
 ---
+
+---
+session: 2026-10-02T09:10Z
+issue: 142
+focus: THE_STREAMING_TEXT_CLIENT_SHOWED_A_CUT_STREAM_AS_FINISHED_THE_THIRD_SSE_CLIENT_138_COULD_NOT_SEE
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 8
+  suite: "785 -> 793 green; lint and tsc clean"
+decisions_made: []
+measured: "main (hook-mocked render): one text frame no done -> statuses idle,streaming,done; empty body -> done. Revert of the check: 3 of 8 red (two behavioural arms + the source lock once it required the constant at a THROW/SET site; the first version matched the IMPORT and stayed green against the revert)."
+context_for_next_session:
+  - FOUND_BY_A_HUNT_AGENT_READING_139S_SCOPE_its_lock_pins_EXACTLY_THE_TWO_CLIENTS_THAT_CALL_pumpSseFrames_AND_THIS_COMPONENT_RUNS_ITS_OWN_reader_read_LOOP
+  - THE_NEW_LOCK_WALKS_THE_OTHER_POPULATION_EVERY_COMPONENT_CALLING_read_ITSELF_and_error_recovery_client_PASSES_VIA_scheduleResume
+  - A_SOURCE_LOCK_THAT_MATCHES_A_CONSTANT_NAME_IS_SATISFIED_BY_ITS_IMPORT_require_the_use_site
+  - BEHAVIOURAL_HARNESS_vi_mock_react_useState_records_setters_useEffect_runs_once_PLUS_vi_stubGlobal_React_createElement_because_the_test_transform_emits_a_BARE_React_createElement
+followups: []
+---
