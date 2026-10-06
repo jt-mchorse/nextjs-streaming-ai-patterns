@@ -1662,3 +1662,23 @@ context_for_next_session:
   - 16_STAYS_OPEN_recording_and_committing_docs_demo_needs_JTs_visual_review_the_script_now_produces_a_take
 followups: []
 ---
+
+---
+session: 2026-10-06T07:20Z
+duration_min: 4   # computed: plan comment 07:16Z -> 07:20Z (resumed 10-05's uncommitted WIP)
+issue: 146
+branch: session/2026-10-06-0716-issue-146
+focus: capture_demo_CLAIMED_IT_FORCES_MOCK_MODE_IN_A_SERVER_IT_NEVER_SPAWNS_now_refuses_anything_but_data_stream_mode_mock_before_launching_a_browser
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 8
+  suite: "803 -> 811 green; lint, tsc, build clean"
+decisions_made: []
+measured: "port 3917, killed by PID: mock server -> attribute mock, full tour rc 0; fake key + non-routable base URL -> attribute live, rc 1 before any stop. Revert probe: main's script recorded 4 stops against that live server."
+context_for_next_session:
+  - THE_WIP_FROM_10_05_MATCHED_THE_WHOLE_BODY_TEXT_and_the_streaming_text_SOURCE_PANE_ALWAYS_RENDERS_lib_anthropic_stream_ts_whose_comments_say_mock_streamer_SO_A_CHANGED_PILL_WOULD_READ_AS_MOCK_read_a_data_attribute_set_from_getStreamMode
+  - THE_CHECK_IS_A_fetch_BEFORE_chromium_launch_BECAUSE_THE_RECORDING_CONTEXT_FILMS_EVERY_PAGE_IT_VISITS
+  - THE_FIRST_CAPTURE_AGAINST_A_COLD_next_dev_TIMED_OUT_AT_tool_use_the_second_passed_FILED_SEPARATELY
+followups: []
+---
