@@ -1697,3 +1697,16 @@ which the script assumed starts by itself, needs a button click. Each step now
 waits for the page's own phase readout instead of a timer. I ran the full tour
 against a local dev server: it completed and wrote a 3 MB video. Recording and
 committing the final demo still waits on JT's review (#16).
+
+## 2026-10-06 — the demo capture no longer misses the tool call (#148)
+
+While checking #146 I found that the first demo capture against a freshly
+started dev server always failed on the tool-use page. The tool call shows on
+screen for about a quarter of a second. Playwright's `waitFor` does not watch
+the page continuously: after the first few checks it looks only every half
+second, so a quarter-second state can fall entirely between two looks. It
+looked like a cold-start problem only because a warm server happened to put
+the window under one of the checks. The script now installs a small observer
+in the page before clicking Run, and it remembers that the tool call appeared.
+On fresh servers the old script failed 5 of 5 takes and the new one completed
+3 of 3.
