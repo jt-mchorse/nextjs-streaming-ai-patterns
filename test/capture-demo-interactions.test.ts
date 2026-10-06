@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { hasStarted, TOOL_CALL_PHASES } from "../scripts/capture_demo";
+import { assertMockMode, hasStarted, modeFromHtml, TOOL_CALL_PHASES } from "../scripts/capture_demo";
 
 /**
  * The capture's interactions wait on the page's own phase, not on timers (#144).
@@ -58,5 +58,40 @@ describe("the component facts the script relies on", () => {
     expect(effects.length).toBeGreaterThan(0); // the scan sees the teardown effect
     expect(effects.every((body) => !/\brun\(/.test(body))).toBe(true);
     expect(read("scripts/capture_demo.ts")).toContain('name: "Plan a trip"');
+  });
+});
+
+describe("the capture refuses a server that is not in mock mode (#146)", () => {
+  it.each([
+    ['<span data-stream-mode="mock">mock streamer</span>', "mock"],
+    ['<span data-stream-mode="live">live: claude-haiku-4-5-20251001</span>', "live"],
+    ["<span>mock streamer (set ANTHROPIC_API_KEY to switch to live)</span>", null],
+    ['<i data-stream-mode="mock"></i><i data-stream-mode="mock"></i>', null],
+    ["", null],
+  ] as const)("modeFromHtml(%j) -> %s", (html, mode) => {
+    expect(modeFromHtml(html)).toBe(mode);
+  });
+
+  it("only mock passes; live and an unreadable mode are refused with the restart command", () => {
+    expect(() => assertMockMode("mock", "http://localhost:3000")).not.toThrow();
+    for (const mode of ["live", null, "Mock", ""]) {
+      expect(() => assertMockMode(mode, "http://localhost:3000")).toThrow(
+        /not mock[\s\S]*env -u ANTHROPIC_API_KEY npm run dev/,
+      );
+    }
+  });
+
+  it("the page sets the attribute from getStreamMode(), the function that picks the streamer", () => {
+    const page = read("app/streaming-text/page.tsx");
+    expect(page).toContain("const mode = getStreamMode();");
+    expect(page).toContain("<span data-stream-mode={mode.mode}>");
+  });
+
+  it("the check runs before a browser is launched, so it is not part of the video", () => {
+    const src = read("scripts/capture_demo.ts");
+    const body = src.slice(src.indexOf("async function runCapture"));
+    const check = body.indexOf("assertMockMode(modeFromHtml(");
+    expect(check).toBeGreaterThan(-1);
+    expect(check).toBeLessThan(body.indexOf("chromium.launch("));
   });
 });

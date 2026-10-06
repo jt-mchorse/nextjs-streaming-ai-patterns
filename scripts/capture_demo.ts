@@ -4,11 +4,14 @@
  *
  * Drives a Playwright-controlled Chromium through the homepage and the
  * five pattern pages in sequence, executing the per-page interactions
- * that make each pattern visible on camera. The script is hermetic:
- * it forces mock mode (D-003) by unsetting ANTHROPIC_API_KEY in the
- * spawned Next.js dev server's env, so the capture never depends on a
- * key being present and the per-token timing stays reproducible across
- * recordings.
+ * that make each pattern visible on camera. It records mock mode (D-003)
+ * only. The mode is chosen by the dev server's own environment, and this
+ * script does not start the server, so before launching a browser it reads
+ * the `/streaming-text` mode pill and refuses anything but mock. This header
+ * used to say the script "forces mock mode by unsetting ANTHROPIC_API_KEY in
+ * the spawned dev server's env". It spawns nothing, so a key exported in the
+ * shell that ran `npm run dev` made the tour a live, billed,
+ * non-reproducible recording (#146).
  *
  * The TIMELINE constant below is the source of truth for the tour and
  * is also imported by `test/capture-demo-smoke.test.ts`, which asserts
@@ -226,6 +229,35 @@ export function readOptions(argv: readonly string[]): CaptureOptions {
   return { baseUrl, outPath, headed, paceMs };
 }
 
+/**
+ * Refuse unless the dev server streams from the mock (#146). `mode` is the
+ * `data-stream-mode` attribute of the `/streaming-text` mode pill, which the
+ * page sets from `getStreamMode()` -- the same function that picks the
+ * streamer. The attribute, not the page's text: that page's Source pane
+ * renders `lib/anthropic-stream.ts`, whose comments say "mock streamer"
+ * whatever mode the server is in. A missing attribute (null) is refused too:
+ * a capture that cannot tell the mode is not known to be mock.
+ */
+/**
+ * The `data-stream-mode` value in a server-rendered `/streaming-text`, or
+ * null unless there is exactly one, so a page that lost or duplicated the
+ * pill is refused rather than guessed at.
+ */
+export function modeFromHtml(html: string): string | null {
+  const found = [...html.matchAll(/\bdata-stream-mode="([^"]*)"/g)];
+  return found.length === 1 ? found[0][1] : null;
+}
+
+export function assertMockMode(mode: string | null, baseUrl: string): void {
+  if (mode === "mock") return;
+  const seen = mode === null ? "in a mode this script cannot read" : `in ${JSON.stringify(mode)} mode`;
+  throw new Error(
+    `the dev server at ${baseUrl} is ${seen}, not mock: the capture records ` +
+      "mock mode only (D-003), and the server's own environment decides it. " +
+      "Restart it without a key, e.g. `env -u ANTHROPIC_API_KEY npm run dev`.",
+  );
+}
+
 async function runCapture(): Promise<void> {
   // Imported lazily so the smoke test can import TIMELINE without
   // pulling Playwright into the vitest module graph. Vitest never
@@ -237,6 +269,14 @@ async function runCapture(): Promise<void> {
 
   console.log(`[capture] base=${opts.baseUrl} out=${opts.outPath} headed=${opts.headed}`);
   console.log(`[capture] stops=${TIMELINE.length}, target ~60s of footage`);
+
+  // Mock mode or nothing (#146): the server's env decides, so ask it before
+  // a browser is launched -- a check through the recording page would put
+  // an extra page at the start of the video.
+  const pillUrl = new URL("/streaming-text", opts.baseUrl).toString();
+  const resp = await fetch(pillUrl);
+  if (!resp.ok) throw new Error(`mode check: ${pillUrl} answered ${resp.status}`);
+  assertMockMode(modeFromHtml(await resp.text()), opts.baseUrl);
 
   const browser = await chromium.launch({ headless: !opts.headed });
   const context = await browser.newContext({
