@@ -289,6 +289,37 @@ export function hasStarted(phaseText: string | null): boolean {
 export const TOOL_CALL_PHASES: ReadonlyArray<string> = ["tool_called", "tool_running", "tool_completed"];
 
 /**
+ * Runs in the page (via `page.evaluate`, so it closes over nothing). Sets
+ * `globalThis.__capturePhaseLatched` to true the first time the `phase`
+ * readout shows one of `phases`, and leaves it true afterwards (#148).
+ *
+ * The tool-call phases are on screen for about 240 ms. `locator.waitFor`
+ * does not watch the DOM: it re-checks on Playwright's backoff, at +0, 20,
+ * 70, 170, 270 and 770 ms and then every 500 ms. A window that falls between
+ * two checks is never seen. On a cold `next dev` it fell at +936..+1179 ms,
+ * and the take timed out. A MutationObserver sees every change, and a latch
+ * cannot be missed once it is set. The observer watches the whole body and
+ * re-queries the readout, so it does not depend on React keeping the same
+ * `code` node across hydration. It only sees changes, so it must be installed
+ * before Run is clicked.
+ */
+export function installPhaseLatch(phases: readonly string[]): void {
+  // No named function in here: tsx compiles with esbuild's keepNames, which
+  // wraps a named inner function in a `__name(...)` helper that exists in
+  // this module and not in the page, so `page.evaluate` would throw.
+  const g = globalThis as unknown as { __capturePhaseLatched?: boolean };
+  g.__capturePhaseLatched = false;
+  const observer = new MutationObserver(() => {
+    const text = document.querySelector('[data-testid="phase"] code')?.textContent?.trim() ?? "";
+    if (phases.includes(text)) {
+      g.__capturePhaseLatched = true;
+      observer.disconnect();
+    }
+  });
+  observer.observe(document.body, { subtree: true, childList: true, characterData: true });
+}
+
+/**
  * Click `button` until the page reports a started run. A click that lands
  * before hydration is a no-op on the server-rendered markup, so retry a bounded
  * number of times rather than trust the first one.
@@ -342,10 +373,17 @@ async function interactFor(
       // to end with the tool call at ~0.8 s, so the old fixed 4.5 s wait always
       // found Interrupt disabled. No pace between the tool call and Interrupt
       // for the same reason -- the window is about a second.
+      // The latch goes in before Run is clicked, so the first tool phase is
+      // recorded however briefly it is shown (#148).
       const phase = page.getByTestId("phase").locator("code");
       await wait(paceMs);
+      await page.evaluate(installPhaseLatch, TOOL_CALL_PHASES);
       await startRun(page, page.getByTestId("run-button"), phase);
-      await phase.filter({ hasText: new RegExp(`^(${TOOL_CALL_PHASES.join("|")})$`) }).waitFor({ timeout: 10_000 });
+      await page.waitForFunction(
+        () => (globalThis as unknown as { __capturePhaseLatched?: boolean }).__capturePhaseLatched === true,
+        undefined,
+        { polling: "raf", timeout: 10_000 },
+      );
       await page.getByTestId("interrupt-button").click({ timeout: 5_000 });
       await phase.filter({ hasText: /^interrupted$/ }).waitFor({ timeout: 5_000 });
       return;
