@@ -1697,3 +1697,15 @@ which the script assumed starts by itself, needs a button click. Each step now
 waits for the page's own phase readout instead of a timer. I ran the full tour
 against a local dev server: it completed and wrote a 3 MB video. Recording and
 committing the final demo still waits on JT's review (#16).
+
+## 2026-10-06 — the demo capture actually films the rollback (#150)
+
+The optimistic-update stop of the demo exists to show an edit being rolled
+back. The script clicked once, waited, and clicked again; the item it picks
+commits on its first click and rolls back on its second. On a freshly started
+dev server the first click arrived before the page was interactive and was
+lost, so the second click was really the first: it committed, and the
+recording never showed a rollback while reporting success. The first click is
+now repeated until the page shows it took effect, and the stop fails unless the
+"rolled back" line appears. Two fresh-server takes both filmed the rollback;
+before the change neither did.
