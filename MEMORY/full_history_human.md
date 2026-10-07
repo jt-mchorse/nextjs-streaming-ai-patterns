@@ -1748,3 +1748,10 @@ In the optimistic-update demo, a successful click could "rename" a file to the
 name it already had, so the click looked like it did nothing. The page now
 tells the server the current name, and the server picks a different one. The
 50/50 success/failure split is exactly as before.
+## 2026-10-07 — the live streaming demo only streams its own prompt (#156)
+
+Security/cost fix. With an API key configured, the streaming-text endpoint
+would send whatever prompt a visitor put in the URL to Anthropic on the
+operator's account, so any deployed demo was a free general-purpose AI proxy.
+In live mode it now streams the demo's one prompt and refuses anything else
+before contacting Anthropic. Mock mode (no key) is unchanged.
