@@ -46,7 +46,8 @@ primitive all the way down.
 - **Optimistic updates with rollback** (#4) — React 19 `useOptimistic` +
   a deterministic decision oracle keyed by `(id, click_count)` — the first
   click on an item always succeeds, subsequent clicks split 50/50 — on
-  the server (D-010). Successes commit; failures roll back with a
+  the server (D-010). Successes commit a name other than the one showing
+  (the client sends it, #154); failures roll back with a
   rendered reason and a border-flash animation. The rollback path is
   reproducible by construction, so the UX is testable, not aspirational.
 - **Error recovery mid-stream** (#5) — checkpoint protocol layered over

@@ -8,13 +8,16 @@ export const dynamic = "force-dynamic";
 interface RequestBody {
   id?: unknown;
   click_count?: unknown;
+  current_name?: unknown;
 }
 
 /**
  * POST /api/optimistic
  *
- * Body: `{ id: string, click_count: number }` — the item the user
- * clicked "improve" on, plus how many times they've clicked it.
+ * Body: `{ id: string, click_count: number, current_name?: string }` —
+ * the item the user clicked "improve" on, how many times they've clicked
+ * it, and optionally the name it shows now, which a success never returns
+ * (#154).
  *
  * Returns the deterministic `decide()` Decision as JSON:
  *
@@ -70,7 +73,18 @@ export async function POST(req: NextRequest): Promise<Response> {
     });
   }
 
-  const decision = decide({ id: body.id, click_count: body.click_count });
+  if (body.current_name !== undefined && typeof body.current_name !== "string") {
+    return jsonResponse(400, {
+      ok: false,
+      reason: "bad request: `current_name` must be a string when given",
+    });
+  }
+
+  const decision = decide({
+    id: body.id,
+    click_count: body.click_count,
+    ...(body.current_name !== undefined ? { current_name: body.current_name } : {}),
+  });
   return jsonResponse(200, decision);
 }
 

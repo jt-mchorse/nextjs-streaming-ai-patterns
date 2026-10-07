@@ -69,11 +69,12 @@ export function OptimisticRollbackClient() {
       addOptimistic(id);
       // Bump click count first so the seed used for `decide` matches
       // the number of times this item has been clicked (1-indexed).
-      const nextClicks =
-        (items.find((i) => i.id === id)?.clicks ?? 0) + 1;
+      const item = items.find((i) => i.id === id);
+      const nextClicks = (item?.clicks ?? 0) + 1;
       let payload: Awaited<ReturnType<typeof callApi>>;
       try {
-        payload = await callApi(id, nextClicks);
+        // The committed name, so a success never "improves" it to itself (#154).
+        payload = await callApi(id, nextClicks, item?.name ?? id);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         setItems((prev) =>
@@ -172,6 +173,7 @@ interface CallApiResult {
 async function callApi(
   id: string,
   click_count: number,
+  current_name: string,
 ): Promise<
   | { ok: true; improved_name: string }
   | { ok: false; reason: string }
@@ -179,7 +181,7 @@ async function callApi(
   const res = await fetch("/api/optimistic", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ id, click_count }),
+    body: JSON.stringify({ id, click_count, current_name }),
   });
   const body = (await res.json()) as CallApiResult;
   if (body.ok && typeof body.improved_name === "string") {
