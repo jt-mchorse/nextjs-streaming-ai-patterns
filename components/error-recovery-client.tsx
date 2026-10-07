@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { resumeTokenPosition } from "@/lib/checkpoint-stream";
 import { pluralizeCount } from "@/lib/plural";
 import { phaseOnFirstChunk, type RecoveryPhase } from "@/lib/recovery-phase";
+import { isResumedPillVisible, resumedPillRemainingMs } from "@/lib/resume-pill";
 import { createSseFramer, parseSseFrame } from "@/lib/sse-stream";
 
 type Phase = RecoveryPhase;
@@ -20,8 +21,9 @@ interface ResumeEvent {
  * if the stream closes with an `error` event.
  *
  * The recovery is visible to the user:
- * - A small "resumed at token N" pill renders for 2s after each
- *   successful reconnect.
+ * - A small "resumed at token N" pill renders for 2.5 s
+ *   (`RESUMED_PILL_MS`) after each successful reconnect, and an effect
+ *   clears it when that window closes (#152).
  * - The accumulating text never resets on a drop — chunks before the
  *   drop stay rendered while the reconnect fires, then new chunks
  *   append in place.
@@ -215,8 +217,22 @@ export function ErrorRecoveryClient() {
     }, 250); // tiny back-off so the pill is briefly visible
   }
 
+  // Render alone cannot hide the pill: nothing re-renders when its window
+  // closes, and the resumed stream is usually done well inside it (#152).
+  // Schedule the clear; a newer resume replaces `lastResume`, and the cleanup
+  // cancels the older timer, so each pill gets its own full window.
+  useEffect(() => {
+    if (lastResume === null) return;
+    const shown = lastResume;
+    const timer = setTimeout(
+      () => setLastResume((current) => (current === shown ? null : current)),
+      resumedPillRemainingMs(shown.when, Date.now()),
+    );
+    return () => clearTimeout(timer);
+  }, [lastResume]);
+
   const showResumedPill =
-    lastResume !== null && Date.now() - lastResume.when < 2_500;
+    lastResume !== null && isResumedPillVisible(lastResume.when, Date.now());
 
   return (
     <div className="space-y-3">
