@@ -1734,3 +1734,11 @@ recording never showed a rollback while reporting success. The first click is
 now repeated until the page shows it took effect, and the stop fails unless the
 "rolled back" line appears. Two fresh-server takes both filmed the rollback;
 before the change neither did.
+
+## 2026-10-07 — the error-recovery "resumed" pill goes away (#152)
+
+After the demo recovered from a dropped stream, its "resumed at token N" badge
+was meant to show briefly. It was only re-checked when the page re-rendered,
+and nothing re-rendered after the stream finished, so the badge stayed forever.
+A timer now clears it 2.5 seconds after it appears. A browser test against the
+dev server showed it present at 1.5 s and gone from 2.5 s on.

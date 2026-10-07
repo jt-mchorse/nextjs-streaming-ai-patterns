@@ -1724,3 +1724,22 @@ context_for_next_session:
   - MERGE_ORDER_147_149_151_all_edit_capture_demo_ts
 followups: []
 ---
+
+---
+session: 2026-10-07T07:50Z
+duration_min: 2   # computed from GitHub: plan comment 07:48:53Z -> PR ~07:50Z; reproduced firsthand from ~07:46Z
+issue: 152
+branch: session/2026-10-07-nextjs-resume-pill
+focus: THE_RESUMED_PILL_WINDOW_WAS_ONLY_CHECKED_ON_RENDER_AND_NOTHING_RE_RENDERED_SO_IT_NEVER_CLEARED
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 14
+  suite: "841 passed; tsc + eslint clean"
+decisions_made: []
+measured: "Playwright on mock next dev :3917 (stopped by pid): main pill at 0.5/1.5/2.5/3.5/6/10 s; fix pill at 0.5/1.5 s only. Revert: main 3 of 14 red, unconditional clear 1, no cleanup 1."
+context_for_next_session:
+  - A_TIME_WINDOW_COMPUTED_IN_RENDER_IS_A_SNAPSHOT_grep_components_for_Date_now_inside_render_and_ask_what_re_renders_when_the_window_closes
+  - SOURCE_LOCKS_PIN_SHAPE_ONLY_the_behaviour_evidence_is_the_browser_measurement_say_so_in_the_PR
+followups: []
+---
