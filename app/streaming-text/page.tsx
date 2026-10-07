@@ -32,7 +32,7 @@ export default function StreamingTextPage() {
         </p>
         <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--panel)] px-3 py-1 text-xs text-[var(--muted)]">
           <span className="inline-flex h-2 w-2 rounded-full bg-[var(--accent)]" />
-          <span>
+          <span data-stream-mode={mode.mode}>
             {mode.mode === "live"
               ? `live: ${mode.model}`
               : "mock streamer (set ANTHROPIC_API_KEY to switch to live)"}

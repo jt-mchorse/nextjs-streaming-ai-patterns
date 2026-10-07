@@ -4,11 +4,14 @@
  *
  * Drives a Playwright-controlled Chromium through the homepage and the
  * five pattern pages in sequence, executing the per-page interactions
- * that make each pattern visible on camera. The script is hermetic:
- * it forces mock mode (D-003) by unsetting ANTHROPIC_API_KEY in the
- * spawned Next.js dev server's env, so the capture never depends on a
- * key being present and the per-token timing stays reproducible across
- * recordings.
+ * that make each pattern visible on camera. It records mock mode (D-003)
+ * only. The mode is chosen by the dev server's own environment, and this
+ * script does not start the server, so before launching a browser it reads
+ * the `/streaming-text` mode pill and refuses anything but mock. This header
+ * used to say the script "forces mock mode by unsetting ANTHROPIC_API_KEY in
+ * the spawned dev server's env". It spawns nothing, so a key exported in the
+ * shell that ran `npm run dev` made the tour a live, billed,
+ * non-reproducible recording (#146).
  *
  * The TIMELINE constant below is the source of truth for the tour and
  * is also imported by `test/capture-demo-smoke.test.ts`, which asserts
@@ -226,6 +229,35 @@ export function readOptions(argv: readonly string[]): CaptureOptions {
   return { baseUrl, outPath, headed, paceMs };
 }
 
+/**
+ * Refuse unless the dev server streams from the mock (#146). `mode` is the
+ * `data-stream-mode` attribute of the `/streaming-text` mode pill, which the
+ * page sets from `getStreamMode()` -- the same function that picks the
+ * streamer. The attribute, not the page's text: that page's Source pane
+ * renders `lib/anthropic-stream.ts`, whose comments say "mock streamer"
+ * whatever mode the server is in. A missing attribute (null) is refused too:
+ * a capture that cannot tell the mode is not known to be mock.
+ */
+/**
+ * The `data-stream-mode` value in a server-rendered `/streaming-text`, or
+ * null unless there is exactly one, so a page that lost or duplicated the
+ * pill is refused rather than guessed at.
+ */
+export function modeFromHtml(html: string): string | null {
+  const found = [...html.matchAll(/\bdata-stream-mode="([^"]*)"/g)];
+  return found.length === 1 ? found[0][1] : null;
+}
+
+export function assertMockMode(mode: string | null, baseUrl: string): void {
+  if (mode === "mock") return;
+  const seen = mode === null ? "in a mode this script cannot read" : `in ${JSON.stringify(mode)} mode`;
+  throw new Error(
+    `the dev server at ${baseUrl} is ${seen}, not mock: the capture records ` +
+      "mock mode only (D-003), and the server's own environment decides it. " +
+      "Restart it without a key, e.g. `env -u ANTHROPIC_API_KEY npm run dev`.",
+  );
+}
+
 async function runCapture(): Promise<void> {
   // Imported lazily so the smoke test can import TIMELINE without
   // pulling Playwright into the vitest module graph. Vitest never
@@ -237,6 +269,14 @@ async function runCapture(): Promise<void> {
 
   console.log(`[capture] base=${opts.baseUrl} out=${opts.outPath} headed=${opts.headed}`);
   console.log(`[capture] stops=${TIMELINE.length}, target ~60s of footage`);
+
+  // Mock mode or nothing (#146): the server's env decides, so ask it before
+  // a browser is launched -- a check through the recording page would put
+  // an extra page at the start of the video.
+  const pillUrl = new URL("/streaming-text", opts.baseUrl).toString();
+  const resp = await fetch(pillUrl);
+  if (!resp.ok) throw new Error(`mode check: ${pillUrl} answered ${resp.status}`);
+  assertMockMode(modeFromHtml(await resp.text()), opts.baseUrl);
 
   const browser = await chromium.launch({ headless: !opts.headed });
   const context = await browser.newContext({
@@ -287,6 +327,37 @@ export function hasStarted(phaseText: string | null): boolean {
 
 /** The `/tool-use` phases in which a tool call is on screen and the stream is still live. */
 export const TOOL_CALL_PHASES: ReadonlyArray<string> = ["tool_called", "tool_running", "tool_completed"];
+
+/**
+ * Runs in the page (via `page.evaluate`, so it closes over nothing). Sets
+ * `globalThis.__capturePhaseLatched` to true the first time the `phase`
+ * readout shows one of `phases`, and leaves it true afterwards (#148).
+ *
+ * The tool-call phases are on screen for about 240 ms. `locator.waitFor`
+ * does not watch the DOM: it re-checks on Playwright's backoff, at +0, 20,
+ * 70, 170, 270 and 770 ms and then every 500 ms. A window that falls between
+ * two checks is never seen. On a cold `next dev` it fell at +936..+1179 ms,
+ * and the take timed out. A MutationObserver sees every change, and a latch
+ * cannot be missed once it is set. The observer watches the whole body and
+ * re-queries the readout, so it does not depend on React keeping the same
+ * `code` node across hydration. It only sees changes, so it must be installed
+ * before Run is clicked.
+ */
+export function installPhaseLatch(phases: readonly string[]): void {
+  // No named function in here: tsx compiles with esbuild's keepNames, which
+  // wraps a named inner function in a `__name(...)` helper that exists in
+  // this module and not in the page, so `page.evaluate` would throw.
+  const g = globalThis as unknown as { __capturePhaseLatched?: boolean };
+  g.__capturePhaseLatched = false;
+  const observer = new MutationObserver(() => {
+    const text = document.querySelector('[data-testid="phase"] code')?.textContent?.trim() ?? "";
+    if (phases.includes(text)) {
+      g.__capturePhaseLatched = true;
+      observer.disconnect();
+    }
+  });
+  observer.observe(document.body, { subtree: true, childList: true, characterData: true });
+}
 
 /**
  * Click `button` until `started()` says the click registered. A click that
@@ -354,10 +425,17 @@ async function interactFor(
       // to end with the tool call at ~0.8 s, so the old fixed 4.5 s wait always
       // found Interrupt disabled. No pace between the tool call and Interrupt
       // for the same reason -- the window is about a second.
+      // The latch goes in before Run is clicked, so the first tool phase is
+      // recorded however briefly it is shown (#148).
       const phase = page.getByTestId("phase").locator("code");
       await wait(paceMs);
+      await page.evaluate(installPhaseLatch, TOOL_CALL_PHASES);
       await startRun(page, page.getByTestId("run-button"), phase);
-      await phase.filter({ hasText: new RegExp(`^(${TOOL_CALL_PHASES.join("|")})$`) }).waitFor({ timeout: 10_000 });
+      await page.waitForFunction(
+        () => (globalThis as unknown as { __capturePhaseLatched?: boolean }).__capturePhaseLatched === true,
+        undefined,
+        { polling: "raf", timeout: 10_000 },
+      );
       await page.getByTestId("interrupt-button").click({ timeout: 5_000 });
       await phase.filter({ hasText: /^interrupted$/ }).waitFor({ timeout: 5_000 });
       return;
