@@ -360,25 +360,37 @@ export function installPhaseLatch(phases: readonly string[]): void {
 }
 
 /**
- * Click `button` until the page reports a started run. A click that lands
- * before hydration is a no-op on the server-rendered markup, so retry a bounded
- * number of times rather than trust the first one.
+ * Click `button` until `started()` says the click registered. A click that
+ * lands before hydration is a no-op on the server-rendered markup, so retry a
+ * bounded number of times rather than trust the first one. `started` must
+ * read a state that persists once reached -- a state shown only briefly can
+ * fall between two checks.
  */
-async function startRun(
+async function clickUntil(
   page: import("playwright").Page,
   button: import("playwright").Locator,
-  phase: import("playwright").Locator,
+  started: () => Promise<boolean>,
+  what: string,
   attempts = 6,
 ): Promise<void> {
   for (let attempt = 1; attempt <= attempts; attempt++) {
     await button.click({ timeout: 5_000 });
     const deadline = Date.now() + 2_000;
     while (Date.now() < deadline) {
-      if (hasStarted(await phase.textContent())) return;
+      if (await started()) return;
       await page.waitForTimeout(100);
     }
   }
-  throw new Error(`run did not start after ${attempts} clicks (phase stayed idle)`);
+  throw new Error(`${what} did not register after ${attempts} clicks`);
+}
+
+/** Click `button` until the page reports a started run (#144). */
+async function startRun(
+  page: import("playwright").Page,
+  button: import("playwright").Locator,
+  phase: import("playwright").Locator,
+): Promise<void> {
+  await clickUntil(page, button, async () => hasStarted(await phase.textContent()), "run (phase stayed idle)");
 }
 
 /**
@@ -450,11 +462,27 @@ async function interactFor(
       // `untitled-1.txt`, which the oracle SUCCEEDS on at click 2 (it rolls
       // back only at click 3), so the take showed two successes and never the
       // rollback animation this pattern exists to demonstrate (#62).
+      //
+      // Click 1 went in right after domcontentloaded, so on a cold dev server
+      // it landed before hydration and did nothing; click 2 became the item's
+      // first, the oracle committed it, and the take showed no rollback while
+      // exiting 0 (#150). Click 1 is now retried until the name has left
+      // `untitled-2.txt` (pending or committed, both persist), and the take
+      // fails unless the item ends up showing "rolled back".
       const rollbackItem = page.locator('[data-testid="item-untitled-2.txt"]');
       const improveBtn = rollbackItem.getByRole("button", { name: /improve/i });
-      await improveBtn.click();
-      await wait(2_500 + paceMs);
-      await improveBtn.click();
+      const name = rollbackItem.locator("span.font-mono");
+      await wait(paceMs);
+      await clickUntil(
+        page,
+        improveBtn,
+        async () => (await name.textContent())?.trim() !== "untitled-2.txt",
+        "the first Improve click",
+      );
+      await name.filter({ hasNotText: "(improving" }).waitFor({ timeout: 5_000 });
+      await wait(1_500 + paceMs);
+      await improveBtn.click({ timeout: 5_000 });
+      await rollbackItem.getByText(/^rolled back · /).waitFor({ timeout: 5_000 });
       return;
     }
     case "/error-recovery":

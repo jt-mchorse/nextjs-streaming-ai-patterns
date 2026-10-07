@@ -1722,3 +1722,15 @@ the window under one of the checks. The script now installs a small observer
 in the page before clicking Run, and it remembers that the tool call appeared.
 On fresh servers the old script failed 5 of 5 takes and the new one completed
 3 of 3.
+
+## 2026-10-06 — the demo capture actually films the rollback (#150)
+
+The optimistic-update stop of the demo exists to show an edit being rolled
+back. The script clicked once, waited, and clicked again; the item it picks
+commits on its first click and rolls back on its second. On a freshly started
+dev server the first click arrived before the page was interactive and was
+lost, so the second click was really the first: it committed, and the
+recording never showed a rollback while reporting success. The first click is
+now repeated until the page shows it took effect, and the stop fails unless the
+"rolled back" line appears. Two fresh-server takes both filmed the rollback;
+before the change neither did.

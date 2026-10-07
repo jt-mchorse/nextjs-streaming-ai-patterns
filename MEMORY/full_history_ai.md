@@ -1703,3 +1703,24 @@ context_for_next_session:
   - PRS_147_AND_149_BOTH_EDIT_capture_demo_ts_IN_DIFFERENT_REGIONS_merge_147_first
 followups: []
 ---
+
+---
+session: 2026-10-06T07:53Z
+duration_min: 5   # computed: plan comment 07:47:47Z -> 07:53Z (date -u); found by an item-scoped probe at ~07:44Z
+issue: 150
+branch: session/2026-10-06-0747-issue-150
+focus: capture_optimistic_step_CLICK_1_LANDED_BEFORE_HYDRATION_SO_CLICK_2_WAS_THE_FIRST_AND_COMMITTED_the_take_never_showed_the_rollback_and_exited_0
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 6
+  suite: "803 -> 809 green; lint, tsc, build clean"
+decisions_made: []
+measured: "cold tours, item text logged every 20 ms (149's tool-use fix layered on a temp copy): before 0 of 2 show 'rolled back' (one change at +3.6 s, committed); after 2 of 2. Revert: main's step -> 4 of 6 arms red, the 2 fact arms green."
+context_for_next_session:
+  - MY_FIRST_PROBE_MATCHED_body_innerText_AND_THE_SOURCE_PANE_RENDERS_THE_COMPONENTS_OWN_STRINGS_rolled_back_improving_recovering_SO_IT_SAW_EVERYTHING_AT_PAGE_LOAD_scope_every_probe_to_the_demo_element_SAME_TRAP_AS_146
+  - A_STEP_THAT_EXITS_0_WITHOUT_FILMING_ITS_PURPOSE_IS_THE_SAME_SHAPE_AS_144_require_the_terminal_state_the_stop_exists_to_show
+  - THE_strip_comments_CENSUS_COUNTS_A_LITERAL_SLASH_SLASH_IN_A_NEW_TEST_FILE_build_it_by_concatenation
+  - MERGE_ORDER_147_149_151_all_edit_capture_demo_ts
+followups: []
+---
