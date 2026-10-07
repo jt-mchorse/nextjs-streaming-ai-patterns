@@ -1709,3 +1709,16 @@ browser and stops unless it says mock. I checked both ways on a local server.
 In mock mode the tour completed. With a fake key, the script stopped before
 recording anything. The old script recorded four pages against that same live
 server.
+
+## 2026-10-06 — the demo capture no longer misses the tool call (#148)
+
+While checking #146 I found that the first demo capture against a freshly
+started dev server always failed on the tool-use page. The tool call shows on
+screen for about a quarter of a second. Playwright's `waitFor` does not watch
+the page continuously: after the first few checks it looks only every half
+second, so a quarter-second state can fall entirely between two looks. It
+looked like a cold-start problem only because a warm server happened to put
+the window under one of the checks. The script now installs a small observer
+in the page before clicking Run, and it remembers that the tool call appeared.
+On fresh servers the old script failed 5 of 5 takes and the new one completed
+3 of 3.

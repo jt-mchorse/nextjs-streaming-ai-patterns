@@ -1682,3 +1682,24 @@ context_for_next_session:
   - THE_FIRST_CAPTURE_AGAINST_A_COLD_next_dev_TIMED_OUT_AT_tool_use_the_second_passed_FILED_SEPARATELY
 followups: []
 ---
+
+---
+session: 2026-10-06T07:39Z
+duration_min: 9   # computed: plan comment 07:30:16Z -> 07:39Z (date -u); found while verifying #146 at ~07:18Z
+issue: 148
+branch: session/2026-10-06-0730-issue-148
+focus: capture_tool_use_step_MISSED_THE_240MS_TOOL_PHASE_WINDOW_locator_waitFor_POLLS_AT_0_20_70_170_270_770_THEN_EVERY_500MS_now_a_MutationObserver_latch_installed_before_Run
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 9
+  suite: "803 -> 812 green; lint, tsc, build clean"
+decisions_made: []
+measured: "cold next dev (.next removed) per take, port 3917, killed by PID: main 0 of 5 (all locator.waitFor timeouts at /tool-use), fixed 3 of 3. MutationObserver log of a cold take: tool phases at +936..+1179 ms after waitFor began, between the +770 and +1270 checks. Revert probes: named inner arrow -> keepNames arm red; latch after startRun -> ordering lock red."
+context_for_next_session:
+  - locator_waitFor_IS_NOT_AN_OBSERVER_playwright_core_retryWithProgressAndBackoff_0_20_50_100_100_500_A_STATE_SHORTER_THAN_500MS_IS_MISSED_DEPENDING_ON_PHASE_wait_on_a_LATCH_for_any_transient_state
+  - WARM_PASSED_AND_COLD_FAILED_BUT_THE_CAUSE_WAS_WHERE_THE_WINDOW_FELL_RELATIVE_TO_THE_POLL_GRID_not_compile_time_LOG_THE_DOM_WITH_TIMESTAMPS_BEFORE_NAMING_A_CAUSE
+  - GOTCHA_tsx_COMPILES_WITH_esbuild_keepNames_A_NAMED_INNER_FUNCTION_IN_A_page_evaluate_CALLBACK_BECOMES___name_AND_THROWS_ReferenceError_IN_THE_PAGE_test_pins_it_with_transformSync_keepNames_true
+  - PRS_147_AND_149_BOTH_EDIT_capture_demo_ts_IN_DIFFERENT_REGIONS_merge_147_first
+followups: []
+---
