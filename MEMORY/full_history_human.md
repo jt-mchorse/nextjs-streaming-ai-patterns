@@ -1697,3 +1697,15 @@ which the script assumed starts by itself, needs a button click. Each step now
 waits for the page's own phase readout instead of a timer. I ran the full tour
 against a local dev server: it completed and wrote a 3 MB video. Recording and
 committing the final demo still waits on JT's review (#16).
+
+## 2026-10-06 — the demo capture refuses a live server (#146)
+
+The capture script's header said it forced the demo's mock mode by removing the
+API key from a dev server it started. It starts no server. It drives whatever
+is already running, so a key set in that terminal made the "deterministic" demo
+a live, billed recording. The streaming-text page's mode pill now carries a
+`data-stream-mode` attribute. The script reads that attribute before opening a
+browser and stops unless it says mock. I checked both ways on a local server.
+In mock mode the tour completed. With a fake key, the script stopped before
+recording anything. The old script recorded four pages against that same live
+server.
