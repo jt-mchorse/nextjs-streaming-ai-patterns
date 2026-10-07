@@ -1741,5 +1741,19 @@ measured: "Playwright on mock next dev :3917 (stopped by pid): main pill at 0.5/
 context_for_next_session:
   - A_TIME_WINDOW_COMPUTED_IN_RENDER_IS_A_SNAPSHOT_grep_components_for_Date_now_inside_render_and_ask_what_re_renders_when_the_window_closes
   - SOURCE_LOCKS_PIN_SHAPE_ONLY_the_behaviour_evidence_is_the_browser_measurement_say_so_in_the_PR
+session: 2026-10-07T08:30Z
+duration_min: 5
+issue: 154
+branch: session/2026-10-07-nextjs-optimistic-same-name
+focus: A_SUCCESSFUL_IMPROVE_COULD_COMMIT_THE_NAME_ALREADY_SHOWING_5_OF_27_SUCCESSES
+phase: shipped
+delta:
+  files_changed: 6
+  tests_added: 8
+  suite: "834 passed; tsc, eslint clean"
+decisions_made: []
+measured: "chained clicks 1..10 over 5 demo ids: main 5/27 same-name successes, fix 0/27 with identical ok/fail sequence. Revert: oracle 4/8, route 2/8."
+context_for_next_session:
+  - A_STATELESS_ORACLE_CANNOT_AVOID_WHAT_IT_CANNOT_SEE_pass_the_state_from_the_side_that_has_it_optionally_so_the_contract_stays_back_compatible
 followups: []
 ---
