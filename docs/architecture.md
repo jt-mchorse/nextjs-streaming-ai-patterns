@@ -44,6 +44,7 @@ nextjs-streaming-ai-patterns/
 │   ├── checkpoint-stream.ts          ← checkpoint protocol (D-011)
 │   ├── recovery-phase.ts             ← error-recovery phase model (phaseOnFirstChunk)
 │   ├── resume-pill.ts                ← error-recovery "resumed" pill window (RESUMED_PILL_MS, #152)
+│   ├── stream-text-prompt.ts         ← the one prompt /api/stream-text streams in live mode (#156)
 │   ├── plural.ts                     ← count-label pluralization helper (pluralizeCount)
 │   └── shiki.ts                      ← syntax-highlighter singleton
 ├── scripts/

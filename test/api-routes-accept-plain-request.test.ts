@@ -70,6 +70,9 @@ describe("API routes accept a plain Request", () => {
 // response body. Spy on `streamText` instead, which asserts the stronger thing:
 // the query param was not merely read without throwing, it reached the streamer.
 vi.mock("@/lib/anthropic-stream", () => ({
+  // Mock mode: the route's live-mode prompt allow-list (#156) is not what
+  // this file tests, and mock mode accepts any prompt.
+  getStreamMode: () => ({ mode: "mock", model: null }),
   async *streamText(prompt: string) {
     seenPrompts.push(prompt);
     yield { text: "ok" };

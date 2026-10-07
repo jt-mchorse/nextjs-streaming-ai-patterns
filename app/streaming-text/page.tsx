@@ -1,11 +1,12 @@
 import { StreamingTextClient } from "@/components/streaming-text-client";
 import { SourcePane } from "@/components/source-pane";
 import { getStreamMode } from "@/lib/anthropic-stream";
+import { STREAM_TEXT_PROMPT } from "@/lib/stream-text-prompt";
 
 export const dynamic = "force-dynamic";
 
-const PROMPT =
-  "Write a short paragraph about why streaming output beats waiting for the whole message.";
+// Shared with the route, which streams only this prompt in live mode (#156).
+const PROMPT = STREAM_TEXT_PROMPT;
 
 /**
  * /streaming-text — the streaming text pattern.

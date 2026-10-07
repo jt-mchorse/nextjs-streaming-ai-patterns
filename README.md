@@ -31,7 +31,9 @@ primitive all the way down.
 - **Streaming text** (#1) — a route handler streams Anthropic's text
   deltas as SSE; the client reads via `ReadableStream` and progressively
   renders. The simplest end-to-end shape; the foundation everything else
-  builds on.
+  builds on. With a key set, the route streams the demo's own prompt and
+  answers any other `?prompt=` with a 400, so a deployment is not an open
+  proxy on the operator's key (#156); mock mode accepts any prompt.
 - **Tool-use UI with interruption** (#2) — the same SSE envelope with
   additional `tool_use_*` event kinds. The client renders the tool call,
   the streaming JSON arguments, the result, and the resumed reasoning. A
