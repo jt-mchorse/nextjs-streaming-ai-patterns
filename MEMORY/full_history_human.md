@@ -1755,3 +1755,12 @@ would send whatever prompt a visitor put in the URL to Anthropic on the
 operator's account, so any deployed demo was a free general-purpose AI proxy.
 In live mode it now streams the demo's one prompt and refuses anything else
 before contacting Anthropic. Mock mode (no key) is unchanged.
+
+## 2026-10-08 — the error-recovery page's intro reads correctly (#165)
+
+The intro on the error-recovery page showed `*always*` with literal asterisks,
+because markdown-style emphasis was typed into React markup, and it ran two
+words together as "reconnects with?checkpoint=N", because React drops a line
+break that sits right before an inline code element. Both are fixed, and a new
+test renders the homepage and all five pattern pages and fails if either
+mistake appears on any of them.
