@@ -19,12 +19,12 @@ export default function ErrorRecoveryPage() {
           Error recovery mid-stream
         </h1>
         <p className="max-w-2xl text-sm text-[var(--muted)]">
-          A real flaky upstream is hard to demo; a route handler that
-          *always* drops the first request and *always* completes the
-          resume is easy to demo. The protocol underneath is the
+          A real flaky upstream is hard to demo; a route handler that{" "}
+          <em>always</em> drops the first request and <em>always</em> completes
+          the resume is easy to demo. The protocol underneath is the
           interesting part: the server emits a checkpoint every five
           tokens carrying the most-recent token index, the client
-          records it, and on disconnect the client reconnects with
+          records it, and on disconnect the client reconnects with{" "}
           <code>?checkpoint=N</code>. The accumulating text never
           resets — chunks before the drop stay rendered, new chunks
           append in place, a small &ldquo;resumed&rdquo; pill blinks.
