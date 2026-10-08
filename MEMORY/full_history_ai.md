@@ -1772,3 +1772,23 @@ context_for_next_session:
   - TESTING_LIVE_MODE_WITHOUT_A_KEY_point_ANTHROPIC_BASE_URL_at_a_loopback_SSE_stub_new_Anthropic_reads_it
 followups: []
 ---
+
+---
+session: 2026-10-08T07:31Z
+duration_min: 3   # computed: plan comment 07:28Z -> 07:31Z (date -u); reproduced with a real take at ~07:23Z
+issue: 160
+branch: session/2026-10-08-issue-160
+focus: capture_demo_PARSED_AND_TESTED_CAPTURE_OUT_THEN_USED_ONLY_ITS_DIRNAME_the_take_landed_as_page_at_hash_webm_with_exit_0
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 7
+  suite: "861 passed; tsc, eslint, next build clean"
+decisions_made: []
+measured: "mock next dev, CAPTURE_OUT=/tmp/capout*/demo-take.webm: main rc 0 and only page@e9dff90f...webm in the dir; fix rc 0 and exactly demo-take.webm (3.3 MB, WebM) with no auto-named copy. Revert: main's script 6 of 7 red (load-level; the helper is new), helper kept + main's runCapture 2 of 7 red."
+context_for_next_session:
+  - AN_OPTION_THAT_IS_VALIDATED_AND_UNIT_TESTED_CAN_STILL_BE_DISCARDED_AT_ITS_ONE_USE_SITE_follow_the_parsed_value_to_where_it_is_consumed
+  - playwright_recordVideo_dir_CHOOSES_A_DIRECTORY_ONLY_page_video_saveAs_after_context_close_is_the_named_output
+  - ISSUE_16_STEP_5_STILL_SAYS_docs_auto_name_webm_left_a_comment_there_rather_than_editing_JTs_checklist
+followups: []
+---

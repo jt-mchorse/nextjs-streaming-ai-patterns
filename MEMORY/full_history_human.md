@@ -1755,3 +1755,12 @@ would send whatever prompt a visitor put in the URL to Anthropic on the
 operator's account, so any deployed demo was a free general-purpose AI proxy.
 In live mode it now streams the demo's one prompt and refuses anything else
 before contacting Anthropic. Mock mode (no key) is unchanged.
+## 2026-10-08 — `npm run capture` writes the file it says it writes (#160)
+
+The demo-recording script says it records to `docs/demo.webm`, or to whatever
+`CAPTURE_OUT` names. In fact it only used the folder part of that path. The
+video landed under a random name such as `page@e9df….webm`, the run reported
+success, and the last log line asked for a manual rename. A completed take is
+now saved under the requested name, the randomly named copy is removed, and
+the run fails if the file is not there. A real take against the dev server
+produced exactly `demo-take.webm` and nothing else.
