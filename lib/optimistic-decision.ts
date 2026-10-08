@@ -69,6 +69,13 @@ export interface DecisionInput {
   readonly id: string;
   /** How many times the user has clicked "improve" for this id (1-indexed). */
   readonly click_count: number;
+  /**
+   * The name the item shows now, if the caller knows it (#154). A success
+   * never returns it: committing the name already on screen is a click that
+   * visibly did nothing, which is neither outcome the pattern demonstrates.
+   * Optional so a caller that omits it gets the old behaviour.
+   */
+  readonly current_name?: string;
 }
 
 export type Decision =
@@ -100,8 +107,11 @@ export function decide(input: DecisionInput): Decision {
   }
 
   // First click on each id always succeeds — the happy path leads.
+  if (input.current_name !== undefined && typeof input.current_name !== "string") {
+    throw new Error("decide(): current_name must be a string when given");
+  }
   if (input.click_count === 1) {
-    return { ok: true, improved_name: pickImprovement(input.id, 0) };
+    return { ok: true, improved_name: pickImprovement(input.id, 0, input.current_name) };
   }
 
   const seed = hash(`${input.id}:${input.click_count}`);
@@ -111,12 +121,12 @@ export function decide(input: DecisionInput): Decision {
   // input space (#100).
   const succeed = (seed & 1) === 0;
   if (succeed) {
-    return { ok: true, improved_name: pickImprovement(input.id, seed) };
+    return { ok: true, improved_name: pickImprovement(input.id, seed, input.current_name) };
   }
   return { ok: false, reason: pickReason(seed) };
 }
 
-function pickImprovement(id: string, seed: number): string {
+function pickImprovement(id: string, seed: number, current?: string): string {
   // `Object.hasOwn`, not `IMPROVEMENTS[id]` truthiness (#120). `IMPROVEMENTS`
   // is an object literal, so a bare index walks the prototype chain, and the
   // old `!options || options.length === 0` test was a *proxy* for "is this a
@@ -141,13 +151,25 @@ function pickImprovement(id: string, seed: number): string {
   if (!Object.hasOwn(IMPROVEMENTS, id)) {
     // Custom id (e.g., in tests with arbitrary strings) — fall back to a
     // generic improved name that's still deterministic.
-    return `${id.replace(/\.[^.]+$/, "")}-improved.md`;
+    return fallbackName(id, seed, current);
   }
   const options = IMPROVEMENTS[id];
   if (!options || options.length === 0) {
-    return `${id.replace(/\.[^.]+$/, "")}-improved.md`;
+    return fallbackName(id, seed, current);
   }
-  return options[seed % options.length] ?? options[0];
+  // Never the name already showing (#154). Choosing among all three let a
+  // success "improve" untitled-3.txt's onboarding-guide.md to
+  // onboarding-guide.md on click 2: 5 of 27 successes over clicks 1..10 of
+  // the demo ids. Only WHICH name is drawn changes; whether the click succeeds
+  // is decided above on the seed's low bit, so D-010's split is untouched.
+  const candidates = options.filter((name) => name !== current);
+  const pool = candidates.length > 0 ? candidates : options;
+  return pool[seed % pool.length] ?? pool[0] ?? options[0];
+}
+
+function fallbackName(id: string, seed: number, current?: string): string {
+  const base = `${id.replace(/\.[^.]+$/, "")}-improved.md`;
+  return base === current ? `${id.replace(/\.[^.]+$/, "")}-improved-${seed % 1000}.md` : base;
 }
 
 function pickReason(seed: number): string {

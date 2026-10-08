@@ -244,9 +244,10 @@ distinct mechanism on top of the same SSE envelope (D-005, D-006).
 - **`app/optimistic-rollback/`** (#4) — React 19 `useOptimistic` + a
   deterministic decision oracle keyed by `(id, click_count)` — the first
   click on an item always succeeds, subsequent clicks split 50/50 — on
-  the server (`lib/optimistic-decision.ts`, D-010). Successes commit;
-  failures roll back with a rendered reason and a border-flash
-  animation. The rollback path is reproducible by construction.
+  the server (`lib/optimistic-decision.ts`, D-010). Successes commit a
+  name other than the one showing, which the client sends as
+  `current_name` (#154); failures roll back with a rendered reason and a
+  border-flash animation. The rollback path is reproducible by construction.
 - **`app/error-recovery/`** (#5) — checkpoint protocol layered over
   SSE (`lib/checkpoint-stream.ts`, D-011). The route handler emits a
   `kind: "checkpoint"` event every few tokens; the client records the

@@ -1742,3 +1742,9 @@ was meant to show briefly. It was only re-checked when the page re-rendered,
 and nothing re-rendered after the stream finished, so the badge stayed forever.
 A timer now clears it 2.5 seconds after it appears. A browser test against the
 dev server showed it present at 1.5 s and gone from 2.5 s on.
+## 2026-10-07 — an optimistic "improve" always changes the name (#154)
+
+In the optimistic-update demo, a successful click could "rename" a file to the
+name it already had, so the click looked like it did nothing. The page now
+tells the server the current name, and the server picks a different one. The
+50/50 success/failure split is exactly as before.
