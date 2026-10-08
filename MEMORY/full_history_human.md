@@ -1755,3 +1755,13 @@ would send whatever prompt a visitor put in the URL to Anthropic on the
 operator's account, so any deployed demo was a free general-purpose AI proxy.
 In live mode it now streams the demo's one prompt and refuses anything else
 before contacting Anthropic. Mock mode (no key) is unchanged.
+## 2026-10-08 — the error-recovery demo only says "resumed" once it has (#158)
+
+When the demo's stream dropped, the "resumed at token N" badge and the
+"1 recovery" counter appeared straight away. That was before the page had even
+tried to reconnect. If the reconnect then failed, the header read "fatal error
+· 1 recovery · resumed at token 12", which claims a recovery that did not
+happen. Both now appear only once the reconnect has actually connected. During
+the short pause before reconnecting, the status reads "recovering…" instead of
+"streaming". A browser test with the reconnect forced to fail now shows only
+"fatal error". The normal demo looks the same as before.
