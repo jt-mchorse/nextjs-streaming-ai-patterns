@@ -1755,3 +1755,14 @@ would send whatever prompt a visitor put in the URL to Anthropic on the
 operator's account, so any deployed demo was a free general-purpose AI proxy.
 In live mode it now streams the demo's one prompt and refuses anything else
 before contacting Anthropic. Mock mode (no key) is unchanged.
+
+## 2026-10-08 — the homepage no longer calls the rollback demo a flat "50/50" (#163)
+
+Earlier fix #100 made every description of the optimistic-update demo say that
+the first click always succeeds and only later clicks are 50/50. Its check
+covered four files listed by hand, and the homepage was not one of them, so the
+homepage card still said "a deterministic 50/50 decision oracle". The card is
+corrected, and the check now looks at every page, component, library file and
+doc a reader can see instead of a hand-written list. The same comment also said
+a visitor who clicks twice sees a rollback 20% of the time; clicking one item
+twice actually shows it on 2 of the 5 items (40%), and the text now says so.

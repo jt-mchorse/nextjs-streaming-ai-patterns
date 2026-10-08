@@ -1772,3 +1772,23 @@ context_for_next_session:
   - TESTING_LIVE_MODE_WITHOUT_A_KEY_point_ANTHROPIC_BASE_URL_at_a_loopback_SSE_stub_new_Anthropic_reads_it
 followups: []
 ---
+
+---
+session: 2026-10-08T07:55Z
+duration_min: 12
+issue: 163
+branch: session/2026-10-08-w3-issue-163
+focus: THE_HOMEPAGE_STILL_SAID_A_DETERMINISTIC_5050_ORACLE_100s_LOCK_LISTED_FOUR_CLAIM_SITES_BY_HAND_AND_app_page_tsx_WAS_NOT_ONE
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 3
+  suite: "854 -> 857 green; lint, tsc, build clean"
+decisions_made: []
+measured: "lock rule over every tracked file: the only unqualified reader-facing site was app/page.tsx:40 (served homepage, confirmed by curl on mock next dev); scripts/capture_demo.ts:457 also unqualified but outside the reader population and touched by open PR 161. decide() click 2 fails on untitled-2 and untitled-4 = 2 of 5 items (40%), not the 20% #100 wrote. Revert probe: main's app/page.tsx -> 1 of 17 red (the derived-population arm), fixed 17 of 17."
+context_for_next_session:
+  - A_HAND_LIST_UNDER_A_COMMENT_SAYING_EVERY_FILE_IS_D_015s_SHAPE_AGAIN_derive_the_population_keep_the_list_as_an_arrayContaining_floor
+  - A_RATE_OVER_ID_CLICK_PAIRS_IS_NOT_A_RATE_ANY_VISITOR_SEES_ask_what_the_denominator_is_a_count_OF
+  - the_private_readdirSync_lock_in_strip_comments_test_rejects_a_walk_in_a_test_file_new_walks_go_in_test_support_source_files_ts_docFiles_added
+followups: []
+---
