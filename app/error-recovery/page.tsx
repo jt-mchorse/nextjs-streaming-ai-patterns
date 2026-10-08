@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
  * first request drops at a fixed token; every resume request streams
  * to completion. The client component records the most-recent
  * checkpoint, reconnects with it in the query string, and renders a
- * "resumed at token N" pill for ~2s so the recovery is observable.
+ * "resumed at token N" pill for ~2.5 s so the recovery is observable.
  */
 export default function ErrorRecoveryPage() {
   return (

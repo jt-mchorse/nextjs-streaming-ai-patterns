@@ -43,6 +43,7 @@ nextjs-streaming-ai-patterns/
 │   ├── optimistic-decision.ts        ← deterministic oracle, 50/50 after click 1 (D-010)
 │   ├── checkpoint-stream.ts          ← checkpoint protocol (D-011)
 │   ├── recovery-phase.ts             ← error-recovery phase model (phaseOnFirstChunk)
+│   ├── resume-pill.ts                ← error-recovery "resumed" pill window (RESUMED_PILL_MS, #152)
 │   ├── plural.ts                     ← count-label pluralization helper (pluralizeCount)
 │   └── shiki.ts                      ← syntax-highlighter singleton
 ├── scripts/
