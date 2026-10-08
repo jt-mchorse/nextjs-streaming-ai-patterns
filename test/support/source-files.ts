@@ -105,6 +105,25 @@ export function repoFiles(root: string = ROOT, dir = ""): string[] {
   return out;
 }
 
+/**
+ * Every markdown file under `docs/`, recursively, as a path relative to *root*
+ * (#163). Prose, not source, so neither `sourceFiles` nor `repoFiles` reaches
+ * it; it lives here because this file owns every walk (#123), and a lock about
+ * what a reader is told needs the docs a reader opens.
+ */
+export function docFiles(root: string = ROOT, dir = "docs"): string[] {
+  const abs = resolve(root, dir);
+  if (!existsSync(abs)) return [];
+  const out: string[] = [];
+  for (const entry of readdirSync(abs, { withFileTypes: true })) {
+    if (entry.name.startsWith(".")) continue;
+    const rel = `${dir}/${entry.name}`;
+    if (entry.isDirectory()) out.push(...docFiles(root, rel));
+    else if (entry.name.endsWith(".md")) out.push(rel);
+  }
+  return out;
+}
+
 /** `repoFiles`, read. */
 export function readRepoFiles(root: string = ROOT): Array<readonly [string, string]> {
   return repoFiles(root).map((rel) => [rel, readFileSync(join(root, rel), "utf8")] as const);
