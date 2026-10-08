@@ -1755,5 +1755,20 @@ decisions_made: []
 measured: "chained clicks 1..10 over 5 demo ids: main 5/27 same-name successes, fix 0/27 with identical ok/fail sequence. Revert: oracle 4/8, route 2/8."
 context_for_next_session:
   - A_STATELESS_ORACLE_CANNOT_AVOID_WHAT_IT_CANNOT_SEE_pass_the_state_from_the_side_that_has_it_optionally_so_the_contract_stays_back_compatible
+session: 2026-10-07T09:12Z
+duration_min: 7
+issue: 156
+branch: session/2026-10-07-nextjs-prompt-relay
+focus: SECURITY_LIVE_MODE_STREAM_TEXT_RELAYED_ANY_CLIENT_PROMPT_ON_THE_OPERATORS_KEY
+phase: shipped
+delta:
+  files_changed: 7
+  tests_added: 4
+  suite: "831 passed; tsc, eslint clean"
+decisions_made: []
+measured: "loopback ANTHROPIC_BASE_URL stub: arbitrary 200KB prompt -> 400 with 0 upstream hits; demo prompt -> 1 hit. Revert: main 1/4 red (the 400 arm)."
+context_for_next_session:
+  - A_DEMO_ROUTE_THAT_FORWARDS_CLIENT_INPUT_TO_A_PAID_API_IS_AN_OPEN_PROXY_check_every_route_that_calls_a_paid_upstream_for_which_inputs_the_client_controls
+  - TESTING_LIVE_MODE_WITHOUT_A_KEY_point_ANTHROPIC_BASE_URL_at_a_loopback_SSE_stub_new_Anthropic_reads_it
 followups: []
 ---

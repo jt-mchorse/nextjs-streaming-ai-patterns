@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 
-import { streamText } from "@/lib/anthropic-stream";
+import { getStreamMode, streamText } from "@/lib/anthropic-stream";
+import { isAllowedLivePrompt, STREAM_TEXT_PROMPT } from "@/lib/stream-text-prompt";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,9 +26,18 @@ export async function GET(req: NextRequest): Promise<Response> {
   // has read its query param this way since #58; this was the last route that
   // hadn't — see `test/api-routes-accept-plain-request.test.ts` for the lock.
   const url = new URL(req.url);
-  const prompt =
-    url.searchParams.get("prompt") ??
-    "Write a short paragraph about why streaming output beats waiting for the whole message.";
+  const prompt = url.searchParams.get("prompt") ?? STREAM_TEXT_PROMPT;
+
+  // Live mode spends the operator's key, so it streams the demo's own prompt
+  // and nothing else (#156). Refused before anything is sent upstream.
+  if (getStreamMode().mode === "live" && !isAllowedLivePrompt(prompt)) {
+    return new Response(
+      JSON.stringify({
+        error: "this demo streams only its own prompt in live mode; omit `prompt` or send the demo's",
+      }),
+      { status: 400, headers: { "Content-Type": "application/json" } },
+    );
+  }
 
   const encoder = new TextEncoder();
 
