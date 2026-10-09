@@ -1774,3 +1774,14 @@ success, and the last log line asked for a manual rename. A completed take is
 now saved under the requested name, the randomly named copy is removed, and
 the run fails if the file is not there. A real take against the dev server
 produced exactly `demo-take.webm` and nothing else.
+
+## 2026-10-08 — the homepage no longer calls the rollback demo a flat "50/50" (#163)
+
+Earlier fix #100 made every description of the optimistic-update demo say that
+the first click always succeeds and only later clicks are 50/50. Its check
+covered four files listed by hand, and the homepage was not one of them, so the
+homepage card still said "a deterministic 50/50 decision oracle". The card is
+corrected, and the check now looks at every page, component, library file and
+doc a reader can see instead of a hand-written list. The same comment also said
+a visitor who clicks twice sees a rollback 20% of the time; clicking one item
+twice actually shows it on 2 of the 5 items (40%), and the text now says so.

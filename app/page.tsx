@@ -37,7 +37,7 @@ const PATTERNS: Pattern[] = [
     slug: "/optimistic-rollback",
     title: "Optimistic updates with rollback",
     description:
-      "React 19 useOptimistic + a deterministic 50/50 decision oracle on the server. Successes commit, failures roll back with a rendered reason and a brief border flash — the rollback path is reproducible by construction so the UX is testable, not aspirational.",
+      "React 19 useOptimistic + a deterministic decision oracle on the server: the first click on each item commits, subsequent clicks split 50/50. Successes commit, failures roll back with a rendered reason and a brief border flash — the rollback path is reproducible by construction so the UX is testable, not aspirational.",
     status: "shipped",
     issue: 4,
   },
