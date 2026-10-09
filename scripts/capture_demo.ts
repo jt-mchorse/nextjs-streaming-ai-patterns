@@ -55,7 +55,7 @@
  * file not produced).
  */
 
-import { mkdir } from "node:fs/promises";
+import { mkdir, stat } from "node:fs/promises";
 import { dirname } from "node:path";
 
 /**
@@ -248,6 +248,43 @@ export function modeFromHtml(html: string): string | null {
   return found.length === 1 ? found[0][1] : null;
 }
 
+/**
+ * The part of Playwright's `Video` that `saveVideo` uses. Declared here so the
+ * test can pass a fake without importing Playwright.
+ */
+export interface SavableVideo {
+  saveAs(path: string): Promise<void>;
+  delete(): Promise<void>;
+}
+
+/**
+ * Write the take to `outPath` and remove Playwright's auto-named copy (#160).
+ *
+ * `recordVideo.dir` only chooses a directory. Playwright names the file
+ * `page@<hash>.webm` itself, and this script used to stop there, so the
+ * filename in `CAPTURE_OUT` (default `docs/demo.webm`) was parsed, validated,
+ * and never used. The run exited 0 and asked for a manual rename. `saveAs`
+ * waits until the page has closed and the video is fully written, so this is
+ * called after `context.close()`.
+ *
+ * The header promises a non-zero exit when the output file is not produced, so
+ * that is checked here rather than assumed: a missing or empty `outPath` throws.
+ */
+export async function saveVideo(video: SavableVideo | null, outPath: string): Promise<void> {
+  if (video === null) {
+    throw new Error("no video was recorded: the page has no video (is recordVideo set?)");
+  }
+  await video.saveAs(outPath);
+  await video.delete();
+  const size = await stat(outPath).then(
+    (s) => s.size,
+    () => -1,
+  );
+  if (size <= 0) {
+    throw new Error(`the video was not written to ${outPath} (${size < 0 ? "missing" : "empty"})`);
+  }
+}
+
 export function assertMockMode(mode: string | null, baseUrl: string): void {
   if (mode === "mock") return;
   const seen = mode === null ? "in a mode this script cannot read" : `in ${JSON.stringify(mode)} mode`;
@@ -285,7 +322,9 @@ async function runCapture(): Promise<void> {
     deviceScaleFactor: 2,
   });
   const page = await context.newPage();
+  const video = page.video();
 
+  let toured = false;
   try {
     for (const stop of TIMELINE) {
       const url = new URL(stop.slug, opts.baseUrl).toString();
@@ -298,18 +337,20 @@ async function runCapture(): Promise<void> {
       await interactFor(page, stop.slug, opts.paceMs);
       await page.waitForTimeout(stop.holdMs);
     }
+    toured = true;
   } finally {
     await context.close();
-    await browser.close();
+    // Only a complete tour is saved to `outPath`. A failed take keeps
+    // Playwright's auto-named file, so a broken run never overwrites a good
+    // `docs/demo.webm`.
+    try {
+      if (toured) await saveVideo(video, opts.outPath);
+    } finally {
+      await browser.close();
+    }
   }
 
-  console.log(`[capture] done. video saved under ${dirname(opts.outPath)}.`);
-  console.log(
-    `[capture] note: Playwright writes the video on context close with an auto-generated name.`,
-  );
-  console.log(
-    `[capture] move/rename it to ${opts.outPath} once it finishes flushing.`,
-  );
+  console.log(`[capture] done. video saved to ${opts.outPath}.`);
 }
 
 /**
