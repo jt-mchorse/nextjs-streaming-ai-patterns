@@ -29,7 +29,10 @@
 // split 50/50"; every restatement but one dropped it.
 //
 // The practical consequence is worth keeping in view given the header above: a
-// visitor who clicks twice sees the rollback 20% of the time, not half.
+// visitor who clicks one item twice sees the rollback on 2 of the 5 demo items
+// (40%), not half -- and one who clicks two different items sees it never. The
+// 20% this line used to state is the share of the ten (id, click) pairs over
+// clicks 1..2 that fail, which no two-click visitor experiences (#163).
 
 const IMPROVEMENTS: Record<string, ReadonlyArray<string>> = {
   "untitled-1.txt": [

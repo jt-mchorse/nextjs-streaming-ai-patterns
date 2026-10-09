@@ -23,7 +23,11 @@ interface ResumeEvent {
  * The recovery is visible to the user:
  * - A small "resumed at token N" pill renders for 2.5 s
  *   (`RESUMED_PILL_MS`) after each successful reconnect, and an effect
- *   clears it when that window closes (#152).
+ *   clears it when that window closes (#152). "Successful" means the
+ *   resumed request connected: the pill and the recovery count are set
+ *   in `run` once it has an OK response with a body. They used to be set
+ *   when the drop was detected, so a reconnect that then failed showed
+ *   "fatal error · 1 recovery · resumed at token N" (#158).
  * - The accumulating text never resets on a drop — chunks before the
  *   drop stay rendered while the reconnect fires, then new chunks
  *   append in place.
@@ -53,7 +57,7 @@ export function ErrorRecoveryClient() {
 
   useEffect(() => {
     aborted.current = false;
-    void run(0);
+    void run(0, false);
     return () => {
       aborted.current = true;
       // Abort the in-flight (or most-recent resume) fetch on unmount. The
@@ -67,8 +71,10 @@ export function ErrorRecoveryClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function run(startAtCheckpoint: number): Promise<void> {
-    setPhase(startAtCheckpoint === 0 ? "streaming" : "recovering");
+  async function run(startAtCheckpoint: number, resumed: boolean): Promise<void> {
+    // `resumed`, not `startAtCheckpoint > 0`: a drop before the first token
+    // resumes from 0 and is still a resume.
+    setPhase(resumed ? "recovering" : "streaming");
     const controller = new AbortController();
     controllerRef.current = controller;
     let resp: Response;
@@ -90,6 +96,14 @@ export function ErrorRecoveryClient() {
       setPhase("fatal");
       setRecoveryReason(`HTTP ${resp.status}`);
       return;
+    }
+
+    // The reconnect succeeded, so this is the point to say so (#158). Not in
+    // `scheduleResume`: that runs when the drop is detected, before the request
+    // is even sent, and both failure branches above would leave the claim up.
+    if (resumed) {
+      setRecoveryCount((n) => n + 1);
+      setLastResume({ at: startAtCheckpoint, when: Date.now() });
     }
 
     // Mark this run as "live"; clear the recovering banner once a chunk
@@ -210,11 +224,14 @@ export function ErrorRecoveryClient() {
     // `lastRendered` (which never lags behind the screen) is what keeps them
     // from replaying and duplicating already-shown tokens at the seam.
     const checkpoint = Math.max(lastCheckpoint.current, lastRendered.current);
-    setRecoveryCount((n) => n + 1);
-    setLastResume({ at: checkpoint, when: Date.now() });
+    // The drop is known now, so the phase says so for the back-off as well.
+    // It used to stay "streaming", with the cursor blinking, until `run`
+    // started the next fetch (#158). The pill and the count wait for that
+    // fetch to connect; see `run`.
+    setPhase("recovering");
     setTimeout(() => {
-      if (!aborted.current) void run(checkpoint);
-    }, 250); // tiny back-off so the pill is briefly visible
+      if (!aborted.current) void run(checkpoint, true);
+    }, 250); // tiny back-off before reconnecting
   }
 
   // Render alone cannot hide the pill: nothing re-renders when its window

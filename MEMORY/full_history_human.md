@@ -1755,6 +1755,36 @@ would send whatever prompt a visitor put in the URL to Anthropic on the
 operator's account, so any deployed demo was a free general-purpose AI proxy.
 In live mode it now streams the demo's one prompt and refuses anything else
 before contacting Anthropic. Mock mode (no key) is unchanged.
+## 2026-10-08 — the error-recovery demo only says "resumed" once it has (#158)
+
+When the demo's stream dropped, the "resumed at token N" badge and the
+"1 recovery" counter appeared straight away. That was before the page had even
+tried to reconnect. If the reconnect then failed, the header read "fatal error
+· 1 recovery · resumed at token 12", which claims a recovery that did not
+happen. Both now appear only once the reconnect has actually connected. During
+the short pause before reconnecting, the status reads "recovering…" instead of
+"streaming". A browser test with the reconnect forced to fail now shows only
+"fatal error". The normal demo looks the same as before.
+## 2026-10-08 — `npm run capture` writes the file it says it writes (#160)
+
+The demo-recording script says it records to `docs/demo.webm`, or to whatever
+`CAPTURE_OUT` names. In fact it only used the folder part of that path. The
+video landed under a random name such as `page@e9df….webm`, the run reported
+success, and the last log line asked for a manual rename. A completed take is
+now saved under the requested name, the randomly named copy is removed, and
+the run fails if the file is not there. A real take against the dev server
+produced exactly `demo-take.webm` and nothing else.
+
+## 2026-10-08 — the homepage no longer calls the rollback demo a flat "50/50" (#163)
+
+Earlier fix #100 made every description of the optimistic-update demo say that
+the first click always succeeds and only later clicks are 50/50. Its check
+covered four files listed by hand, and the homepage was not one of them, so the
+homepage card still said "a deterministic 50/50 decision oracle". The card is
+corrected, and the check now looks at every page, component, library file and
+doc a reader can see instead of a hand-written list. The same comment also said
+a visitor who clicks twice sees a rollback 20% of the time; clicking one item
+twice actually shows it on 2 of the 5 items (40%), and the text now says so.
 
 ## 2026-10-08 — the error-recovery page's intro reads correctly (#165)
 

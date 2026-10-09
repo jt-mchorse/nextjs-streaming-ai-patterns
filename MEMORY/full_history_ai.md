@@ -1774,6 +1774,67 @@ followups: []
 ---
 
 ---
+session: 2026-10-08T07:27Z
+duration_min: 2   # computed: plan comment 07:25Z -> 07:27Z (date -u); reproduced in a browser from ~07:21Z
+issue: 158
+branch: session/2026-10-08-issue-158
+focus: THE_RESUMED_PILL_AND_RECOVERY_COUNT_WERE_SET_WHEN_THE_DROP_WAS_DETECTED_NOT_WHEN_THE_RECONNECT_CONNECTED_a_failed_reconnect_read_fatal_error_1_recovery_resumed_at_token_12
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 4
+  suite: "858 passed; tsc, eslint, next build clean"
+decisions_made: []
+measured: "Playwright + MutationObserver on mock next dev, resume request refused or 503 via page.route: main 'fatal error 1 recovery resumed at token 12' for ~2.25 s, back-off gap read 'streaming'; fix 'recovering...' then 'fatal error' with no pill or count; control resume unchanged (792 chars, done). Revert: main's component 3 of 4 red, the success control green."
+context_for_next_session:
+  - FOUND_BY_READING_152S_SCOPE_it_fixed_when_the_pill_CLEARS_the_question_it_did_not_ask_was_when_it_APPEARS
+  - A_STATUS_SET_ON_SCHEDULING_IS_A_CLAIM_ABOUT_THE_FUTURE_set_it_where_the_outcome_is_known
+  - HARNESS_vi_mock_react_with_a_REAL_per_slot_state_that_applies_functional_updaters_plus_useRef_as_a_plain_object_drives_error_recovery_client_end_to_end_stub_setTimeout_to_read_state_at_the_250ms_backoff
+  - REJECTED_THIS_RUN_react_strict_mode_double_effect_leaking_a_fatal_from_the_first_aborted_run_NOT_REACHABLE_next_15_reactStrictMode_is_null_measured_one_run_792_chars
+followups: []
+---
+
+---
+session: 2026-10-08T07:31Z
+duration_min: 3   # computed: plan comment 07:28Z -> 07:31Z (date -u); reproduced with a real take at ~07:23Z
+issue: 160
+branch: session/2026-10-08-issue-160
+focus: capture_demo_PARSED_AND_TESTED_CAPTURE_OUT_THEN_USED_ONLY_ITS_DIRNAME_the_take_landed_as_page_at_hash_webm_with_exit_0
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 7
+  suite: "861 passed; tsc, eslint, next build clean"
+decisions_made: []
+measured: "mock next dev, CAPTURE_OUT=/tmp/capout*/demo-take.webm: main rc 0 and only page@e9dff90f...webm in the dir; fix rc 0 and exactly demo-take.webm (3.3 MB, WebM) with no auto-named copy. Revert: main's script 6 of 7 red (load-level; the helper is new), helper kept + main's runCapture 2 of 7 red."
+context_for_next_session:
+  - AN_OPTION_THAT_IS_VALIDATED_AND_UNIT_TESTED_CAN_STILL_BE_DISCARDED_AT_ITS_ONE_USE_SITE_follow_the_parsed_value_to_where_it_is_consumed
+  - playwright_recordVideo_dir_CHOOSES_A_DIRECTORY_ONLY_page_video_saveAs_after_context_close_is_the_named_output
+  - ISSUE_16_STEP_5_STILL_SAYS_docs_auto_name_webm_left_a_comment_there_rather_than_editing_JTs_checklist
+followups: []
+---
+
+---
+session: 2026-10-08T07:55Z
+duration_min: 12
+issue: 163
+branch: session/2026-10-08-w3-issue-163
+focus: THE_HOMEPAGE_STILL_SAID_A_DETERMINISTIC_5050_ORACLE_100s_LOCK_LISTED_FOUR_CLAIM_SITES_BY_HAND_AND_app_page_tsx_WAS_NOT_ONE
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 3
+  suite: "854 -> 857 green; lint, tsc, build clean"
+decisions_made: []
+measured: "lock rule over every tracked file: the only unqualified reader-facing site was app/page.tsx:40 (served homepage, confirmed by curl on mock next dev); scripts/capture_demo.ts:457 also unqualified but outside the reader population and touched by open PR 161. decide() click 2 fails on untitled-2 and untitled-4 = 2 of 5 items (40%), not the 20% #100 wrote. Revert probe: main's app/page.tsx -> 1 of 17 red (the derived-population arm), fixed 17 of 17."
+context_for_next_session:
+  - A_HAND_LIST_UNDER_A_COMMENT_SAYING_EVERY_FILE_IS_D_015s_SHAPE_AGAIN_derive_the_population_keep_the_list_as_an_arrayContaining_floor
+  - A_RATE_OVER_ID_CLICK_PAIRS_IS_NOT_A_RATE_ANY_VISITOR_SEES_ask_what_the_denominator_is_a_count_OF
+  - the_private_readdirSync_lock_in_strip_comments_test_rejects_a_walk_in_a_test_file_new_walks_go_in_test_support_source_files_ts_docFiles_added
+followups: []
+---
+
+---
 session: 2026-10-08T08:10Z
 duration_min: 10
 issue: 165
