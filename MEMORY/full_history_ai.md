@@ -1833,3 +1833,22 @@ context_for_next_session:
   - the_private_readdirSync_lock_in_strip_comments_test_rejects_a_walk_in_a_test_file_new_walks_go_in_test_support_source_files_ts_docFiles_added
 followups: []
 ---
+
+---
+session: 2026-10-08T08:10Z
+duration_min: 10
+issue: 165
+branch: session/2026-10-08-w3-issue-165
+focus: THE_ERROR_RECOVERY_INTRO_RENDERED_LITERAL_ASTERISKS_AND_reconnects_with_QUESTION_checkpoint_MARKDOWN_IN_JSX_AND_A_LINE_BREAK_BEFORE_code
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 20
+  suite: "854 -> 874 green; lint, tsc, build clean"
+decisions_made: []
+measured: "curl on mock next dev: 'route handler that *always* drops ... reconnects with<code>?checkpoint=N</code>'. Compiled every page and component with esbuild: the only JSX text with either shape. Revert probe: main's page -> 3 of 20 red (emphasis, glued, sentence arms), fixed 20 of 20."
+context_for_next_session:
+  - JSX_TRIMS_WHITESPACE_CONTAINING_A_NEWLINE_AT_A_TEXT_NODE_EDGE_a_prose_line_ending_in_a_word_then_a_line_starting_with_code_glues_them_tool_use_page_already_used_curly_quote_space
+  - FIRST_PAGE_RENDER_HARNESS_renderToStaticMarkup_with_stubGlobal_React_createElement_AND_Fragment_plus_vi_mock_next_link_its_default_export_is_undefined_under_the_node_transform
+followups: []
+---

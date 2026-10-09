@@ -1785,3 +1785,12 @@ corrected, and the check now looks at every page, component, library file and
 doc a reader can see instead of a hand-written list. The same comment also said
 a visitor who clicks twice sees a rollback 20% of the time; clicking one item
 twice actually shows it on 2 of the 5 items (40%), and the text now says so.
+
+## 2026-10-08 — the error-recovery page's intro reads correctly (#165)
+
+The intro on the error-recovery page showed `*always*` with literal asterisks,
+because markdown-style emphasis was typed into React markup, and it ran two
+words together as "reconnects with?checkpoint=N", because React drops a line
+break that sits right before an inline code element. Both are fixed, and a new
+test renders the homepage and all five pattern pages and fails if either
+mistake appears on any of them.
