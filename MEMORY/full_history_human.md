@@ -1765,3 +1765,12 @@ happen. Both now appear only once the reconnect has actually connected. During
 the short pause before reconnecting, the status reads "recovering…" instead of
 "streaming". A browser test with the reconnect forced to fail now shows only
 "fatal error". The normal demo looks the same as before.
+## 2026-10-08 — `npm run capture` writes the file it says it writes (#160)
+
+The demo-recording script says it records to `docs/demo.webm`, or to whatever
+`CAPTURE_OUT` names. In fact it only used the folder part of that path. The
+video landed under a random name such as `page@e9df….webm`, the run reported
+success, and the last log line asked for a manual rename. A completed take is
+now saved under the requested name, the randomly named copy is removed, and
+the run fails if the file is not there. A real take against the dev server
+produced exactly `demo-take.webm` and nothing else.
