@@ -1852,3 +1852,22 @@ context_for_next_session:
   - FIRST_PAGE_RENDER_HARNESS_renderToStaticMarkup_with_stubGlobal_React_createElement_AND_Fragment_plus_vi_mock_next_link_its_default_export_is_undefined_under_the_node_transform
 followups: []
 ---
+
+---
+session: 2026-10-09T08:34Z
+duration_min: 6   # computed: issue filed 2026-10-09T08:32:15Z -> PR 2026-10-09T08:34:21Z (gh createdAt); hunt-agent lead re-measured first
+issue: 167
+branch: session/2026-10-09-0850-issue-167
+focus: STREAM_TEXT_LIVE_PATH_NEVER_READ_stop_reason_OR_message_stop_SO_A_CUT_ANSWER_WENT_OUT_AS_EVENT_DONE_DEFEATING_THE_142_CLIENT_GUARD
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 9
+  suite: "888 -> 897 passed; eslint, tsc clean"
+decisions_made: []
+measured: "loopback upstream: main max_tokens -> event: done, EOF after one delta -> event: done; branch both -> event: error naming the cause, end_turn/stop_sequence -> done. Revert 6 red / 3 controls."
+context_for_next_session:
+  - A_CLIENT_GUARD_ON_A_TERMINAL_FRAME_IS_ONLY_AS_GOOD_AS_THE_SERVERS_REASON_FOR_SENDING_IT_142_checked_for_done_and_the_route_always_sent_it
+  - I_DISMISSED_THIS_EARLIER_IN_THE_RUN_because_the_live_prompt_is_pinned_short_the_EOF_case_needs_no_long_answer
+followups: []
+---

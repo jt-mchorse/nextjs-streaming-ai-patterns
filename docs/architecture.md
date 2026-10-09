@@ -80,9 +80,19 @@ sequenceDiagram
     R-->>C: data: {"text":"..."}\n\n
     C-->>B: setText(prev + text)
   end
-  R-->>C: event: done\ndata: {}\n\n
-  C->>B: stop cursor blink
+  alt the upstream finished (message_stop, end_turn / stop_sequence)
+    R-->>C: event: done\ndata: {}\n\n
+    C->>B: stop cursor blink
+  else cut at max_tokens, refused, or ended before message_stop
+    R-->>C: event: error\ndata: {"error":"..."}\n\n
+    C->>B: stream error: ...
+  end
 ```
+
+`event: done` means the model finished the answer (#167). The live path reads
+`message_delta.stop_reason` and waits for `message_stop`; an answer cut at
+`max_tokens`, or an upstream body that ends mid-answer, ends in `event: error`
+instead, so the client never shows a truncated answer as whole.
 
 ### Reading a stream: decoder, then framer (D-013)
 
