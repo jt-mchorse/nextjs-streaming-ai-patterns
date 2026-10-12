@@ -1804,3 +1804,12 @@ length limit, or a connection that dropped mid-answer, both arrived as "done".
 The server now checks the model's stop signal. Anything other than a normal
 finish ends in an error message naming the cause, which the page already
 displays.
+
+## 2026-10-12 — Two demo pages no longer claim to be live (#169)
+
+When an API key was set, the tool-use and partial-JSON pages said "Mode: live"
+and named a model. Their back-end routes don't call the model at all: they
+always play back recorded mock streams. Visitors were shown canned output
+labelled as live. Both pages now say they use the mock either way, and a test
+checks that any page showing a mode is backed by a route that can actually go
+live.
