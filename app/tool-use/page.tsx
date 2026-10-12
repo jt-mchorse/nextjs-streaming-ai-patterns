@@ -1,6 +1,5 @@
 import { ToolUseClient } from "@/components/tool-use-client";
 import { SourcePane } from "@/components/source-pane";
-import { getStreamMode } from "@/lib/anthropic-stream";
 
 export const dynamic = "force-dynamic";
 
@@ -19,8 +18,6 @@ export const dynamic = "force-dynamic";
  * [doc]: ../../docs/tool-use-state-machine.md
  */
 export default function ToolUsePage() {
-  const mode = getStreamMode();
-
   return (
     <div className="space-y-8">
       <header className="space-y-2">
@@ -32,14 +29,13 @@ export default function ToolUsePage() {
           <code>AbortController</code> end-to-end. State machine documented
           in <code>docs/tool-use-state-machine.md</code>.
         </p>
+        {/* `/api/tool-use` has no live path: it streams the committed mock
+            whether or not a key is set, so the header says so rather than
+            reading `getStreamMode()`, which reports the key, not the route
+            (#169). */}
         <p className="text-xs text-[var(--muted)]">
-          Mode: <code>{mode.mode}</code>
-          {mode.model ? (
-            <>
-              {" "}
-              · model <code>{mode.model}</code>
-            </>
-          ) : null}
+          Mode: <code data-stream-mode="mock">mock</code> · this pattern streams the
+          committed mock whether or not <code>ANTHROPIC_API_KEY</code> is set
         </p>
       </header>
       <ToolUseClient />
