@@ -115,6 +115,14 @@ export async function* streamText(
     { signal },
   );
 
+  // How the upstream says the answer ended (#167). The route sends `event:
+  // done` once this generator returns, and the client takes that frame as
+  // proof the answer is whole (#142), so returning normally after a cut stream
+  // published it as complete: measured against a loopback upstream, a
+  // `max_tokens` stop and a body that simply ended after one delta both went
+  // out as `... event: done`. A throw becomes the route's `event: error`.
+  let stopReason: string | null = null;
+  let sawMessageStop = false;
   for await (const event of stream) {
     // The SDK aborts the request on `signal`, but re-check here so a late
     // abort stops us yielding a partially-buffered delta as well.
@@ -123,6 +131,19 @@ export async function* streamText(
     }
     if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
       yield { text: event.delta.text };
+    } else if (event.type === "message_delta") {
+      stopReason = event.delta.stop_reason ?? stopReason;
+    } else if (event.type === "message_stop") {
+      sawMessageStop = true;
     }
+  }
+  if (signal?.aborted) {
+    return;
+  }
+  if (!sawMessageStop) {
+    throw new Error("the upstream stream ended before message_stop; the answer is incomplete");
+  }
+  if (stopReason !== "end_turn" && stopReason !== "stop_sequence") {
+    throw new Error(`the model stopped with stop_reason=${String(stopReason)}; the answer is incomplete`);
   }
 }

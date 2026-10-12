@@ -1794,3 +1794,13 @@ words together as "reconnects with?checkpoint=N", because React drops a line
 break that sits right before an inline code element. Both are fixed, and a new
 test renders the homepage and all five pattern pages and fails if either
 mistake appears on any of them.
+
+## 2026-10-09 — A cut-off live stream is reported as an error, not as finished (#167)
+
+The streaming-text demo ends every stream with a "done" message, and the
+browser trusts that message to mean the answer is complete. The server sent it
+no matter how the model's stream actually ended: an answer cut off by the
+length limit, or a connection that dropped mid-answer, both arrived as "done".
+The server now checks the model's stop signal. Anything other than a normal
+finish ends in an error message naming the cause, which the page already
+displays.
