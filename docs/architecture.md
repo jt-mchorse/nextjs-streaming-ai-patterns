@@ -205,9 +205,10 @@ guard and to the generator, so the two cannot disagree by construction.
 indices into an event sequence and never reach `setTimeout`.
 
 Both branches yield the same `{ text: string }` shape, so the route
-handler never branches on mode. The page footer surfaces which mode
-is active so the operator isn't confused about whether the demo is
-"real."
+handler never branches on mode. Each pattern page's header surfaces
+which mode is active so the operator isn't confused about whether the
+demo is "real." A page whose route has no live path says `mock`
+outright rather than reading `getStreamMode()` (#169, #171).
 
 `streamText(prompt)` carries an entry-point `validatePrompt` guard
 (#32) so a misconstructed prompt fails loud in both modes the same way

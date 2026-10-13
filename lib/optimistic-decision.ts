@@ -98,8 +98,9 @@ function hash(s: string): number {
 }
 
 /**
- * Decide whether the LLM's improvement commits or rolls back. The split
- * is deterministic so the rollback path is testable by construction.
+ * Decide whether an "improve" commits or rolls back. No model is called:
+ * this oracle stands in for one, and the split is deterministic so the
+ * rollback path is testable by construction (#171).
  */
 export function decide(input: DecisionInput): Decision {
   if (typeof input.id !== "string" || input.id.length === 0) {

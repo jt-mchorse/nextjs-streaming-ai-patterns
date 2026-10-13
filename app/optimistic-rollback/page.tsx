@@ -18,11 +18,22 @@ export default function OptimisticRollbackPage() {
         </h1>
         <p className="max-w-2xl text-sm text-[var(--muted)]">
           React 19&apos;s <code>useOptimistic</code> renders the assumed next
-          state immediately; the server route returns the LLM&apos;s real
-          decision; the optimistic overlay drops when the transition resolves.
+          state immediately; the server route returns a decision from a
+          deterministic oracle standing in for a model; the optimistic overlay
+          drops when the transition resolves.
           On a rollback the overlay reverts naturally — the demo adds a
           one-second border flash + a rendered reason so the rollback is
           observable, not silent.
+        </p>
+        {/* `/api/optimistic` calls no model: `decide()` hashes (id, click
+            count), and its refusal reasons are canned strings. The header used
+            to say "the LLM's real decision" and showed no mode, so with a key
+            set nothing told a visitor the "model" reasons were not a model's
+            (#171). Same line as the other mock-only pages (#169). */}
+        <p className="text-xs text-[var(--muted)]">
+          Mode: <code data-stream-mode="mock">mock</code> · this pattern&apos;s
+          decisions and refusal reasons are canned whether or not{" "}
+          <code>ANTHROPIC_API_KEY</code> is set
         </p>
         <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--panel)] px-3 py-1 text-xs text-[var(--muted)]">
           <span className="inline-flex h-2 w-2 rounded-full bg-[var(--accent)]" />

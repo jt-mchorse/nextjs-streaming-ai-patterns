@@ -29,6 +29,13 @@ export default function ErrorRecoveryPage() {
           resets — chunks before the drop stay rendered, new chunks
           append in place, a small &ldquo;resumed&rdquo; pill blinks.
         </p>
+        {/* `/api/error-recovery` has no live path: it streams the committed
+            checkpoint fixture whether or not a key is set, so the header says
+            so, as the other mock-only pages do (#169, #171). */}
+        <p className="text-xs text-[var(--muted)]">
+          Mode: <code data-stream-mode="mock">mock</code> · this pattern streams the
+          committed mock whether or not <code>ANTHROPIC_API_KEY</code> is set
+        </p>
         <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--panel)] px-3 py-1 text-xs text-[var(--muted)]">
           <span className="inline-flex h-2 w-2 rounded-full bg-[var(--accent)]" />
           <span>deterministic drop after 12 tokens — recovery is reproducible</span>
