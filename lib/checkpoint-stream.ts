@@ -68,9 +68,12 @@ export interface StreamOptions {
 }
 
 /**
- * Tokenize the fixture by whitespace. Whitespace is preserved inside
- * each token so reassembling tokens with `tokens.join(" ")` yields the
- * original prose. (Splitting on /\s+/ would lose paragraph breaks.)
+ * Tokenize the fixture by whitespace. The capturing split keeps each
+ * whitespace run as a token of its own, between the words, so
+ * `tokens.join("")` reassembles the original prose exactly. (Splitting on
+ * /\s+/ would lose paragraph breaks.) This said `tokens.join(" ")` and that
+ * whitespace was "preserved inside each token" until #173; neither was true.
+ * `join(" ")` adds a space at every boundary.
  */
 function tokenize(): ReadonlyArray<string> {
   return FIXTURE.split(/(\s+)/).filter((t) => t.length > 0);
@@ -141,9 +144,15 @@ export function resumeTokenPosition(lastCheckpoint: number, droppedAt?: number):
 }
 
 /**
- * Async generator that yields events. Whitespace tokens are folded
- * into the preceding text event so an event-level consumer doesn't
- * have to special-case them.
+ * Async generator that yields events. Whitespace tokens are folded into the
+ * FOLLOWING text event (`" mid-stream"`, never `"A "`), so an event-level
+ * consumer doesn't have to special-case them. This said "preceding" until
+ * #173, which is the opposite of the loop below.
+ *
+ * It is also what a resume relies on. With `startAfter: N` the generator skips
+ * tokens 1..N, and the whitespace between token N and token N+1 arrives as the
+ * prefix of N+1. So the resumed text joins onto what the client already shows,
+ * with no space lost or doubled at the seam.
  */
 export async function* streamCheckpoints(
   options: StreamOptions = {},
