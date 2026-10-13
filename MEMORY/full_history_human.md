@@ -1813,3 +1813,13 @@ always play back recorded mock streams. Visitors were shown canned output
 labelled as live. Both pages now say they use the mock either way, and a test
 checks that any page showing a mode is backed by a route that can actually go
 live.
+
+## 2026-10-13 — The rollback demo no longer claims an AI decides (#171)
+
+The optimistic-update page said its server "returns the LLM's real decision".
+No model is involved: the server uses a fixed hash so the rollback can be
+reproduced on demand, and the rollback reasons are canned text. That page and
+the error-recovery page were the two mock-only pages yesterday's fix (#169) did
+not cover, and neither said which mode it ran in. Both now say "Mode: mock" the
+way the other mock-only pages do. A test now finds every page whose server
+route can't go live and checks that the page says so.
