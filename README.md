@@ -101,7 +101,9 @@ npm run dev                        # → http://localhost:3000
 
 Without `ANTHROPIC_API_KEY` the demo runs against the committed mock
 streamer with realistic per-token jitter — useful for development and
-for code review.
+for code review. The key switches `/streaming-text` to live; `/tool-use`
+and `/partial-json` stream their committed mocks either way, and their
+headers say so (#169).
 
 Production build + tests + lint:
 

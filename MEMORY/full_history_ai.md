@@ -1871,3 +1871,23 @@ context_for_next_session:
   - I_DISMISSED_THIS_EARLIER_IN_THE_RUN_because_the_live_prompt_is_pinned_short_the_EOF_case_needs_no_long_answer
 followups: []
 ---
+
+---
+session: 2026-10-12T07:43:09Z
+duration_min: 1   # computed: plan comment 2026-10-12T07:43:09Z -> PR 2026-10-12T07:45:06Z (gh createdAt)
+issue: 169
+branch: session/2026-10-12-0743-issue-169
+focus: TOOL_USE_AND_PARTIAL_JSON_PAGES_SAID_MODE_LIVE_WITH_A_KEY_SET_WHILE_THEIR_ROUTES_ONLY_EVER_STREAM_THE_MOCK
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 8
+  suite: "897 -> 905 passed; typecheck, lint, build clean"
+decisions_made: []
+measured: "hunt agent: ANTHROPIC_API_KEY=fake next dev -> /tool-use and /partial-json headers 'Mode: live · model claude-haiku-4-5-20251001', /api/* returned the mock frames. Revert 4 red / 4 green."
+context_for_next_session:
+  - getStreamMode_REPORTS_THE_KEY_NOT_THE_ROUTE_a_status_shown_beside_a_thing_must_be_read_from_that_thing
+  - THE_LOCK_MAPS_PAGE_TO_ROUTE_THROUGH_THE_CLIENT_COMPONENTS_FETCH_and_uses_sourceFiles_the_strip_comments_lock_forbids_a_private_readdirSync_in_tests
+  - LIVE_PATHS_FOR_TOOL_USE_AND_PARTIAL_JSON_ARE_A_FEATURE_not_filed_as_a_bug
+followups: []
+---

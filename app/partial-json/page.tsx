@@ -1,6 +1,5 @@
 import { PartialJsonClient } from "@/components/partial-json-client";
 import { SourcePane } from "@/components/source-pane";
-import { getStreamMode } from "@/lib/anthropic-stream";
 
 export const dynamic = "force-dynamic";
 
@@ -20,8 +19,6 @@ export const dynamic = "force-dynamic";
  * rather than hidden behind an npm package.
  */
 export default function PartialJsonPage() {
-  const mode = getStreamMode();
-
   return (
     <div className="space-y-8">
       <header className="space-y-2">
@@ -33,14 +30,13 @@ export default function PartialJsonPage() {
           patterns covered: open strings, open arrays/objects, trailing
           commas, mid-token primitives. Malformed input never throws an error.
         </p>
+        {/* `/api/partial-json` has no live path: it streams the committed mock
+            whether or not a key is set, so the header says so rather than
+            reading `getStreamMode()`, which reports the key, not the route
+            (#169). */}
         <p className="text-xs text-[var(--muted)]">
-          Mode: <code>{mode.mode}</code>
-          {mode.model ? (
-            <>
-              {" "}
-              · model <code>{mode.model}</code>
-            </>
-          ) : null}
+          Mode: <code data-stream-mode="mock">mock</code> · this pattern streams the
+          committed mock whether or not <code>ANTHROPIC_API_KEY</code> is set
         </p>
       </header>
       <PartialJsonClient />
