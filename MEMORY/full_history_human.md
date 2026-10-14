@@ -1844,3 +1844,13 @@ and first roll back on the third click. The file shown beside it already said
 "2 of the 5", so the page contradicted itself. The comment now names the two
 items, and a new test reads every visitor-facing file for this claim and checks
 it against what the decision function actually does.
+
+## 2026-10-14 — The README says which pages a key actually makes live (#177)
+
+The README's quickstart lists what setting an API key changes. It said the key
+makes the streaming-text page live and named two pages that stay on canned
+output. Yesterday's fix found two more such pages, the rollback page and the
+error-recovery page, and updated their headers and the architecture doc, but not
+this README sentence. The README now says the key affects only the
+streaming-text page and names all four pages that stay canned. A test checks the
+list against the pages whose server routes really can't go live.
