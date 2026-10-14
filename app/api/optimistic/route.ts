@@ -30,8 +30,10 @@ interface RequestBody {
  * D-003 / D-008's "deterministic demo, real source visible" posture).
  *
  * The first click on each id always succeeds — a casual visitor sees
- * the happy path first, then a rollback animation on click 2 if they
- * try again.
+ * the happy path first. A rollback can come from click 2 on, but click 2
+ * rolls back on only 2 of the 5 demo items (`untitled-2.txt`,
+ * `untitled-4.txt`); the other three commit again and roll back first on
+ * click 3. This said every item rolls back on click 2 until #175.
  */
 export async function POST(req: NextRequest): Promise<Response> {
   let parsed: unknown;
