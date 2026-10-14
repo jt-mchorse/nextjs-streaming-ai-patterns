@@ -1926,3 +1926,21 @@ context_for_next_session:
   - lib_FILES_IN_A_SOURCE_PANE_ARE_READER_FACING_their_docstrings_are_served_teaching_text
 followups: []
 ---
+
+---
+session: 2026-10-14T07:18:11Z
+duration_min: 1   # computed: issue filed 2026-10-14T07:18:11Z -> code commit 2026-10-14T07:19Z
+issue: 175
+branch: session/2026-10-14-0718-issue-175
+focus: SERVED_OPTIMISTIC_ROUTE_DOCSTRING_SAID_CLICK_2_SHOWS_THE_ROLLBACK_TRUE_FOR_2_OF_5_ITEMS_163_LOCK_READS_ONLY_THE_5050_TOKEN
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 3
+  suite: "918 -> 921 passed; lint, typecheck, build clean"
+decisions_made: []
+measured: "decide() click 2 over DEMO_NAMES: rollback on untitled-2, untitled-4 only; first rollback at click 3 for the other three. Only reader-facing site pairing a second click with a rollback unqualified: app/api/optimistic/route.ts:33. Revert 1 red / 2 controls."
+context_for_next_session:
+  - A_DRIFT_LOCK_KEYED_ON_ONE_TOKEN_50_50_MISSES_THE_SAME_FACT_STATED_WITHOUT_IT_click_2_lock_derives_the_item_set_from_decide
+followups: []
+---
