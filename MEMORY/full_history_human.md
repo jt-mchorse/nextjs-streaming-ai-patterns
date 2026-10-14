@@ -1823,3 +1823,14 @@ the error-recovery page were the two mock-only pages yesterday's fix (#169) did
 not cover, and neither said which mode it ran in. Both now say "Mode: mock" the
 way the other mock-only pages do. A test now finds every page whose server
 route can't go live and checks that the page says so.
+
+## 2026-10-13 — The error-recovery source pane describes whitespace handling correctly (#173)
+
+The error-recovery page shows the checkpoint generator's source to visitors.
+Two of its comments described the whitespace handling backwards. One said
+joining the tokens with spaces rebuilds the original text, but it actually adds
+extra spaces. The other said whitespace is attached to the word before it, when
+it is attached to the word after it. Attaching it to the word after is what
+puts the right space in place when a dropped stream resumes. Both comments now
+match the code, and a test checks them against what the generator actually
+emits.

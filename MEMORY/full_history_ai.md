@@ -1908,5 +1908,21 @@ measured: "rendered /optimistic-rollback with ANTHROPIC_API_KEY set: 'the server
 context_for_next_session:
   - 169_LOCKED_PAGES_THAT_IMPORT_getStreamMode_THE_POPULATION_IS_PAGES_WHOSE_ROUTES_HAVE_NO_LIVE_PATH_a_page_showing_no_mode_passed_it
   - REFUSAL_REASONS_STILL_SAY_THE_MODEL_they_are_the_fixture_and_the_mode_line_now_labels_them_canned_not_reworded
+
+session: 2026-10-13T07:42:19Z
+duration_min: 3   # computed: issue filed 2026-10-13T07:42:19Z -> code commit 2026-10-13T07:44Z
+issue: 173
+branch: session/2026-10-13-0742-issue-173
+focus: CHECKPOINT_STREAM_SERVED_DOCSTRINGS_SAID_tokens_join_SPACE_REASSEMBLES_AND_WHITESPACE_FOLDS_INTO_THE_PRECEDING_EVENT_BOTH_BACKWARDS
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 4
+  suite: "905 -> 909 passed; lint, tsc, build clean"
+decisions_made: []
+measured: "tsx probe on main: tokens.join(' ')===FIXTURE false, join('')===FIXTURE true; clean-run events ['A',' mid-stream',' error',...], 0 end in whitespace, 136 start with it. Differential SSE round-trip (route GET -> bytes -> framer at read sizes 1,2,3,5,7,4096,whole -> parseSseFrame -> JSON.parse) over 19 adversarial text deltas incl. '\\n\\n', 'data: x', lone surrogates, CR, BOM, U+2028, 70k chars: 0 mismatches. Revert 1 red / 3 controls; each docstring reverted alone -> 1 red."
+context_for_next_session:
+  - SSE_WRITE_PATH_IS_JSON_STRINGIFY_ON_EVERY_ROUTE_so_no_payload_can_inject_a_frame_boundary_the_read_path_differential_is_clean_do_not_re_hunt
+  - lib_FILES_IN_A_SOURCE_PANE_ARE_READER_FACING_their_docstrings_are_served_teaching_text
 followups: []
 ---
