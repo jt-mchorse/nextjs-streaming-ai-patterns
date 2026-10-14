@@ -1891,3 +1891,22 @@ context_for_next_session:
   - LIVE_PATHS_FOR_TOOL_USE_AND_PARTIAL_JSON_ARE_A_FEATURE_not_filed_as_a_bug
 followups: []
 ---
+
+---
+session: 2026-10-13T07:17:37Z
+duration_min: 2   # computed: issue filed 2026-10-13T07:17:37Z -> code commit 2026-10-13T07:19Z
+issue: 171
+branch: session/2026-10-13-0717-issue-171
+focus: OPTIMISTIC_PAGE_SAID_THE_ROUTE_RETURNS_THE_LLMS_REAL_DECISION_WHILE_IT_HASHES_ID_AND_CLICK_COUNT_AND_IT_AND_ERROR_RECOVERY_WERE_THE_MOCK_ONLY_PAGES_169_DID_NOT_LIST
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 9
+  suite: "905 -> 914 passed; lint, typecheck, build clean"
+decisions_made: []
+measured: "rendered /optimistic-rollback with ANTHROPIC_API_KEY set: 'the server route returns the LLM's real decision'; decide() returns the same 'the model proposed...' refusal every call. Revert 5 red / 4 green (discovery + the three pages #169 already covered)."
+context_for_next_session:
+  - 169_LOCKED_PAGES_THAT_IMPORT_getStreamMode_THE_POPULATION_IS_PAGES_WHOSE_ROUTES_HAVE_NO_LIVE_PATH_a_page_showing_no_mode_passed_it
+  - REFUSAL_REASONS_STILL_SAY_THE_MODEL_they_are_the_fixture_and_the_mode_line_now_labels_them_canned_not_reworded
+followups: []
+---

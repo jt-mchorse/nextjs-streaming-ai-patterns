@@ -23,7 +23,13 @@ import { ROOT, sourceFiles } from "./support/source-files";
 vi.mock("@/components/source-pane", () => ({ SourcePane: () => null }));
 vi.mock("@/components/tool-use-client", () => ({ ToolUseClient: () => null }));
 vi.mock("@/components/partial-json-client", () => ({ PartialJsonClient: () => null }));
+vi.mock("@/components/optimistic-rollback-client", () => ({
+  OptimisticRollbackClient: () => null,
+}));
+vi.mock("@/components/error-recovery-client", () => ({ ErrorRecoveryClient: () => null }));
 
+import ErrorRecoveryPage from "../app/error-recovery/page";
+import OptimisticRollbackPage from "../app/optimistic-rollback/page";
 import PartialJsonPage from "../app/partial-json/page";
 import ToolUsePage from "../app/tool-use/page";
 
@@ -68,6 +74,31 @@ describe("a page shows the stream mode only if its route has a live path (#169)"
   });
 });
 
+describe("every page whose routes have no live path says mock (#171)", () => {
+  // #169's lock above only reaches pages that render `getStreamMode()`. A page
+  // that shows no mode at all passed it, and two of the four mock-only pages
+  // were that page. The population here is the routes, not the import.
+  const MOCK_ONLY = PAGES.filter((page) =>
+    routesFetchedBy(read(`app/${page}/page.tsx`)).every(
+      (route) => !IMPORTS_LIVE_STREAMER.test(read(`app/api/${route}/route.ts`)),
+    ),
+  );
+
+  it("finds the four mock-only pages and leaves /streaming-text out", () => {
+    expect(MOCK_ONLY).toEqual(
+      expect.arrayContaining(["tool-use", "partial-json", "optimistic-rollback", "error-recovery"]),
+    );
+    expect(MOCK_ONLY).not.toContain("streaming-text");
+  });
+
+  it.each(PAGES)("/%s", (page) => {
+    if (!MOCK_ONLY.includes(page)) return;
+    expect(read(`app/${page}/page.tsx`), `/${page} streams only mocks and must say so`).toContain(
+      'data-stream-mode="mock"',
+    );
+  });
+});
+
 describe("the mock-only pages say mock with a key set (#169)", () => {
   const saved = process.env.ANTHROPIC_API_KEY;
   beforeAll(() => {
@@ -83,9 +114,19 @@ describe("the mock-only pages say mock with a key set (#169)", () => {
   it.each([
     ["/tool-use", ToolUsePage],
     ["/partial-json", PartialJsonPage],
+    ["/optimistic-rollback", OptimisticRollbackPage],
+    ["/error-recovery", ErrorRecoveryPage],
   ] as const)("%s", (_route, Page) => {
     const html = renderToStaticMarkup(createElement(Page));
     expect(html).toContain('data-stream-mode="mock"');
     expect(html).not.toMatch(/\blive\b/);
+  });
+
+  it("/optimistic-rollback attributes no decision to an LLM (#171)", () => {
+    // `/api/optimistic` hashes (id, click count); the header said "the server
+    // route returns the LLM's real decision".
+    const html = renderToStaticMarkup(createElement(OptimisticRollbackPage));
+    expect(html).toContain("deterministic oracle");
+    expect(html).not.toMatch(/\bLLM\b/);
   });
 });
