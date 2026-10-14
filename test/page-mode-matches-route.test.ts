@@ -97,6 +97,22 @@ describe("every page whose routes have no live path says mock (#171)", () => {
       'data-stream-mode="mock"',
     );
   });
+
+  it("README's Quickstart names every mock-only page (#177)", () => {
+    // The README paragraph that says what the key switches listed #169's two
+    // mock-only pages after #171 found four. #172 updated architecture.md and
+    // the headers but not this enumeration, so it is checked against the same
+    // derived population as the headers above.
+    const readme = read("README.md");
+    const start = readme.indexOf("Without `ANTHROPIC_API_KEY`");
+    expect(start, "Quickstart's no-key paragraph not found").toBeGreaterThan(-1);
+    const para = readme.slice(start, readme.indexOf("\n\n", start));
+    const missing = MOCK_ONLY.filter((page) => !para.includes(`\`/${page}\``));
+    expect(missing, "mock-only pages the Quickstart does not name").toEqual([]);
+    for (const page of PAGES.filter((p) => !MOCK_ONLY.includes(p))) {
+      expect(para, `/${page} has a live path`).toMatch(new RegExp(`\`/${page}\` to live`));
+    }
+  });
 });
 
 describe("the mock-only pages say mock with a key set (#169)", () => {
