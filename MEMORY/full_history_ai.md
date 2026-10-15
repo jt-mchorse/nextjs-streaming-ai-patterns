@@ -1982,3 +1982,22 @@ context_for_next_session:
   - THREE_COPIES_OF_SLEEP_NOW_ONE_abortableSleep_IN_lib_stream_delay_ts_beside_validateDelayOptions
 followups: []
 ---
+
+---
+session: 2026-10-15T07:34:18Z
+duration_min: 1   # computed: issue filed 2026-10-15T07:34:18Z -> code commit 2026-10-15T07:35Z
+issue: 181
+branch: session/2026-10-15-0734-issue-181
+focus: PARTIAL_JSON_SCANNED_WITH_SLASH_S_WIDER_THAN_JSON_PARSE_U00A0_U2028_UFEFF_OUTSIDE_A_STRING_NULLED_EVERY_COMMITTED_FIELD_A_STRAY_X_KEPT_THEM
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 28
+  suite: "922 -> 950 passed; lint, typecheck, build clean"
+decisions_made: []
+measured: "sweep of 10 codepoints x 4 positions on main: U+0020/09/0A/0D keep fields; U+000B, U+000C, U+00A0, U+FEFF, U+2028, U+3000 outside a string -> null. '{\"a\":1,\"b\":2,x\"c\":3' -> {a,b}; same with U+00A0 for x -> null. Four /\\s/ sites: repair skip, literal delimiter, stripTrailingCommas look-ahead, frameSnapshot tail trim. Revert 21 red / 7 green (5 in-string, stray-x control, JSON-whitespace control)."
+context_for_next_session:
+  - A_SCANNER_THAT_FEEDS_JSON_PARSE_MUST_USE_JSON_PARSES_ALPHABET_slash_s_is_unicode_whitespace_not_rfc8259
+  - LEADING_BOM_BEFORE_THE_TOP_LEVEL_VALUE_STILL_NULL_BY_DESIGN_nothing_committed_and_JSON_PARSE_rejects_it
+followups: []
+---
