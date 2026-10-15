@@ -99,3 +99,38 @@ export function validateDelayOptions(options: DelayOptions, defaults: DelayDefau
     );
   }
 }
+
+/**
+ * `setTimeout`-based sleep that resolves early when `signal` aborts.
+ *
+ * One copy, shared by the three mock streamers, for the reason the guard above
+ * is shared (#110). Each streamer had its own, and all three removed their
+ * `abort` listener only when the abort fired (#179). `{ once: true }` removes a
+ * listener after it *runs*; on a stream nobody aborts -- every normal request --
+ * it never runs, so each inter-token delay left one listener on the route's
+ * signal. Measured on full un-aborted runs: 115 listeners left by
+ * `mockTextStream`, 65 by `mockJsonStream`, 45 by `mockToolStream`, and on
+ * Node 20 a single mock-mode `GET /api/stream-text` printed
+ * `MaxListenersExceededWarning: Possible EventTarget memory leak detected`.
+ *
+ * The timer path now removes the listener it added, so at most one is live per
+ * pending sleep and none outlive it. Abort still resolves immediately.
+ */
+export async function abortableSleep(ms: number, signal?: AbortSignal): Promise<void> {
+  if (ms <= 0) return;
+  await new Promise<void>((resolve) => {
+    if (signal?.aborted) {
+      resolve();
+      return;
+    }
+    const onAbort = (): void => {
+      clearTimeout(t);
+      resolve();
+    };
+    const t = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
+}

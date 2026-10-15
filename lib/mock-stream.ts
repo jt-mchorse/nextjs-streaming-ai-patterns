@@ -5,7 +5,7 @@
 // streaming-render pattern a realistic input shape (per-token chunks with
 // natural-feeling jitter) so the UI under test is exercised end-to-end.
 
-import { validateDelayOptions } from "@/lib/stream-delay";
+import { abortableSleep as sleep, validateDelayOptions } from "@/lib/stream-delay";
 
 export interface MockStreamOptions {
   /** Per-token delay in ms. Default 30. */
@@ -117,28 +117,6 @@ export async function* mockTextStream(
     }
     yield { text: token };
   }
-}
-
-/**
- * `setTimeout`-based sleep that resolves early when `signal` aborts.
- * Same shape used in `mock-tool-stream.ts` / `mock-json-stream.ts`.
- */
-async function sleep(ms: number, signal?: AbortSignal): Promise<void> {
-  if (ms <= 0) return;
-  await new Promise<void>((resolve) => {
-    const t = setTimeout(() => resolve(), ms);
-    if (signal) {
-      const onAbort = (): void => {
-        clearTimeout(t);
-        resolve();
-      };
-      if (signal.aborted) {
-        onAbort();
-      } else {
-        signal.addEventListener("abort", onAbort, { once: true });
-      }
-    }
-  });
 }
 
 export function chunkByWhitespace(s: string): string[] {
