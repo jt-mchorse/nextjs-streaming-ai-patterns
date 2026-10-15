@@ -1962,3 +1962,23 @@ context_for_next_session:
   - A_FIX_THAT_GROWS_A_POPULATION_MUST_REVISIT_EVERY_PROSE_ENUMERATION_OF_THE_OLD_ONE_the_quickstart_lock_reuses_171s_derived_MOCK_ONLY
 followups: []
 ---
+
+---
+session: 2026-10-15T07:20:53Z
+duration_min: 2   # computed: issue filed 2026-10-15T07:20:53Z -> code commit 2026-10-15T07:22Z
+issue: 179
+branch: session/2026-10-15-0721-issue-179
+focus: MOCK_STREAMER_SLEEP_REMOVED_ITS_ABORT_LISTENER_ONLY_ON_ABORT_ONCE_TRUE_NEVER_RUNS_ON_AN_UNABORTED_STREAM_ONE_LISTENER_LEFT_PER_TOKEN
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 7
+  suite: "921 -> 929 passed; lint, typecheck, build clean (Node 20.9)"
+decisions_made: []
+measured: "getEventListeners(signal,'abort') after full un-aborted runs on main: mockTextStream 115, mockJsonStream 65, mockToolStream 45. Node 20.9 mock-mode GET /api/stream-text printed MaxListenersExceededWarning (11 abort listeners); Node 22/25 print nothing, same count. After fix: 0, no warning. Revert probes: helper without removeEventListener 4 red / 3 green; streamers reverted to main 4 red / 3 green."
+context_for_next_session:
+  - ONCE_TRUE_REMOVES_A_LISTENER_AFTER_IT_RUNS_a_listener_whose_event_never_fires_lives_as_long_as_the_target
+  - THE_WARNING_IS_NODE_VERSION_DEPENDENT_count_listeners_with_getEventListeners_do_not_assert_on_stderr
+  - THREE_COPIES_OF_SLEEP_NOW_ONE_abortableSleep_IN_lib_stream_delay_ts_beside_validateDelayOptions
+followups: []
+---
