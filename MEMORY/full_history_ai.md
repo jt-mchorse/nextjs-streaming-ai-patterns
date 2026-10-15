@@ -2001,3 +2001,22 @@ context_for_next_session:
   - LEADING_BOM_BEFORE_THE_TOP_LEVEL_VALUE_STILL_NULL_BY_DESIGN_nothing_committed_and_JSON_PARSE_rejects_it
 followups: []
 ---
+
+---
+session: 2026-10-15T07:50:23Z
+duration_min: 1   # computed: issue filed 2026-10-15T07:50:23Z -> code commit 2026-10-15T07:51Z
+issue: 183
+branch: session/2026-10-15-0750-issue-183
+focus: LIVE_TEXT_DELTAS_ARRIVED_ONE_UPSTREAM_EVENT_LATE_SDK_0_32_1_SSE_CHUNKER_MISSED_A_TERMINATOR_AT_BUFFER_END
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 2
+  suite: "922 -> 924 passed; lint, typecheck, build clean"
+decisions_made: []
+measured: "loopback upstream, one SSE event per write 400 ms apart: SDK 0.32.1 delivers each delta 402-404 ms after the write, 0.37.0 0-2 ms. findDoubleNewlineIndex bound is buffer.length-2 through 0.36.3, buffer.length-1 from 0.37.0. Probed on 0.32.1 and found clean: unknown event names (dropped by the SDK), thinking/citations/unknown delta types, ping, error event, mid-stream cancel (upstream socket closes, no unhandled rejection). Revert 2 red / 2 new."
+context_for_next_session:
+  - A_LOOPBACK_UPSTREAM_THAT_SENDS_ITS_WHOLE_BODY_IN_ONE_res_end_CANNOT_SEE_A_CHUNKING_DELAY_EOF_FLUSHES_EVERYTHING_hold_the_connection_open
+  - error_recovery_client_aborted_ref_is_reset_on_remount_so_a_StrictMode_double_mount_would_surface_fatal_but_next_15_dev_here_mounts_once_measured_not_a_bug
+followups: []
+---
