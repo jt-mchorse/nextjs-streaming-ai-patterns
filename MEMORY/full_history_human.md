@@ -1834,3 +1834,13 @@ it is attached to the word after it. Attaching it to the word after is what
 puts the right space in place when a dropped stream resumes. Both comments now
 match the code, and a test checks them against what the generator actually
 emits.
+
+## 2026-10-14 — The rollback route's comment no longer promises a rollback on every second click (#175)
+
+The optimistic-update page shows its server route's source to visitors. That
+source said a visitor sees the rollback "on click 2 if they try again". That is
+true for only two of the five demo items. The other three commit a second time
+and first roll back on the third click. The file shown beside it already said
+"2 of the 5", so the page contradicted itself. The comment now names the two
+items, and a new test reads every visitor-facing file for this claim and checks
+it against what the decision function actually does.
