@@ -1944,3 +1944,21 @@ context_for_next_session:
   - A_DRIFT_LOCK_KEYED_ON_ONE_TOKEN_50_50_MISSES_THE_SAME_FACT_STATED_WITHOUT_IT_click_2_lock_derives_the_item_set_from_decide
 followups: []
 ---
+
+---
+session: 2026-10-14T07:20:47Z
+duration_min: 1   # computed: issue filed 2026-10-14T07:20:47Z -> code commit 2026-10-14T07:21Z
+issue: 177
+branch: session/2026-10-14-0720-issue-177
+focus: README_QUICKSTART_ENUMERATED_169S_TWO_MOCK_ONLY_PAGES_AFTER_171_FOUND_FOUR_172_UPDATED_ARCHITECTURE_MD_NOT_THE_README
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 1
+  suite: "918 -> 919 passed; lint, typecheck, build clean"
+decisions_made: []
+measured: "derived mock-only pages (page -> client fetch -> route without streamText): error-recovery, optimistic-rollback, partial-json, tool-use; Quickstart named partial-json, tool-use only. Revert 1 red / 17 green (the pre-existing arms)."
+context_for_next_session:
+  - A_FIX_THAT_GROWS_A_POPULATION_MUST_REVISIT_EVERY_PROSE_ENUMERATION_OF_THE_OLD_ONE_the_quickstart_lock_reuses_171s_derived_MOCK_ONLY
+followups: []
+---
