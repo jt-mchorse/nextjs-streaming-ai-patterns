@@ -1893,3 +1893,14 @@ message per packet. SDK 0.37.0 fixed this, and the repo now requires that
 version. A new test runs a fake upstream that sends one message and then waits,
 and it fails unless the page receives that message while the upstream is still
 waiting.
+
+## 2026-10-16 — A stream event ended by a bare carriage return arrives immediately (#187)
+
+The browser-side stream reader this repo shares between its demos held back a
+carriage return at the end of a network chunk, in case the next chunk began
+with the line feed of a CRLF pair. The line had ended either way, so an event
+ended by a bare carriage return waited for the next chunk, and the final event
+waited until the stream closed. In a test, an event arrived 1005 ms late. The
+reader now ends the line right away and ignores a line feed that opens the
+next chunk. The same event arrives in 3 ms. A test that cuts mixed-line-ending
+streams at every possible point shows chunking never changes the result.

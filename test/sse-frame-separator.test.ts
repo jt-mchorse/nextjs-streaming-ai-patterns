@@ -80,8 +80,10 @@ describe("pumpSseFrames — terminators straddling a read boundary", () => {
   it("a CRLF separator split exactly between its \\r and \\n still works", async () => {
     // This is the case the fix could most easily have broken. Normalizing a
     // chunk-final `\r` to `\n` in place would turn `...\r` + `\n...` into
-    // `\n\n` and manufacture a boundary that isn't in the stream — so the
-    // trailing `\r` is held back until the next read resolves it.
+    // `\n\n` and manufacture a boundary that isn't in the stream — so a `\n`
+    // opening the read after a chunk-final `\r` is dropped as that CRLF's
+    // second half (#187; before that the `\r` was held back, which delayed
+    // the frame it completed by one read).
     const frames = await framesFor(
       "event: a\r\ndata: 1\r\n\r",
       "\nevent: b\r\ndata: 2\r\n\r\n",
@@ -99,9 +101,8 @@ describe("pumpSseFrames — terminators straddling a read boundary", () => {
   });
 
   it("a lone trailing \\r at end-of-stream is resolved as a terminator", async () => {
-    // The held-back `\r` never got its `\n`, so it was a lone-CR terminator
-    // after all. It must still separate the final frame rather than be lost
-    // with the carry.
+    // The chunk-final `\r` never got a `\n`, so it was a lone-CR terminator.
+    // It must separate the final frame rather than be lost.
     expect(await framesFor("event: a\rdata: 1\r\r")).toEqual([
       "event: a\ndata: 1",
     ]);
