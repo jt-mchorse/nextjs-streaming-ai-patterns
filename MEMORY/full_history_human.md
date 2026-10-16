@@ -1854,3 +1854,15 @@ error-recovery page, and updated their headers and the architecture doc, but not
 this README sentence. The README now says the key affects only the
 streaming-text page and names all four pages that stay canned. A test checks the
 list against the pages whose server routes really can't go live.
+
+## 2026-10-15 — The mock streamers no longer leave a listener behind for every token (#179)
+
+Each of the three mock streamers waited between tokens with its own small
+sleep helper. The helper listened for an abort so a cancel could cut the wait
+short, but it only removed that listener when an abort actually happened. A
+normal stream that nobody cancels left one listener behind per token: 115 for
+the streaming-text mock, 65 for partial-JSON, 45 for tool-use. On Node 20,
+which CI runs, a single visit to the streaming-text page in mock mode printed
+a "possible memory leak" warning on the dev server. There is now one shared
+sleep helper that removes its listener when the wait ends normally, and tests
+count the listeners left after a full run of each streamer.

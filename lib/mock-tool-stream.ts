@@ -19,7 +19,7 @@
  * client component honest.
  */
 
-import { validateDelayOptions } from "@/lib/stream-delay";
+import { abortableSleep as sleep, validateDelayOptions } from "@/lib/stream-delay";
 
 export type ToolStreamEvent =
   | { type: "text_delta"; text: string }
@@ -95,24 +95,6 @@ function makePrng(seed: number): () => number {
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
-}
-
-async function sleep(ms: number, signal?: AbortSignal): Promise<void> {
-  if (ms <= 0) return;
-  await new Promise<void>((resolve) => {
-    const t = setTimeout(() => resolve(), ms);
-    if (signal) {
-      const onAbort = () => {
-        clearTimeout(t);
-        resolve();
-      };
-      if (signal.aborted) {
-        onAbort();
-      } else {
-        signal.addEventListener("abort", onAbort, { once: true });
-      }
-    }
-  });
 }
 
 function tokenize(text: string): string[] {
