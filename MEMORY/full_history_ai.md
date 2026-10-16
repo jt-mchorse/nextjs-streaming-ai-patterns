@@ -2020,3 +2020,22 @@ context_for_next_session:
   - error_recovery_client_aborted_ref_is_reset_on_remount_so_a_StrictMode_double_mount_would_surface_fatal_but_next_15_dev_here_mounts_once_measured_not_a_bug
 followups: []
 ---
+
+---
+session: 2026-10-16T08:00Z
+issue: 187
+branch: session/2026-10-16-0736-issue-187
+focus: THE_FRAMER_HELD_A_CHUNK_FINAL_CR_BACK_SO_A_FRAME_IT_COMPLETED_WAITED_ONE_READ_AND_THE_LAST_FRAME_WAITED_FOR_CLOSE_183S_SYMPTOM_IN_OUR_OWN_FRAMER
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 14
+  suite: "959 -> 973 passed; lint (0 errors), typecheck, build clean"
+decisions_made: []
+measured: "data:{...}\\r\\r then 1000 ms open: delivered +1005 ms before, +3 ms after. Revert 5/14 red; eager-normalize-without-swallow wrong fix 6 red."
+context_for_next_session:
+  - THE_LINE_ENDS_AT_THE_CR_EITHER_WAY_ONLY_THE_NEXT_LEADING_LF_IS_AMBIGUOUS_swallow_it_rather_than_hold_the_CR
+  - TWO_114_ARMS_PINNED_THE_HOLD_BACK_AND_WERE_REWRITTEN_TO_PIN_THE_NEW_CONTRACT_push_only_and_push_flush_now_agree_on_every_body
+  - LOCAL_node_modules_WAS_SDK_0_32_1_AFTER_184_BUMPED_TO_0_37_two_183_latency_tests_fail_until_npm_ci
+followups: []
+---
