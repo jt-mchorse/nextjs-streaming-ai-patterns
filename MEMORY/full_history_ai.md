@@ -2018,5 +2018,20 @@ measured: "loopback upstream, one SSE event per write 400 ms apart: SDK 0.32.1 d
 context_for_next_session:
   - A_LOOPBACK_UPSTREAM_THAT_SENDS_ITS_WHOLE_BODY_IN_ONE_res_end_CANNOT_SEE_A_CHUNKING_DELAY_EOF_FLUSHES_EVERYTHING_hold_the_connection_open
   - error_recovery_client_aborted_ref_is_reset_on_remount_so_a_StrictMode_double_mount_would_surface_fatal_but_next_15_dev_here_mounts_once_measured_not_a_bug
+session: 2026-10-16T07:16Z
+issue: 185
+branch: session/2026-10-16-0716-issue-185
+focus: BELOW_MD_A_GRID_WITH_ONLY_md_grid_cols_2_HAS_ONE_IMPLICIT_AUTO_TRACK_THAT_GROWS_TO_THE_SHIKI_PRE_MIN_CONTENT_SO_THREE_PAGES_WERE_2_4_TO_5X_THE_VIEWPORT
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 17
+  suite: "929 -> 946 passed; lint (0 errors, 1 pre-existing warning), typecheck, build clean"
+decisions_made: []
+measured: "prod build, Playwright 390x844 scrollWidth: / 390->390, /streaming-text 951->390, /tool-use 390, /partial-json 390, /optimistic-rollback 1933->390, /error-recovery 1245->390. 1280px grid-template-columns still two tracks (552/544px). Revert probe (app/ stashed): 5 red / 12 green (helper table, anti-vacuity, and the two pages with no responsive grid)."
+context_for_next_session:
+  - minmax_0_1fr_IS_WHAT_LETS_A_TRACK_BE_NARROWER_THAN_ITS_CONTENT_an_implicit_track_and_a_bare_1fr_are_both_min_auto
+  - THE_LOCK_SCANS_STRING_LITERALS_NOT_className_ATTRIBUTES_and_a_rendered_arm_reads_the_emitted_class_attrs
+  - partial_json_client_HAS_TWO_NON_RESPONSIVE_GRIDS_grid_gap_1_AND_grid_cols_6rem_1fr_whose_cells_hold_wrapping_mock_prose_measured_390_NOT_CHANGED
 followups: []
 ---
