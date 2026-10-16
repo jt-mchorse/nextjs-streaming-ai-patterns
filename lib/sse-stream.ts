@@ -262,6 +262,29 @@ export async function pumpSseFrames(
 }
 
 /**
+ * A frame's `data:` as a JSON object, or `null` if it is empty, not JSON, or
+ * JSON that is not an object (`null`, a number, an array) (#191).
+ *
+ * The two typed clients cast `JSON.parse(data) as Record<string, unknown>` and
+ * skipped the frame on a parse error whatever its event was. `data: null`
+ * parsed and then crashed at `payload.error`, showing the user the JS engine's
+ * text; a non-JSON `event: error` was dropped, so a later `message_stop` ended
+ * the run as done. Callers act on a terminal event with `?? {}`.
+ */
+export function sseJsonObject(data: string): Record<string, unknown> | null {
+  if (!data) return null;
+  let value: unknown;
+  try {
+    value = JSON.parse(data);
+  } catch {
+    return null;
+  }
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+/**
  * The message a client shows when the body ended without a terminal frame (#138).
  */
 export const STREAM_ENDED_WITHOUT_TERMINAL =
@@ -286,10 +309,14 @@ export const STREAM_TEXT_ENDED_WITHOUT_DONE =
  * resolve-side sibling of #60's reject-side wedge).
  *
  * The handler says whether it reached a terminal phase rather than this
- * function matching event names, because a client's handler is what decides:
- * both skip a frame with no `data:` and a frame whose JSON does not parse, so an
- * `event: error` frame with a broken payload reaches no terminal phase, and a
- * name match here would call it terminal and leave the wedge in place.
+ * function matching event names, because a client's handler is what decides.
+ * Since #191 both clients treat `error` / `message_stop` as terminal even when
+ * the payload is unreadable (`sseJsonObject`), and skip only non-terminal
+ * frames whose data does not parse.
+ *
+ * Once a frame is terminal, later frames are not delivered (#191). They used to
+ * be: an `event: error` followed by a `message_stop` set `error`, then `done`,
+ * and the run read as finished with the error hidden.
  *
  * Rejections propagate unchanged, so an abort still lands on `interrupted`
  * through the caller's `isAbortError` classification (#60). Not #97: that is
@@ -301,6 +328,7 @@ export async function pumpSseFramesToTerminal(
 ): Promise<boolean> {
   let reachedTerminal = false;
   await pumpSseFrames(reader, (frame) => {
+    if (reachedTerminal) return;
     if (onFrame(frame)) reachedTerminal = true;
   });
   return reachedTerminal;

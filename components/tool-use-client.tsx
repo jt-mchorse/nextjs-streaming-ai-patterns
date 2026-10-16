@@ -6,6 +6,7 @@ import {
   isAbortError,
   parseSseFrame,
   pumpSseFramesToTerminal,
+  sseJsonObject,
   STREAM_ENDED_WITHOUT_TERMINAL,
 } from "@/lib/sse-stream";
 
@@ -154,13 +155,12 @@ export function ToolUseClient() {
       // shared parser reports a missing `event:` line as null (#93).
       const { event, data: dataLine } = parseSseFrame(frame);
       const eventName = event ?? "message";
-      if (!dataLine) return false;
-      let payload: Record<string, unknown>;
-      try {
-        payload = JSON.parse(dataLine) as Record<string, unknown>;
-      } catch {
-        return false;
-      }
+      // A terminal frame acts on its event even when its data is unreadable;
+      // its fields then fall back below (#191). Any other such frame is skipped.
+      const terminal = eventName === "error" || eventName === "message_stop";
+      const parsed = sseJsonObject(dataLine);
+      if (parsed === null && !terminal) return false;
+      const payload: Record<string, unknown> = parsed ?? {};
       switch (eventName) {
         case "text_delta": {
           const t = typeof payload.text === "string" ? payload.text : "";
