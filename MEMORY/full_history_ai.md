@@ -2020,3 +2020,21 @@ context_for_next_session:
   - error_recovery_client_aborted_ref_is_reset_on_remount_so_a_StrictMode_double_mount_would_surface_fatal_but_next_15_dev_here_mounts_once_measured_not_a_bug
 followups: []
 ---
+
+---
+session: 2026-10-16T08:50Z
+issue: 189
+branch: session/2026-10-16-0753-issue-189
+focus: STREAMING_TEXT_CLIENTS_STREAM_ERROR_FALLBACK_WAS_DEAD_THE_CATCH_RETHREW_ANY_ERROR_INCLUDING_JSON_PARSES_SYNTAXERROR
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 9
+  suite: "959 -> 968 passed; lint (0 errors), typecheck, build clean"
+decisions_made: []
+measured: "browser (hunt agent): data: '' -> 'Unexpected end of JSON input'; data: null -> 'Cannot read properties of null'. After: 'stream error'. Revert 6 of 9 red."
+context_for_next_session:
+  - A_CATCH_THAT_RETHROWS_INSTANCEOF_ERROR_RETHROWS_EVERY_BUILTIN_FAILURE_TOO_the_line_after_it_is_dead
+  - CHECK_error_recovery_client_data_reason_on_a_null_payload_same_shape_own_route_only
+followups: []
+---

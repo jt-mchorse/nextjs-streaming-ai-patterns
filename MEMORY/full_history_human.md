@@ -1893,3 +1893,12 @@ message per packet. SDK 0.37.0 fixed this, and the repo now requires that
 version. A new test runs a fake upstream that sends one message and then waits,
 and it fails unless the page receives that message while the upstream is still
 waiting.
+
+## 2026-10-16 — The streaming-text demo shows a plain message for an unreadable error (#189)
+
+When the stream sent an error event the page couldn't read, for example an
+empty or non-JSON one, the page was supposed to say "stream error". A mistake
+in the error handling meant that line never ran, and the user saw the
+browser's raw JSON parser message instead. Unreadable error events now show
+"stream error", and the server's own error messages still come through as
+written.

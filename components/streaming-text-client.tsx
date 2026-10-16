@@ -116,13 +116,7 @@ export function StreamingTextClient({ prompt }: StreamingTextClientProps) {
         return;
       }
       if (eventName === "error") {
-        try {
-          const parsed = JSON.parse(data) as { error?: string };
-          throw new Error(parsed.error ?? "stream error");
-        } catch (e) {
-          if (e instanceof Error) throw e;
-          throw new Error("stream error");
-        }
+        throw new Error(errorFrameMessage(data));
       }
       if (!data) return;
       try {
@@ -148,4 +142,27 @@ export function StreamingTextClient({ prompt }: StreamingTextClientProps) {
       )}
     </div>
   );
+}
+
+/**
+ * The message an `event: error` frame carries, or `"stream error"` (#189).
+ *
+ * The route sends `{"error": "<message>"}`. Anything else -- an empty or
+ * non-JSON payload, `null`, a non-string `error` -- gets the fallback, which is
+ * `partial-json-client`'s rule for the same frame. The previous try/rethrow
+ * rethrew `JSON.parse`'s `SyntaxError` (it is an `Error`), so the fallback was
+ * unreachable and the user read "Unexpected end of JSON input".
+ */
+function errorFrameMessage(data: string): string {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(data);
+  } catch {
+    return "stream error";
+  }
+  if (parsed !== null && typeof parsed === "object") {
+    const message = (parsed as { error?: unknown }).error;
+    if (typeof message === "string" && message !== "") return message;
+  }
+  return "stream error";
 }
