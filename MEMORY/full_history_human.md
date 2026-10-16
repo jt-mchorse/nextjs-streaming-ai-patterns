@@ -1893,3 +1893,15 @@ message per packet. SDK 0.37.0 fixed this, and the repo now requires that
 version. A new test runs a fake upstream that sends one message and then waits,
 and it fails unless the page receives that message while the upstream is still
 waiting.
+## 2026-10-16 — Three pattern pages fit a phone screen again (#185)
+
+On a 390px-wide phone, the streaming-text, optimistic-rollback and
+error-recovery pages were between 951 and 1933 pixels wide, and the live demo
+sat off the right edge of the screen. Each page puts the demo and its source
+code in a grid that only defines columns from the `md` breakpoint up. Below
+that, the browser sizes the single column to its widest content, which is the
+longest line of source code. All of those grids, plus the homepage card grid,
+now also say "one column" for small screens. Every page measures 390 pixels
+at a 390-pixel viewport, and the desktop two-column layout is unchanged. A test
+checks every class list in the source and in the rendered pages, so a new page
+that sets breakpoint columns without base columns fails it.

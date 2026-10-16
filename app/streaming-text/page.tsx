@@ -41,7 +41,7 @@ export default function StreamingTextPage() {
         </div>
       </header>
 
-      <div className="grid gap-8 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
         <section>
           <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-[var(--muted)]">
             Live demo
