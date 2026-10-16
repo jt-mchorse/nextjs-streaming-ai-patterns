@@ -1916,3 +1916,12 @@ waited until the stream closed. In a test, an event arrived 1005 ms late. The
 reader now ends the line right away and ignores a line feed that opens the
 next chunk. The same event arrives in 3 ms. A test that cuts mixed-line-ending
 streams at every possible point shows chunking never changes the result.
+
+## 2026-10-16 — The streaming-text demo shows a plain message for an unreadable error (#189)
+
+When the stream sent an error event the page couldn't read, for example an
+empty or non-JSON one, the page was supposed to say "stream error". A mistake
+in the error handling meant that line never ran, and the user saw the
+browser's raw JSON parser message instead. Unreadable error events now show
+"stream error", and the server's own error messages still come through as
+written.
