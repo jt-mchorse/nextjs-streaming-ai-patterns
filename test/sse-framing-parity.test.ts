@@ -261,16 +261,22 @@ describe("SSE framing parity", () => {
     expect(framer.flush()).toEqual([]);
   });
 
-  it("a trailing lone \\r is resolved by flush, not dropped", async () => {
+  it("a trailing lone \\r completes its frame in the same push (#187)", async () => {
+    // Before #187 the `\r` was held back and this frame came out of `flush()`,
+    // i.e. only when the stream closed. The line ends at the `\r` either way;
+    // what a chunk boundary leaves open is only whether a following `\n` is
+    // part of it.
     const framer = createSseFramer();
-    expect(framer.push("event: a\ndata: 1\n\r")).toEqual([]);
-    expect(framer.flush()).toEqual(["event: a\ndata: 1"]);
+    expect(framer.push("event: a\ndata: 1\n\r")).toEqual(["event: a\ndata: 1"]);
+    expect(framer.flush()).toEqual([]);
   });
 
-  // #114: what the push-only shape costs, as data. The row that moves is the
-  // one whose final separator is a lone `\r`, because that is the only
-  // terminator the framer must hold back — at a chunk boundary it cannot yet
-  // tell a lone CR from the first half of a `\r\n`.
+  // #114: what the push-only shape cost, as data. The row that moved was the
+  // one whose final separator is a lone `\r`, because that was the terminator
+  // the framer held back. Since #187 nothing is held back, so the two shapes
+  // agree on every row; `flush()` is still called (the lock below) because it
+  // is the framer's end-of-stream contract, and `pumpSseFrames` must keep
+  // flushing the `TextDecoder` regardless (`sse-decoder-flush.test.ts`).
   describe("a read loop that skips flush() (#114)", () => {
     it.each(BODIES)(
       "%s: push-only vs push+flush",
@@ -285,18 +291,18 @@ describe("SSE framing parity", () => {
       },
     );
 
-    it("drops the LAST frame of a CR-framed body — the measured regression", async () => {
-      // The exact row from #114's table. Two frames go in; the push-only shape
-      // yields one. In `error-recovery-client` the dropped frame is the
+    it("no longer drops the LAST frame of a CR-framed body (#114's row, closed by #187)", async () => {
+      // The exact row from #114's table: two frames in, and the push-only shape
+      // yielded one. In `error-recovery-client` the dropped frame was the
       // `done` event, so the run fell through to "connection closed
       // mid-stream" and resumed forever against a stream that had completed.
       const body = twoFrames("\r");
       expect(await viaFramerLoop(body)).toHaveLength(2);
-      expect(await viaFramerLoopNoFlush(body)).toHaveLength(1);
+      expect(await viaFramerLoopNoFlush(body)).toHaveLength(2);
     });
 
-    it("is indistinguishable on LF and CRLF bodies, which is why it hid", async () => {
-      for (const sep of ["\n", "\r\n"]) {
+    it("is indistinguishable on LF, CRLF and CR bodies", async () => {
+      for (const sep of ["\n", "\r\n", "\r"]) {
         const body = twoFrames(sep);
         expect(await viaFramerLoopNoFlush(body)).toEqual(
           await viaFramerLoop(body),

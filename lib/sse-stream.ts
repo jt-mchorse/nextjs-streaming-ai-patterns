@@ -159,25 +159,33 @@ export function parseSseFrame(frame: string): SseFrame {
  *   ends a line with ANY of `\r\n`, `\n`, or `\r`, so a blank line — the event
  *   separator — has three byte forms. `indexOf("\n\n")` finds exactly one: a
  *   CRLF blank line is `\r \n \r \n`, which contains no adjacent `\n\n` (#95).
- * - **Hold back a trailing `\r`.** At the end of a chunk we cannot yet tell a
- *   lone-CR terminator from the first half of a `\r\n` whose `\n` is in the next
- *   read. Normalizing it eagerly turns `...\r` + `\n...` into `\n\n` and
- *   manufactures a frame boundary that is not in the stream.
+ * - **End the line at a trailing `\r` now, and swallow one `\n` after it.** At
+ *   the end of a chunk we cannot yet tell a lone-CR terminator from the first
+ *   half of a `\r\n` whose `\n` is in the next read -- but the line has ended
+ *   either way, so it is normalized immediately and the framer remembers it saw
+ *   a CR. A `\n` at the very start of the next non-empty chunk is that CRLF's
+ *   second half and is dropped; without that, `...\r` + `\n...` becomes `\n\n`
+ *   and manufactures a frame boundary that is not in the stream. This is the
+ *   WHATWG parser's own rule. Holding the `\r` back instead (the shape before
+ *   #187) left a frame it completed undelivered until the NEXT read -- the last
+ *   frame until the stream closed -- which is #183's one-event-late symptom.
  * - **Drop the unterminated tail.** Anything left after the final separator was
- *   a truncated frame; `flush` resolves a held-back `\r` but deliberately does
- *   not emit the remainder. See the named contract test in
+ *   a truncated frame; `flush` deliberately does not emit the remainder. See the named contract test in
  *   `test/sse-stream.test.ts`.
  */
 export interface SseFramer {
   /** Feed one decoded chunk; returns every frame completed by it, in order. */
   push(chunk: string): string[];
-  /** Call once the stream is done; resolves a held-back lone-CR terminator. */
+  /** Call once the stream is done. Emits nothing: every completed frame was
+   *  already returned by `push`, and an unterminated tail is dropped. */
   flush(): string[];
 }
 
 export function createSseFramer(): SseFramer {
   let buf = "";
-  let carriageCarry = "";
+  // The previous non-empty chunk ended in `\r`, already normalized to `\n`;
+  // a `\n` opening the next chunk is the rest of that CRLF (#187).
+  let afterCarriageReturn = false;
 
   const drain = (): string[] => {
     const out: string[] = [];
@@ -191,23 +199,15 @@ export function createSseFramer(): SseFramer {
 
   return {
     push(chunk: string): string[] {
-      let text = carriageCarry + chunk;
-      carriageCarry = "";
-      if (text.endsWith("\r")) {
-        carriageCarry = "\r";
-        text = text.slice(0, -1);
-      }
+      if (chunk === "") return [];
+      const text = afterCarriageReturn && chunk.startsWith("\n") ? chunk.slice(1) : chunk;
+      afterCarriageReturn = chunk.endsWith("\r");
       buf += text.replace(/\r\n|\r/g, "\n");
       return drain();
     },
     flush(): string[] {
-      // A held-back `\r` that never got its `\n` was a lone-CR terminator after
-      // all; the stream is over, so resolve it. Done before we give up on the
-      // remainder so a body ending `...\r\r` still separates its last frame.
-      if (carriageCarry === "") return [];
-      carriageCarry = "";
-      buf += "\n";
-      return drain();
+      afterCarriageReturn = false;
+      return [];
       // `buf` may still hold an UNTERMINATED tail here, dropped deliberately.
       // Flushing it was tried as part of #95 and reverted: an unterminated tail
       // means the stream was truncated mid-frame, so emitting it would hand
