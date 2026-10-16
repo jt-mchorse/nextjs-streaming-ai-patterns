@@ -1905,3 +1905,14 @@ now also say "one column" for small screens. Every page measures 390 pixels
 at a 390-pixel viewport, and the desktop two-column layout is unchanged. A test
 checks every class list in the source and in the rendered pages, so a new page
 that sets breakpoint columns without base columns fails it.
+
+## 2026-10-16 — A stream event ended by a bare carriage return arrives immediately (#187)
+
+The browser-side stream reader this repo shares between its demos held back a
+carriage return at the end of a network chunk, in case the next chunk began
+with the line feed of a CRLF pair. The line had ended either way, so an event
+ended by a bare carriage return waited for the next chunk, and the final event
+waited until the stream closed. In a test, an event arrived 1005 ms late. The
+reader now ends the line right away and ignores a line feed that opens the
+next chunk. The same event arrives in 3 ms. A test that cuts mixed-line-ending
+streams at every possible point shows chunking never changes the result.
