@@ -1880,3 +1880,16 @@ buffer is re-parsed on each chunk, the page showed only skeletons for the rest
 of the stream. The parser now treats only JSON's four whitespace characters as
 whitespace. Any other whitespace character is handled like the stray `x`, and
 the fields that already arrived stay on screen.
+
+## 2026-10-15 — Live streaming text no longer arrives one step behind (#183)
+
+With an API key set, the streaming-text page is supposed to show each piece of
+the answer as soon as the model sends it. It was showing each piece only when
+the following piece arrived, so the text always ran one step behind and stalled
+for the whole length of any pause. The cause was a bug in the version of the
+Anthropic SDK the repo pinned: it failed to notice the end of a message that
+landed exactly at the end of a network packet, and the API sends about one
+message per packet. SDK 0.37.0 fixed this, and the repo now requires that
+version. A new test runs a fake upstream that sends one message and then waits,
+and it fails unless the page receives that message while the upstream is still
+waiting.
