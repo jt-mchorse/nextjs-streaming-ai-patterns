@@ -1866,3 +1866,17 @@ which CI runs, a single visit to the streaming-text page in mock mode printed
 a "possible memory leak" warning on the dev server. There is now one shared
 sleep helper that removes its listener when the wait ends normally, and tests
 count the listeners left after a full run of each streamer.
+
+## 2026-10-15 — A stray non-breaking space no longer blanks the partial-JSON page (#181)
+
+The partial-JSON parser repairs a half-received document and shows whatever
+fields have fully arrived. When it hit a character it did not expect between
+tokens, such as a stray `x`, it kept the fields it already had. But it used a
+broad definition of whitespace that includes the non-breaking space, the BOM,
+the Unicode line separator and a few others. `JSON.parse` rejects all of these.
+So the parser skipped such a character, kept it in the repaired text, and then
+failed the final parse. That threw away every field, and because the whole
+buffer is re-parsed on each chunk, the page showed only skeletons for the rest
+of the stream. The parser now treats only JSON's four whitespace characters as
+whitespace. Any other whitespace character is handled like the stray `x`, and
+the fields that already arrived stay on screen.

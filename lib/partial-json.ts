@@ -73,6 +73,27 @@ export function parsePartialJson<T = unknown>(buffer: string): PartialJsonResult
 }
 
 /**
+ * JSON's whitespace: space, tab, LF, CR (RFC 8259 §2), and nothing else (#181).
+ *
+ * This file used `/\s/`, which also matches U+00A0, U+FEFF, U+2028/2029,
+ * U+3000, VT, FF and the other Unicode space separators -- none of which
+ * `JSON.parse` accepts between tokens. The scanner skipped them as whitespace,
+ * the repair copied them into its candidate, and the final `JSON.parse`
+ * rejected the candidate, so the catch-all nulled EVERY committed field:
+ *
+ *     {"a":1,"b":2,x            ->  {"a":1,"b":2}   (stray char: drop-and-keep)
+ *     {"a":1,"b":2,<U+00A0>"c"  ->  null            (same position, whole value lost)
+ *
+ * With the narrow set a non-JSON whitespace character is just a stray
+ * character, and takes the `frameSnapshot` drop-and-keep path #50 and #52 gave
+ * malformed escapes and raw control characters. Valid JSON cannot hold these
+ * codepoints outside a string, and string contents never reach this test.
+ */
+function isJsonWhitespace(c: string | undefined): boolean {
+  return c === " " || c === "\t" || c === "\n" || c === "\r";
+}
+
+/**
  * Remove trailing commas — a `,` followed by optional whitespace then `}` or
  * `]` — from an otherwise-repaired buffer (#54).
  *
@@ -117,7 +138,7 @@ function stripTrailingCommas(s: string): string {
       // Look past whitespace: if the next significant char closes a
       // container, this comma is a trailing comma — drop it.
       let j = i + 1;
-      while (j < s.length && /\s/.test(s[j] as string)) j += 1;
+      while (j < s.length && isJsonWhitespace(s[j])) j += 1;
       const nextSig = s[j];
       if (nextSig === "}" || nextSig === "]") {
         continue; // skip the comma; whitespace + closer copied on later iterations
@@ -166,7 +187,7 @@ function repair(buffer: string): string | null {
   while (i < buffer.length) {
     const ch = buffer[i] as string;
 
-    if (/\s/.test(ch)) {
+    if (isJsonWhitespace(ch)) {
       i += 1;
       continue;
     }
@@ -392,7 +413,7 @@ function frameSnapshot(
   if (!innermost) return null;
 
   let prefix = buffer.slice(0, innermost.lastSafeEnd);
-  prefix = prefix.replace(/[\s,]+$/u, "");
+  prefix = prefix.replace(/[ \t\n\r,]+$/, "");
   for (let k = trimmed.length - 1; k >= 0; k--) {
     const f = trimmed[k];
     if (!f) continue;
@@ -417,7 +438,7 @@ function consumeLiteralOrString(
   let j = start;
   while (j < buffer.length) {
     const c = buffer[j];
-    if (c === "," || c === "}" || c === "]" || (c && /\s/.test(c))) break;
+    if (c === "," || c === "}" || c === "]" || isJsonWhitespace(c)) break;
     j += 1;
   }
   if (j === start) return null;
