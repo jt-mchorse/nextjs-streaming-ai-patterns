@@ -6,7 +6,7 @@ import { resumeTokenPosition } from "@/lib/checkpoint-stream";
 import { pluralizeCount } from "@/lib/plural";
 import { phaseOnFirstChunk, type RecoveryPhase } from "@/lib/recovery-phase";
 import { isResumedPillVisible, resumedPillRemainingMs } from "@/lib/resume-pill";
-import { createSseFramer, parseSseFrame } from "@/lib/sse-stream";
+import { createSseFramer, parseSseFrame, sseJsonObject } from "@/lib/sse-stream";
 
 type Phase = RecoveryPhase;
 
@@ -142,8 +142,10 @@ export function ErrorRecoveryClient() {
           return true;
         }
         if (parsed.event === "error") {
-          const data = parsed.data as { reason?: string; last_token?: number };
-          setRecoveryReason(data.reason ?? "unknown server-side error");
+          const data = parsed.data ?? {};
+          setRecoveryReason(
+            typeof data.reason === "string" ? data.reason : "unknown server-side error",
+          );
           // Resume from the server-reported drop position, not the last
           // checkpoint. The drop can land past the last checkpoint (checkpoints
           // fire every CHECKPOINT_EVERY tokens; the drop is independent), and
@@ -151,13 +153,15 @@ export function ErrorRecoveryClient() {
           // checkpoint would replay and duplicate them at the drop seam (#58).
           lastCheckpoint.current = resumeTokenPosition(
             lastCheckpoint.current,
-            data.last_token,
+            typeof data.last_token === "number" ? data.last_token : undefined,
           );
           scheduleResume();
           return true;
         }
-        // Default — text or checkpoint event.
-        const ev = parsed.data as
+        // Default — text or checkpoint event. `parseFrame` only returns a
+        // non-terminal frame whose data is a JSON object (#193).
+        if (parsed.data === null) continue;
+        const ev = parsed.data as unknown as
           | { kind: "text"; index: number; text: string }
           | { kind: "checkpoint"; last_token: number };
         if (ev.kind === "text") {
@@ -297,20 +301,30 @@ export function ErrorRecoveryClient() {
 
 interface ParsedFrame {
   readonly event: string | null;
-  readonly data: unknown;
+  /** The data as a JSON object; `null` only on a terminal frame (#193). */
+  readonly data: Record<string, unknown> | null;
 }
 
+/**
+ * A frame's event and its data as a JSON object, or `null` for a frame to skip.
+ *
+ * A terminal frame (`done`, `error`) is returned even when its data is empty,
+ * not JSON, or JSON that is not an object, with `data: null`; the caller acts
+ * on the event name (#193, the contract #191 set for the other clients). This
+ * used to `JSON.parse` and cast: `data: null` parsed, then `data.reason` /
+ * `ev.kind` threw out of `run()` -- started as `void run(...)`, so the page sat
+ * on "streaming" forever with no reconnect -- and a non-JSON `error` frame was
+ * dropped, so a later `done` showed a truncated answer as finished. Any other
+ * frame whose data is not a JSON object is skipped.
+ */
 function parseFrame(frame: string): ParsedFrame | null {
   // This client keeps `null` rather than "message" as its no-event-line
   // default; that difference is load-bearing in the switch below, so it stays
   // at the call site while the parsing itself is shared (#93).
   const { event, data: dataLine } = parseSseFrame(frame);
-  if (dataLine.length === 0) return null;
-  try {
-    return { event, data: JSON.parse(dataLine) };
-  } catch {
-    return null;
-  }
+  const data = sseJsonObject(dataLine);
+  if (data === null && event !== "done" && event !== "error") return null;
+  return { event, data };
 }
 
 function PhaseDot({ phase }: { phase: Phase }) {

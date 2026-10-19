@@ -1933,3 +1933,13 @@ read, the two demos showed a raw JavaScript error, or ignored the error
 entirely and later reported success. They now treat those events as final no
 matter what data comes with them, with sensible fallback messages. A run that
 has reported an error can no longer be turned into "done" by a later event.
+
+## 2026-10-19 — The error-recovery demo handles unreadable stream events (#193)
+
+The error-recovery demo had the same weakness the other three demos just had
+fixed. An event whose data was the literal `null` crashed the page's reader,
+so it sat on "streaming" forever and never reconnected. An error event whose
+data wasn't JSON was ignored, so if the stream then said "done", a cut-off
+answer was shown as finished. Error events now always trigger the reconnect,
+with "unknown server-side error" as the reason when the data can't be read.
+Unreadable text events are skipped.
