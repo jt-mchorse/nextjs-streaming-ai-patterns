@@ -2090,3 +2090,22 @@ context_for_next_session:
   - TERMINAL_MEANS_FINAL_pumpSseFramesToTerminal_now_stops_delivering_after_the_first_terminal_frame
 followups: []
 ---
+
+---
+session: 2026-10-19T07:40Z
+issue: 193
+branch: session/2026-10-19-0723-issue-193
+focus: ERROR_RECOVERY_CLIENT_THREW_ON_NULL_FRAME_DATA_AND_DROPPED_NON_JSON_ERROR_FRAMES_the_fourth_client_189_and_191_did_not_list
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 13
+  suite: "1023 -> 1036 passed; lint (0 errors, 1 pre-existing warning), typecheck, build clean"
+decisions_made: []
+measured: "main: error data:null and text data:null -> phase streaming forever, 1 request, unhandled TypeError; non-JSON error then done -> done, 0 recoveries. After: resume with 'unknown server-side error' / skip / resume. Revert 6 of 13 red; green = 2 controls + 5 variants main already handled (number/array error data, non-JSON/array text data, done data:null)."
+context_for_next_session:
+  - "the 189 session's own CHECK note named this client; a deferred CHECK in context_for_next_session is a filed-issue-in-waiting"
+  - "parseFrame now returns data:null only for done/error; non-terminal frames whose data is not a JSON object are skipped"
+  - "NOT_FIXED_retry_cap: the client reconnects every 250 ms forever while the server keeps sending error frames; filed as a decision-revisit"
+followups: []
+---
