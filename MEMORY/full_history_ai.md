@@ -2072,3 +2072,21 @@ context_for_next_session:
   - CHECK_error_recovery_client_data_reason_on_a_null_payload_same_shape_own_route_only
 followups: []
 ---
+
+---
+session: 2026-10-16T12:10Z
+issue: 191
+branch: session/2026-10-16-0847-issue-191
+focus: PARTIAL_JSON_AND_TOOL_USE_CLIENTS_CRASHED_ON_NULL_AND_DROPPED_NON_JSON_TERMINAL_FRAMES_AND_THE_PUMP_DELIVERED_FRAMES_AFTER_A_TERMINAL_ONE
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 24
+  suite: "959 -> 983 passed; lint (0 errors), typecheck, build clean"
+decisions_made: []
+measured: "both clients: data:null -> engine TypeError text; non-JSON error then message_stop -> done on main; after: unknown error / done / error as tabled. Revert 14 of 24 red."
+context_for_next_session:
+  - 189_CITED_partial_json_client_AS_THE_CORRECT_RULE_IT_WAS_NOT_a_cited_exemplar_is_a_hunt_target
+  - TERMINAL_MEANS_FINAL_pumpSseFramesToTerminal_now_stops_delivering_after_the_first_terminal_frame
+followups: []
+---

@@ -1925,3 +1925,11 @@ in the error handling meant that line never ran, and the user saw the
 browser's raw JSON parser message instead. Unreadable error events now show
 "stream error", and the server's own error messages still come through as
 written.
+
+## 2026-10-16 — The partial-JSON and tool-use demos handle unreadable stream endings (#191)
+
+When the stream's final "error" or "stop" event carried data the page couldn't
+read, the two demos showed a raw JavaScript error, or ignored the error
+entirely and later reported success. They now treat those events as final no
+matter what data comes with them, with sensible fallback messages. A run that
+has reported an error can no longer be turned into "done" by a later event.
