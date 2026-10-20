@@ -134,7 +134,14 @@ export async function* streamText(
     } else if (event.type === "message_delta") {
       stopReason = event.delta.stop_reason ?? stopReason;
     } else if (event.type === "message_stop") {
+      // `message_stop` is the last frame of a message, so stop reading here
+      // (#202). Iterating on waited for the body to end cleanly: a socket that
+      // died after this frame threw `Premature close` and replaced a finished
+      // answer with `event: error`, and one held open hung the route. Breaking
+      // runs the SDK iterator's `return()`, which aborts the rest of the
+      // request -- the server-side half of #196.
       sawMessageStop = true;
+      break;
     }
   }
   if (signal?.aborted) {

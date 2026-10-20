@@ -2163,3 +2163,22 @@ context_for_next_session:
   - "hand-rolled mock readers in test/sse-stream-terminal.test.ts now need cancel(); any new mock reader passed to the pumps must have one"
 followups: []
 ---
+
+---
+session: 2026-10-20T08:08Z
+issue: 202
+branch: session/2026-10-20-0815-issue-202
+focus: STREAMTEXT_KEPT_ITERATING_THE_SDK_STREAM_PAST_MESSAGE_STOP_a_late_socket_close_turned_a_finished_answer_into_event_error_196s_server_side_surface
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 6
+  suite: "1071 -> 1077 passed (68 files); lint (0 errors, 1 pre-existing warning), typecheck, build clean"
+decisions_made: []
+measured: "main feed037, loopback upstream with a complete end_turn body: clean end -> done; socket destroyed 50 ms after message_stop -> event: error 'Premature close'; socket held open -> route never finished (5 s timeout); max_tokens + destroy -> 'Premature close' not the stop_reason. After: done / done / names stop_reason=max_tokens. Revert 3 of 6 red; green = 3 controls (clean end, destroy before message_stop x2)."
+context_for_next_session:
+  - "break at message_stop runs the SDK MessageStream iterator return(), which aborts the request; no unhandled rejection from the abort in vitest"
+  - "the hang-after-message_stop row was not in the issue's repro; a 'keeps reading' bug has a held-open twin of every closed-socket row"
+  - "partial-json and tool-use routes are mock-only; lib/anthropic-stream.ts is the only SDK consumer, so no sibling live loop exists"
+followups: []
+---
