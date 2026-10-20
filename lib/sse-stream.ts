@@ -235,13 +235,34 @@ export async function pumpSseFrames(
   reader: ReadableStreamDefaultReader<Uint8Array>,
   onFrame: (frame: string) => void,
 ): Promise<void> {
+  await pumpUntilStop(reader, (frame) => {
+    onFrame(frame);
+    return false;
+  });
+}
+
+/**
+ * The read loop behind both pumps. `onFrame` returning `true` ends the pump:
+ * no later frame is delivered, not even one from the same chunk, `read()` is
+ * not called again, and the reader is cancelled (#196). Resolves `true` when
+ * that happened, `false` when the stream ended first.
+ */
+async function pumpUntilStop(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  onFrame: (frame: string) => boolean,
+): Promise<boolean> {
   const decoder = new TextDecoder();
   const framer = createSseFramer();
+  const deliver = (frames: readonly string[]): boolean => frames.some((frame) => onFrame(frame));
   while (true) {
     const { value, done } = await reader.read();
     if (done) break;
-    for (const frame of framer.push(decoder.decode(value, { stream: true }))) {
-      onFrame(frame);
+    if (deliver(framer.push(decoder.decode(value, { stream: true })))) {
+      // Release the connection rather than leave the body to drain into a
+      // reader nobody reads. A rejection here is the same late connection
+      // error #196 is about; the run is already over, so it is dropped.
+      reader.cancel().catch(() => {});
+      return true;
     }
   }
   // Flush the DECODER before the framer (#115). `{ stream: true }` holds back a
@@ -257,8 +278,8 @@ export async function pumpSseFrames(
   // It is here because it is free and provably neutral, and because #97 is open
   // about whether that truncated tail should surface as an error: if it ever
   // does, U+FFFD is the evidence, and it has to have survived to be it (D-013).
-  for (const frame of framer.push(decoder.decode())) onFrame(frame);
-  for (const frame of framer.flush()) onFrame(frame);
+  if (deliver(framer.push(decoder.decode()))) return true;
+  return deliver(framer.flush());
 }
 
 /**
@@ -318,7 +339,14 @@ export const STREAM_TEXT_ENDED_WITHOUT_DONE =
  * be: an `event: error` followed by a `message_stop` set `error`, then `done`,
  * and the run read as finished with the error hidden.
  *
- * Rejections propagate unchanged, so an abort still lands on `interrupted`
+ * Nor is the body read any further (#196). #191 filtered the later frames but
+ * kept calling `reader.read()`, so a connection error AFTER `message_stop` --
+ * undici's "terminated" when the socket closes mid-body -- still rejected into
+ * the caller's catch and overwrote `done` with `error`: a finished answer under
+ * a red error. The pump now returns on the terminal frame and cancels the
+ * reader, which is what `error-recovery-client` already did on `done`.
+ *
+ * Rejections before the terminal frame propagate unchanged, so an abort still lands on `interrupted`
  * through the caller's `isAbortError` classification (#60). Not #97: that is
  * about a *truncated* trailing frame, which `pumpSseFrames` still drops.
  */
@@ -326,10 +354,5 @@ export async function pumpSseFramesToTerminal(
   reader: ReadableStreamDefaultReader<Uint8Array>,
   onFrame: (frame: string) => boolean,
 ): Promise<boolean> {
-  let reachedTerminal = false;
-  await pumpSseFrames(reader, (frame) => {
-    if (reachedTerminal) return;
-    if (onFrame(frame)) reachedTerminal = true;
-  });
-  return reachedTerminal;
+  return pumpUntilStop(reader, onFrame);
 }

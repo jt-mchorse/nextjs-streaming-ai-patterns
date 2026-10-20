@@ -2144,3 +2144,22 @@ context_for_next_session:
   - "PRETTIER_IS_NOT_A_CI_GATE_and_the_file_is_not_prettier_clean_on_main_running_it_reformats_unrelated_lines"
 followups: []
 ---
+
+---
+session: 2026-10-20T07:38Z
+issue: 196
+branch: session/2026-10-20-0747-issue-196
+focus: A_CONNECTION_ERROR_AFTER_THE_TERMINAL_FRAME_TURNED_DONE_INTO_ERROR_in_3_of_4_clients_191_was_final_on_the_frame_side_only
+phase: shipped
+delta:
+  files_changed: 6
+  tests_added: 20
+  suite: "1036 -> 1056 passed; lint (0 errors, 1 pre-existing warning), typecheck, build clean"
+decisions_made: []
+measured: "main, terminal frame then a read rejecting TypeError('terminated'): partial-json/tool-use/streaming-text -> error 'terminated', error-recovery -> done. streaming-text [Hello, done, INJECTED] -> 'Hello INJECTED'; [.., done, error] -> error. After: all done / 'Hello' / done. Revert 10 of 20 red; green = 10 controls (EOF-after-terminal, reject-before-terminal, error-recovery x2, lib no-terminal path, lib same-chunk filter #191 already had)."
+context_for_next_session:
+  - "pumpSseFrames and pumpSseFramesToTerminal now share pumpUntilStop; a true from the handler stops reading and reader.cancel()s (rejection swallowed)"
+  - "#191 fixed the FRAME side of 'terminal is final' and not the READ side; a terminal guard is two guards (deliver and read)"
+  - "hand-rolled mock readers in test/sse-stream-terminal.test.ts now need cancel(); any new mock reader passed to the pumps must have one"
+followups: []
+---

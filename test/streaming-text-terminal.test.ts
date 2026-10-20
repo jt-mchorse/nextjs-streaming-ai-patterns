@@ -40,36 +40,57 @@ vi.mock("react", () => ({
 const ROOT = resolve(__dirname, "..");
 const enc = new TextEncoder();
 
-function bodyOf(chunks: string[]): ReadableStream<Uint8Array> {
+/**
+ * One chunk per read, then a clean EOF or -- `end: "reject"` -- a read that
+ * rejects the way undici does when the socket closes mid-body (#196).
+ */
+function bodyOf(chunks: string[], end: "close" | "reject" = "close"): ReadableStream<Uint8Array> {
+  let i = 0;
   return new ReadableStream({
-    start(controller) {
-      for (const c of chunks) controller.enqueue(enc.encode(c));
-      controller.close();
+    pull(controller) {
+      if (i < chunks.length) controller.enqueue(enc.encode(chunks[i++]));
+      else if (end === "close") controller.close();
+      else controller.error(new TypeError("terminated"));
     },
   });
 }
 
 // Slots in declaration order: 0 text, 1 status, 2 errorMessage.
+const TEXT_SLOT = 0;
 const STATUS = 1;
 const ERROR = 2;
 
-async function drive(chunks: string[]): Promise<{ statuses: unknown[]; errors: unknown[] }> {
+async function drive(
+  chunks: string[],
+  end: "close" | "reject" = "close",
+): Promise<{ statuses: unknown[]; errors: unknown[]; text: string }> {
   calls.length = 0;
   slot = 0;
   // The test transform compiles JSX to a bare `React.createElement`.
   vi.stubGlobal("React", { createElement: () => null });
   vi.stubGlobal(
     "fetch",
-    vi.fn(async () => new Response(bodyOf(chunks), { status: 200 })),
+    vi.fn(async () => new Response(bodyOf(chunks, end), { status: 200 })),
   );
   const { StreamingTextClient } = await import("../components/streaming-text-client");
   StreamingTextClient({ prompt: "hi" });
   const terminal = () =>
     calls.some((c) => c.slot === STATUS && (c.value === "done" || c.value === "error"));
   for (let i = 0; i < 200 && !terminal(); i++) await new Promise((r) => setTimeout(r, 1));
+  // A late frame or rejection lands after the first terminal status; give it
+  // the same window to show up rather than stopping at the first `done`.
+  for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 1));
+  // `setText` takes a functional updater; fold it to the rendered string.
+  const text = calls
+    .filter((c) => c.slot === TEXT_SLOT)
+    .reduce<string>(
+      (acc, c) => (typeof c.value === "function" ? (c.value as (p: string) => string)(acc) : String(c.value)),
+      "",
+    );
   return {
     statuses: calls.filter((c) => c.slot === STATUS).map((c) => c.value),
     errors: calls.filter((c) => c.slot === ERROR).map((c) => c.value),
+    text,
   };
 }
 
@@ -108,6 +129,44 @@ describe("streaming-text-client terminal handling (#142)", () => {
     const { statuses, errors } = await drive([TEXT, 'event: error\ndata: {"error":"upstream 529"}\n\n']);
     expect(statuses.at(-1)).toBe("error");
     expect(errors.at(-1)).toBe("upstream 529");
+  });
+});
+
+// #191 made a terminal phase final in the two pump clients; this loop kept
+// reading and handling frames after `event: done`, so a later frame or a
+// connection error overwrote a finished answer.
+describe("streaming-text-client after event: done (#196)", () => {
+  it("done then a clean EOF is done (control)", async () => {
+    const { statuses, text } = await drive([TEXT, DONE], "close");
+    expect(statuses).toEqual(["idle", "streaming", "done"]);
+    expect(text).toBe("Hello");
+  });
+
+  it("done then a connection error is still done", async () => {
+    const { statuses, errors } = await drive([TEXT, DONE], "reject");
+    expect(statuses).toEqual(["idle", "streaming", "done"]);
+    expect(errors.filter((e) => e !== null)).toEqual([]);
+  });
+
+  it.each([
+    ["in a later read", [TEXT, DONE, 'data: {"text":" INJECTED"}\n\n']],
+    ["in the same read", [TEXT, DONE + 'data: {"text":" INJECTED"}\n\n']],
+  ])("a text frame after done is not rendered (%s)", async (_label, chunks) => {
+    const { statuses, text } = await drive(chunks);
+    expect(text).toBe("Hello");
+    expect(statuses.at(-1)).toBe("done");
+  });
+
+  it("an error frame after done does not turn it into an error", async () => {
+    const { statuses, errors } = await drive([TEXT, DONE, 'event: error\ndata: {"error":"late"}\n\n']);
+    expect(statuses).toEqual(["idle", "streaming", "done"]);
+    expect(errors.filter((e) => e !== null)).toEqual([]);
+  });
+
+  it("a connection error before done is still an error (control)", async () => {
+    const { statuses, errors } = await drive([TEXT], "reject");
+    expect(statuses.at(-1)).toBe("error");
+    expect(errors.at(-1)).toBe("terminated");
   });
 });
 
