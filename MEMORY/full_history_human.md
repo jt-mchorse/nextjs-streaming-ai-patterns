@@ -1954,3 +1954,11 @@ error status now rolls back with "HTTP 500" (or whatever the status is),
 matching the other four demos. A reply that isn't a readable decision rolls
 back with "malformed response". "Network error" is now shown only when the
 request itself fails.
+
+## 2026-10-20 — A teaching comment on the error-recovery page is accurate again (#198)
+
+The error-recovery page shows its own source code. One comment there explained
+that the stream parser held back the last line ending until the stream closed.
+That stopped being true when the parser was fixed in #187, but the comment was
+never updated. It now describes how the parser actually behaves and keeps the
+old behaviour as history. Only the comment changed.
