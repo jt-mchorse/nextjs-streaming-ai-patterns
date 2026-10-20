@@ -1972,3 +1972,14 @@ that had already arrived in full. The streaming-text demo also kept acting on
 events after "done", so stray text could be appended to a finished answer. All
 three now stop reading as soon as the run is finished and close the connection.
 The error-recovery demo already worked this way.
+
+## 2026-10-20 — A dropped connection after a finished live answer no longer shows an error on the server side either (#202)
+
+#196 made the demo pages stop listening once an answer was finished, but the
+server's live streaming code had the same habit. After the model's final "stop"
+event it kept waiting for the connection to close cleanly. If the connection
+dropped instead, the server sent an error in place of "done", and the page
+replaced a complete answer with "Premature close". If the connection just stayed
+open, the request never finished. The server now stops reading at the final
+event and still runs the existing check that the answer really is complete. A
+connection that drops before that event is still reported as an error.
