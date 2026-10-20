@@ -68,24 +68,34 @@ export function StreamingTextClient({ prompt }: StreamingTextClientProps) {
         // `cancelled` check between reads. Only the framing is shared.
         const framer = createSseFramer();
 
+        // `event: done` ends the run: stop handling frames AND stop reading
+        // (#196). This loop used to note `sawDone` and carry on, so a text
+        // frame after `done` was still rendered, an `error` frame after it
+        // threw, and a connection error on the next read -- undici's
+        // "terminated" -- reached the catch below. Each turned a finished
+        // answer into a different one or into an error. `error-recovery-client`
+        // already returned on `done`; #191 did the same for the pump clients.
         while (true) {
           const { value, done } = await reader.read();
           if (done) break;
           if (cancelled) return;
           // Within a frame, we only care about `data:` and `event:` lines.
-          for (const frame of framer.push(
-            decoder.decode(value, { stream: true }),
-          )) {
-            handleFrame(frame);
+          if (handleFrames(framer.push(decoder.decode(value, { stream: true })))) {
+            // Release the connection; a late rejection here is dropped, the
+            // run is already over.
+            reader.cancel().catch(() => {});
+            break;
           }
         }
         if (cancelled) return;
         // Decoder before framer (#115, D-013) — see `pumpSseFrames`. All three
         // SSE read paths carry this in the same order; the lock in
         // `test/sse-framing-parity.test.ts` is what keeps the third one from
-        // being forgotten, which is the shape #114 was.
-        for (const frame of framer.push(decoder.decode())) handleFrame(frame);
-        for (const frame of framer.flush()) handleFrame(frame);
+        // being forgotten, which is the shape #114 was. Skipped once `done`
+        // was seen: nothing after it counts (#196).
+        if (!sawDone && !handleFrames(framer.push(decoder.decode()))) {
+          handleFrames(framer.flush());
+        }
         // A proxy timeout, a server crash mid-stream or an empty 200 body all
         // end the read cleanly. This used to set `done` regardless, so a cut
         // stream rendered as a finished answer -- the cursor gone, no error
@@ -104,6 +114,16 @@ export function StreamingTextClient({ prompt }: StreamingTextClientProps) {
       cancelled = true;
       controller.abort();
     };
+
+    /** Handle frames in order; `true` once `event: done` is seen, after
+     *  which the rest are not handled (#196). */
+    function handleFrames(frames: readonly string[]): boolean {
+      for (const frame of frames) {
+        handleFrame(frame);
+        if (sawDone) return true;
+      }
+      return false;
+    }
 
     function handleFrame(frame: string): void {
       // This copy was already the most spec-correct of the four (optional

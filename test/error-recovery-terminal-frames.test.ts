@@ -45,11 +45,15 @@ const COUNT = 4;
 
 const enc = new TextEncoder();
 
-function sse(chunks: string[]): Response {
+function sse(chunks: string[], end: "close" | "reject" = "close"): Response {
+  // One chunk per read, then EOF or a read that rejects like undici's
+  // mid-body socket close (#196).
+  let i = 0;
   const body = new ReadableStream<Uint8Array>({
-    start(controller) {
-      for (const c of chunks) controller.enqueue(enc.encode(c));
-      controller.close();
+    pull(controller) {
+      if (i < chunks.length) controller.enqueue(enc.encode(chunks[i++]));
+      else if (end === "close") controller.close();
+      else controller.error(new TypeError("terminated"));
     },
   });
   return new Response(body, { status: 200 });
@@ -59,7 +63,7 @@ const HELLO = 'data: {"kind":"text","index":1,"text":"Hello"}\n\n';
 const DONE = "event: done\ndata: {}\n\n";
 const RESUMED = ['data: {"kind":"text","index":2,"text":" world"}\n\n', DONE];
 
-async function drive(first: string[]) {
+async function drive(first: string[], end: "close" | "reject" = "close") {
   state.length = 0;
   slot = 0;
   vi.stubGlobal("React", { createElement: () => null });
@@ -71,7 +75,7 @@ async function drive(first: string[]) {
     "fetch",
     vi.fn(async (url: string) => {
       urls.push(url);
-      return urls.length === 1 ? sse(first) : sse(RESUMED);
+      return urls.length === 1 ? sse(first, end) : sse(RESUMED);
     }),
   );
   try {
@@ -170,5 +174,21 @@ describe("error-recovery terminal frames with unreadable data (#193)", () => {
     expect(r.phase).toBe("done");
     expect(r.urls).toHaveLength(1);
     expect(r.unhandled).toEqual([]);
+  });
+});
+
+// The one client of four that already stopped reading on `done` (#196): the
+// other three were brought to its shape. Controls, so it stays there.
+describe("error-recovery after done (#196)", () => {
+  it.each(["close", "reject"] as const)("done then %s is done, with no resume", async (end) => {
+    const r = await drive([HELLO, DONE], end);
+    expect(r).toEqual({
+      phase: "done",
+      text: "Hello",
+      reason: null,
+      recoveries: 0,
+      urls: ["/api/error-recovery?checkpoint=0"],
+      unhandled: [],
+    });
   });
 });

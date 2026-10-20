@@ -50,15 +50,27 @@ const CLIENTS = {
 } as const;
 type Client = keyof typeof CLIENTS;
 
-async function drive(client: Client, body: string): Promise<{ phase: unknown; error: unknown }> {
+/**
+ * How the body ends after its frames: a clean EOF, or a read that rejects the
+ * way undici does when the socket closes mid-body (#196).
+ */
+type End = "close" | "reject";
+
+async function drive(
+  client: Client,
+  body: string,
+  end: End = "close",
+): Promise<{ phase: unknown; error: unknown }> {
   calls.length = 0;
   slot = 0;
   callbacks = [];
   vi.stubGlobal("React", { createElement: () => null });
+  let pulls = 0;
   const stream = new ReadableStream<Uint8Array>({
-    start(controller) {
-      controller.enqueue(enc.encode(body));
-      controller.close();
+    pull(controller) {
+      if (pulls++ === 0) controller.enqueue(enc.encode(body));
+      else if (end === "close") controller.close();
+      else controller.error(new TypeError("terminated"));
     },
   });
   vi.stubGlobal(
@@ -129,5 +141,34 @@ describe.each(Object.keys(CLIENTS) as Client[])("%s client (#191)", (client) => 
   it("an unreadable non-terminal frame is still skipped (control)", async () => {
     const delta = client === "partial-json" ? "json_delta" : "text_delta";
     expect((await drive(client, `event: ${delta}\ndata: garbled\n\n${STOP}`)).phase).toBe("done");
+  });
+});
+
+// #191 made a terminal phase final against the frames after it; this is the
+// reject side. The pump kept calling `reader.read()` after the terminal frame,
+// so a connection error there reached the client's catch and overwrote `done`
+// with `error` -- a fully rendered answer under a red "terminated".
+describe.each(Object.keys(CLIENTS) as Client[])("%s client after its terminal frame (#196)", (client) => {
+  it("message_stop then a clean EOF is done (control)", async () => {
+    expect(await drive(client, STOP, "close")).toEqual({ phase: "done", error: null });
+  });
+
+  it("message_stop then a connection error is still done", async () => {
+    expect(await drive(client, STOP, "reject")).toEqual({ phase: "done", error: null });
+  });
+
+  it("an error frame then a connection error keeps the frame's message", async () => {
+    expect(await drive(client, 'event: error\ndata: {"error":"boom"}\n\n', "reject")).toEqual({
+      phase: "error",
+      error: "boom",
+    });
+  });
+
+  it("a connection error with no terminal frame is still an error (control)", async () => {
+    const delta = client === "partial-json" ? "json_delta" : "text_delta";
+    expect(await drive(client, `event: ${delta}\ndata: {}\n\n`, "reject")).toEqual({
+      phase: "error",
+      error: "terminated",
+    });
   });
 });

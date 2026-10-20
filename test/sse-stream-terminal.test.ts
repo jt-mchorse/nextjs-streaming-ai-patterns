@@ -25,24 +25,44 @@ import { sourceFiles, stripComments } from "./support/source-files";
 const enc = new TextEncoder();
 const ROOT = resolve(__dirname, "..");
 
-function readerOf(chunks: string[]): ReadableStreamDefaultReader<Uint8Array> {
+/** `reads` / `cancels` count calls, so a test can see the pump stop (#196). */
+type CountingReader = ReadableStreamDefaultReader<Uint8Array> & { reads: number; cancels: number };
+
+function readerOf(chunks: string[]): CountingReader {
   let i = 0;
-  return {
-    read: async () =>
-      i < chunks.length
+  const r = {
+    reads: 0,
+    cancels: 0,
+    read: async () => {
+      r.reads++;
+      return i < chunks.length
         ? { value: enc.encode(chunks[i++]), done: false }
-        : { value: undefined, done: true },
-  } as unknown as ReadableStreamDefaultReader<Uint8Array>;
+        : { value: undefined, done: true };
+    },
+    cancel: async () => {
+      r.cancels++;
+    },
+  };
+  return r as unknown as CountingReader;
 }
 
-function readerThatRejects(chunks: string[], err: unknown): ReadableStreamDefaultReader<Uint8Array> {
+function readerThatRejects(chunks: string[], err: unknown): CountingReader {
   let i = 0;
-  return {
+  const r = {
+    reads: 0,
+    cancels: 0,
     read: async () => {
+      r.reads++;
       if (i < chunks.length) return { value: enc.encode(chunks[i++]), done: false };
       throw err;
     },
-  } as unknown as ReadableStreamDefaultReader<Uint8Array>;
+    // A cancel that rejects too: the pump must not surface it.
+    cancel: async () => {
+      r.cancels++;
+      throw err;
+    },
+  };
+  return r as unknown as CountingReader;
 }
 
 /** A handler shaped like the clients': terminal on a parseable stop/error frame. */
@@ -120,6 +140,37 @@ describe("pumpSseFramesToTerminal", () => {
       clientLikeHandler([]),
     );
     expect(reached).toBe(true);
+  });
+
+  // #196: #191 filtered frames after the terminal one but kept reading, so a
+  // connection error after `message_stop` rejected into the caller's catch.
+  it("does not read again after the terminal frame, and cancels the reader", async () => {
+    const reader = readerOf(["event: message_stop\ndata: {}\n\n", "event: json_delta\ndata: {}\n\n"]);
+    expect(await pumpSseFramesToTerminal(reader, clientLikeHandler([]))).toBe(true);
+    expect(reader.reads).toBe(1);
+    expect(reader.cancels).toBe(1);
+  });
+
+  it("resolves true when the read after the terminal frame would reject", async () => {
+    const reader = readerThatRejects(["event: message_stop\ndata: {}\n\n"], new TypeError("terminated"));
+    expect(await pumpSseFramesToTerminal(reader, clientLikeHandler([]))).toBe(true);
+    expect(reader.reads).toBe(1);
+  });
+
+  it("does not deliver a frame that shares the terminal frame's chunk", async () => {
+    const seen: string[] = [];
+    await pumpSseFramesToTerminal(
+      readerOf(['event: message_stop\ndata: {}\n\nevent: json_delta\ndata: {"delta":"x"}\n\n']),
+      clientLikeHandler(seen),
+    );
+    expect(seen).toHaveLength(1);
+  });
+
+  it("reads to EOF and never cancels when no frame is terminal (control)", async () => {
+    const reader = readerOf(['event: json_delta\ndata: {"delta":"{"}\n\n']);
+    expect(await pumpSseFramesToTerminal(reader, clientLikeHandler([]))).toBe(false);
+    expect(reader.reads).toBe(2);
+    expect(reader.cancels).toBe(0);
   });
 
   it("still rejects on an abort, so #60's `interrupted` classification is unchanged", async () => {
