@@ -1962,3 +1962,13 @@ that the stream parser held back the last line ending until the stream closed.
 That stopped being true when the parser was fixed in #187, but the comment was
 never updated. It now describes how the parser actually behaves and keeps the
 old behaviour as history. Only the comment changed.
+
+## 2026-10-20 — A dropped connection after a finished answer no longer shows an error (#196)
+
+Three of the four demos kept listening to the stream after its final "done" or
+"stop" event. If the connection then dropped, which a server or proxy closing the
+socket can easily cause, the page put a red "terminated" error over an answer
+that had already arrived in full. The streaming-text demo also kept acting on
+events after "done", so stray text could be appended to a finished answer. All
+three now stop reading as soon as the run is finished and close the connection.
+The error-recovery demo already worked this way.
