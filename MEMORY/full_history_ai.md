@@ -2109,3 +2109,21 @@ context_for_next_session:
   - "NOT_FIXED_retry_cap: the client reconnects every 250 ms forever while the server keeps sending error frames; filed as a decision-revisit"
 followups: []
 ---
+
+---
+session: 2026-10-20T07:35Z
+issue: 197
+branch: session/2026-10-20-0748-issue-197
+focus: OPTIMISTIC_ROLLBACK_CLIENT_NEVER_READ_RES_OK_a_5xx_or_non_JSON_reply_showed_network_error_plus_the_JS_parser_message_the_fifth_client_189_191_193_did_not_list
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 15
+  suite: "1036 -> 1051 passed; lint (0 errors, 1 pre-existing warning), typecheck, build clean"
+decisions_made: []
+measured: "main 8453f46: 500/502/504 -> 'network error: <parser text>'; 200 null -> 'network error: Cannot read properties of null'; 503 with a JSON success body COMMITTED the rename; {ok:true} -> 'unknown error'. After: HTTP <status> / 'malformed response'. Revert 12 of 15 red; green = 3 controls (200 rollback, 200 success, fetch reject)."
+context_for_next_session:
+  - "a non-OK reply with a decision-shaped body was the worst row and the hunt repro did not list it; test the body the status contradicts"
+  - "the route's 400 reason text is now shown as 'HTTP 400'; deliberate, one rule across all five clients"
+followups: []
+---

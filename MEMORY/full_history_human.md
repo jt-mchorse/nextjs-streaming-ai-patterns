@@ -1943,3 +1943,14 @@ data wasn't JSON was ignored, so if the stream then said "done", a cut-off
 answer was shown as finished. Error events now always trigger the reconnect,
 with "unknown server-side error" as the reason when the data can't be read.
 Unreadable text events are skipped.
+
+## 2026-10-20 — The optimistic-rollback demo names a bad server reply correctly (#197)
+
+The "Improve" demo never checked whether the server's reply was successful.
+A server error page was read as JSON, so the item rolled back with "network
+error" followed by a raw JavaScript parser message. Worse, an error status
+whose body happened to look like a success went ahead with the rename. An
+error status now rolls back with "HTTP 500" (or whatever the status is),
+matching the other four demos. A reply that isn't a readable decision rolls
+back with "malformed response". "Network error" is now shown only when the
+request itself fails.
