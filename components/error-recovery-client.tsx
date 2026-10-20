@@ -195,18 +195,18 @@ export function ErrorRecoveryClient() {
         return;
       }
       if (read.done) {
-        // Flush BEFORE concluding the stream ended badly (#114). The framer
-        // holds back a trailing `\r` — at a chunk boundary a lone-CR
-        // terminator is indistinguishable from the first half of a `\r\n` —
-        // and only `flush()` resolves it. On a CR-framed body the frame it
-        // still holds is the LAST one, which in this protocol is the `done`
-        // event: without this, a stream that completed correctly fell through
-        // to the branch below and resumed forever. That is the same symptom
-        // #95/#106 fixed, reached through the half of the framer contract
-        // adopting the shared framer left unchecked.
-        // Decoder before framer (#115, D-013) — see `pumpSseFrames`. Both
-        // flushes feed `handleFrames`, so a `done` event released by either
-        // one still returns instead of falling through to the resume branch.
+        // Flush BEFORE concluding the stream ended badly (#114). Since #187
+        // the framer ends a line at a trailing `\r` as soon as it sees it, so
+        // `push` has already returned every frame the body completed —
+        // including a CR-framed body's last frame, the `done` event — and
+        // `flush()` emits nothing (#198). Before #187 the framer held that
+        // `\r` back and only `flush()` released the `done` frame; without
+        // this call a stream that completed correctly fell through to the
+        // branch below and resumed forever (the #95/#106 symptom). The calls
+        // stay because they are the framer contract's end-of-stream steps and
+        // cost nothing: the decoder flush (before the framer, #115, D-013 —
+        // see `pumpSseFrames`) only releases bytes from a body that ended
+        // mid-codepoint, i.e. an unterminated tail the framer drops.
         if (handleFrames(framer.push(decoder.decode()))) return;
         if (handleFrames(framer.flush())) return;
         // Stream ended without `done` or `error` event — treat as
