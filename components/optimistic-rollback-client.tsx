@@ -164,11 +164,8 @@ export function OptimisticRollbackClient() {
   );
 }
 
-interface CallApiResult {
-  readonly ok: boolean;
-  readonly improved_name?: string;
-  readonly reason?: string;
-}
+/** Shown when a 200 reply is not a decision the client can read (#197). */
+const MALFORMED_RESPONSE = "malformed response";
 
 async function callApi(
   id: string,
@@ -183,9 +180,30 @@ async function callApi(
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ id, click_count, current_name }),
   });
-  const body = (await res.json()) as CallApiResult;
-  if (body.ok && typeof body.improved_name === "string") {
-    return { ok: true, improved_name: body.improved_name };
+  // A non-OK status is named by its status, as the other four clients do. This
+  // ran `res.json()` unconditionally, so a 5xx page threw and the catch in
+  // onImprove showed "network error: <JS parser message>" (#197). Only a
+  // `fetch` that rejects -- or a body read that does -- is a network error.
+  if (!res.ok) {
+    return { ok: false, reason: `HTTP ${res.status}` };
   }
-  return { ok: false, reason: body.reason ?? "unknown error" };
+  let body: unknown;
+  try {
+    body = JSON.parse(await res.text());
+  } catch (err) {
+    if (!(err instanceof SyntaxError)) throw err;
+    return { ok: false, reason: MALFORMED_RESPONSE };
+  }
+  // Valid JSON is not necessarily a decision: `null` threw on `.ok`, and
+  // `{ok: true}` with no name rolled back as "unknown error" (#197).
+  if (body !== null && typeof body === "object" && !Array.isArray(body)) {
+    const d = body as { ok?: unknown; improved_name?: unknown; reason?: unknown };
+    if (d.ok === true && typeof d.improved_name === "string") {
+      return { ok: true, improved_name: d.improved_name };
+    }
+    if (d.ok === false && typeof d.reason === "string") {
+      return { ok: false, reason: d.reason };
+    }
+  }
+  return { ok: false, reason: MALFORMED_RESPONSE };
 }
