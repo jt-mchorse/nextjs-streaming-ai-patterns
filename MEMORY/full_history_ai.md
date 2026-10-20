@@ -2127,3 +2127,20 @@ context_for_next_session:
   - "the route's 400 reason text is now shown as 'HTTP 400'; deliberate, one rule across all five clients"
 followups: []
 ---
+
+---
+session: 2026-10-20T07:38Z
+issue: 198
+branch: session/2026-10-20-0810-issue-198
+focus: SERVED_COMMENT_SAID_THE_FRAMER_HOLDS_BACK_A_TRAILING_CR_AND_ONLY_FLUSH_RELEASES_DONE_FALSE_SINCE_187
+phase: shipped
+delta:
+  files_changed: 1
+  tests_added: 0
+  suite: "vitest 1051/1051 (67 files); lint 0 errors; typecheck + next build clean"
+decisions_made: []
+measured: "hunt agent on 8453f46: CR-framed body pushed whole and at chunk sizes 1/2/3/7 -> push returned both frames (last is done), flush returned 0. Comment-only change; no behaviour to probe."
+context_for_next_session:
+  - "PRETTIER_IS_NOT_A_CI_GATE_and_the_file_is_not_prettier_clean_on_main_running_it_reformats_unrelated_lines"
+followups: []
+---
