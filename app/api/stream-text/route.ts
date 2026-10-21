@@ -55,26 +55,39 @@ export async function GET(req: NextRequest): Promise<Response> {
     req.signal.addEventListener("abort", () => ac.abort(), { once: true });
   }
 
+  // Set by `cancel()`. Once the client has gone the stream is already closed,
+  // and `enqueue`/`close` throw `Invalid state: Controller is already closed`.
+  // `streamText` returns quietly on abort, so the trailing `event: done` threw
+  // into the catch, whose `event: error` enqueue threw again, and `close()`
+  // threw a third time (#208; tool-use had the same bug, #204).
+  let cancelled = false;
+
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
+      const send = (frame: string): void => {
+        if (cancelled) return;
+        controller.enqueue(encoder.encode(frame));
+      };
+
       try {
         for await (const chunk of streamText(prompt, { signal: ac.signal })) {
           const payload = JSON.stringify({ text: chunk.text });
-          controller.enqueue(encoder.encode(`data: ${payload}\n\n`));
+          send(`data: ${payload}\n\n`);
         }
-        controller.enqueue(encoder.encode("event: done\ndata: {}\n\n"));
+        send("event: done\ndata: {}\n\n");
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         const payload = JSON.stringify({ error: message });
-        controller.enqueue(encoder.encode(`event: error\ndata: ${payload}\n\n`));
+        send(`event: error\ndata: ${payload}\n\n`);
       } finally {
-        controller.close();
+        if (!cancelled) controller.close();
       }
     },
     cancel() {
       // The browser disconnected (navigated away or hit Cancel). Abort the
       // controller so `streamText` stops pulling from the model and the live
       // SDK request is torn down — the for-await loop does not break on its own.
+      cancelled = true;
       ac.abort();
     },
   });

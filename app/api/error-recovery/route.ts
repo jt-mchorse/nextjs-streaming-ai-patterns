@@ -111,9 +111,17 @@ export async function GET(req: NextRequest): Promise<Response> {
     req.signal.addEventListener("abort", () => ac.abort(), { once: true });
   }
 
+  // Set by `cancel()`. Once the client has gone the stream is already closed,
+  // and `enqueue`/`close` throw `Invalid state: Controller is already closed`.
+  // The next `text` frame threw into the catch, whose `event: error` enqueue
+  // threw again, and `close()` threw a third time (#208; tool-use had the same
+  // bug, #204). `send` is the one write path, so it is the one guard.
+  let cancelled = false;
+
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       const send = (data: unknown, eventName?: string) => {
+        if (cancelled) return;
         const payload = JSON.stringify(data);
         const line = eventName
           ? `event: ${eventName}\ndata: ${payload}\n\n`
@@ -138,13 +146,14 @@ export async function GET(req: NextRequest): Promise<Response> {
           send({ reason: message }, "error");
         }
       } finally {
-        controller.close();
+        if (!cancelled) controller.close();
       }
     },
     cancel() {
       // Browser disconnected (navigated away or hit Stop). Abort so
       // `streamCheckpoints` stops at the next event boundary — the for-await
       // loop does not break on its own.
+      cancelled = true;
       ac.abort();
     },
   });

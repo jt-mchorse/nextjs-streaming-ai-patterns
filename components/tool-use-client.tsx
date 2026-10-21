@@ -15,9 +15,11 @@ import {
  *
  * Reads `/api/tool-use` as an SSE stream of typed events and renders a
  * step-by-step timeline. The interrupt button calls
- * `AbortController.abort()` end-to-end (D-007) — the route handler
- * propagates the abort to the streamer, which yields a clean
- * `message_stop` with `stop_reason: "interrupted"` before closing.
+ * `AbortController.abort()` end-to-end (D-007): the route handler
+ * propagates the abort to the streamer, which stops at its next event
+ * boundary. No `message_stop: interrupted` frame reaches this component;
+ * it aborted its own fetch, so it lands on `interrupted` by classifying
+ * that `AbortError` (#204, #208).
  *
  * The component is a small state machine (doc:
  * `docs/tool-use-state-machine.md`). Transitions:

@@ -24,8 +24,10 @@ import {
  *
  * Interrupt is end-to-end `AbortController` (D-007), same pattern as
  * the tool-use UI: click Interrupt → fetch's signal aborts → route
- * handler propagates to the streamer → final `message_stop` with
- * `stop_reason: "interrupted"` arrives so the transcript is clean.
+ * handler propagates to the streamer, which stops at its next chunk
+ * boundary. No `message_stop: interrupted` frame reaches this component;
+ * it aborted its own fetch, so it lands on `interrupted` by classifying
+ * that `AbortError` (#208).
  */
 
 type Phase = "idle" | "connecting" | "streaming" | "done" | "interrupted" | "error";
