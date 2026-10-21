@@ -2218,3 +2218,22 @@ context_for_next_session:
   - "partial-json, stream-text, error-recovery routes reproduce the same triple throw on cancel: filed #208"
 followups: [208]
 ---
+
+---
+session: 2026-10-21T07:25Z
+issue: 206
+branch: session/2026-10-21-0725-issue-206
+focus: MOCKTEXTSTREAM_SEED_SKIPPED_THE_DELAY_seed_seeded_no_jitter_and_baseDelayMs_jitterMs_were_validated_then_ignored_unlike_json_tool_streamers
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 5
+  suite: "1088 -> 1093 passed (69 files); lint (0 errors, 1 pre-existing warning), typecheck, build clean"
+decisions_made: []
+measured: "main c572321, first event {baseDelayMs: 400, jitterMs: 0}: text unseeded 403 ms / seed=1 0 ms; json 401/402; tool 402/402. After: text seed=1 402 ms; seed 1 reproduces the setTimeout delay schedule, seed 999 differs. Revert 3 of 5 red; green = 2 controls (unseeded waits, seeded zero-delay instant)."
+context_for_next_session:
+  - "seed no longer implies instant on any mock streamer; tests that want speed pass baseDelayMs: 0, jitterMs: 0 (FAST in test/mock-stream.test.ts)"
+  - "the accepts-baseDelayMs/jitterMs cases now take one first step and abort it, because collecting the fixture at 60 s per token would hang; checking done:true there would have tied a validation test to #206 (10 spurious reds in the first probe)"
+  - "the delay schedule is read by spying globalThis.setTimeout, recording ms and firing at 0 ms; abortableSleep calls the global setTimeout"
+followups: []
+---

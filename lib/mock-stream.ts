@@ -13,8 +13,10 @@ export interface MockStreamOptions {
   /** Random jitter added to base delay, in ms. Default 30. */
   jitterMs?: number;
   /**
-   * Optional seed for the jitter PRNG. When set, the stream is fully
-   * deterministic — used by the test suite.
+   * Optional seed for the jitter PRNG. When set, the token sequence AND the
+   * per-token delay schedule are deterministic. It does not skip the delay
+   * (#206): pass `baseDelayMs: 0, jitterMs: 0` for an instant stream, the
+   * same as `mockToolStream` / `mockJsonStream`.
    */
   seed?: number;
   /**
@@ -107,14 +109,14 @@ export async function* mockTextStream(
   const tokens = chunkByWhitespace(FIXTURE);
   for (const token of tokens) {
     if (signal?.aborted) return;
-    if (options.seed === undefined) {
-      // Real wall-clock delay in dev; skipped under test (seed implies test).
-      // Honor `signal` during the wait so an interrupt mid-pause unblocks
-      // the loop immediately rather than completing the token's wait first.
-      const delay = baseDelayMs + Math.floor(rand() * jitterMs);
-      await sleep(delay, signal);
-      if (signal?.aborted) return;
-    }
+    // The delay runs whether or not `seed` is set (#206). It used to be
+    // skipped on "seed implies test", so the seed never seeded any jitter and
+    // `baseDelayMs`/`jitterMs` were validated and then ignored -- unlike the
+    // sibling streamers. Honor `signal` during the wait so an interrupt
+    // mid-pause unblocks the loop immediately.
+    const delay = baseDelayMs + Math.floor(rand() * jitterMs);
+    await sleep(delay, signal);
+    if (signal?.aborted) return;
     yield { text: token };
   }
 }
