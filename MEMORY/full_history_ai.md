@@ -2200,6 +2200,9 @@ context_for_next_session:
   - "test/terminal-phase-affordances.test.ts is the first render test of a client's OUTPUT: vi.mock('react') spreads importOriginal and overrides only the hooks, so react-dom/server renders the returned element for real; seed useState by declaration-order slot"
   - "ToolCard's old '(node.args_complete ? \"\" : \"▍\")' sat inside the !args_complete branch, so the condition was constant-true"
 followups: []
+---
+
+---
 session: 2026-10-21T07:28Z
 issue: 204
 branch: session/2026-10-21-0725-issue-204
