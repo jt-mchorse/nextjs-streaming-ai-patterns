@@ -2236,4 +2236,21 @@ context_for_next_session:
   - "the accepts-baseDelayMs/jitterMs cases now take one first step and abort it, because collecting the fixture at 60 s per token would hang; checking done:true there would have tied a validation test to #206 (10 spurious reds in the first probe)"
   - "the delay schedule is read by spying globalThis.setTimeout, recording ms and firing at 0 ms; abortableSleep calls the global setTimeout"
 followups: []
+session: 2026-10-21T07:37Z
+issue: 208
+branch: session/2026-10-21-0734-issue-208
+focus: PARTIAL_JSON_STREAM_TEXT_ERROR_RECOVERY_ROUTES_THREW_3X_ONTO_A_CANCELLED_STREAM_same_start_shape_204_fixed_in_tool_use_plus_the_false_interrupted_terminator_docblocks_on_the_partial_json_path
+phase: shipped
+delta:
+  files_changed: 8
+  tests_added: 17
+  suite: "1105 -> 1122 passed (71 files, rebased on #210); lint (0 errors, 1 pre-existing warning), typecheck, build clean"
+decisions_made: []
+measured: "main 591d1b4, in-process GET, read 3 chunks then abort+cancel, controller prototype patched: partial-json throws = enqueue message_stop, enqueue error, close; stream-text = enqueue done, enqueue error, close; error-recovery = enqueue text data, enqueue error, close (all 'Controller is already closed'). After: 0 throws on all four routes. Route-only revert 3 of 9 red; green = 6 controls (tool-use cancel fixed by #209, 4 uninterrupted runs end in their terminal frame, error-recovery drop frame). Each route reverted alone: exactly its own case red. Flag-never-set wrong fix: 3 red. Docblock revert: 8 of 8 doc-lock cases red."
+context_for_next_session:
+  - "test/sse-route-cancel-no-throw.test.ts wraps each route's streamer via vi.mock(\"@/lib/...\") with a tracked() generator: finished promise + finishedAfterCancel anti-vacuity, so tests wait for the loop instead of sleeping; stream-text's mock path can't take delay options through streamText, so its uninterrupted control takes ~5 s"
+  - "readme-sse-envelope-contract also fails partial-json/tool-use routes on ANY occurrence of the word kind (comments included) and stream-text likewise; keep it out of route comments"
+  - "the false 'client receives message_stop: interrupted' claim had four more sites on the partial-json path / tool-use client: tool-use-client.tsx, partial-json-client.tsx, partial-json route, mock-json-stream.ts docblocks; all now in the #204 doc lock"
+  - "did not lift the cancelled/send guard into a shared helper: three frame shapes, and the envelope grep lock pins the template at the call site"
+followups: []
 ---
