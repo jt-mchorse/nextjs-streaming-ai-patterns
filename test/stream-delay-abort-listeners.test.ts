@@ -28,8 +28,8 @@ import { ROOT } from "./support/source-files";
 
 const abortListeners = (signal: AbortSignal): number => getEventListeners(signal, "abort").length;
 
-// `seed` is omitted on purpose: `mockTextStream` skips its sleeps when a seed is
-// set, and the sleeps are what this is about. 1 ms keeps the real waits short.
+// `seed` is omitted; before #206 `mockTextStream` skipped its sleeps when a seed
+// was set, and the sleeps are what this is about. 1 ms keeps the real waits short.
 const STREAMERS = [
   ["mockTextStream", (signal: AbortSignal) => mockTextStream({ signal, baseDelayMs: 1, jitterMs: 0 })],
   ["mockJsonStream", (signal: AbortSignal) => mockJsonStream({ signal, baseDelayMs: 1, jitterMs: 0 })],
