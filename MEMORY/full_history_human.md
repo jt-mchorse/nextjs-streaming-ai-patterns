@@ -1994,3 +1994,15 @@ arguments had stopped arriving. Neither part of the page knew the run was over.
 Now they do. Missing trip fields show a plain "not received", the note says the
 stream ended before the data was complete, and the cursor is gone. While a run
 is in progress the pages look the same as before.
+## 2026-10-21 — The docs now describe what Interrupt really does (#204)
+
+The README and three other places said that pressing Interrupt on the tool-use
+demo makes the server send a final "interrupted" event to the page. It never
+could. The page cancels its own request, so nobody is listening when the server
+tries to send that event. The page shows "interrupted" because it recognises its
+own cancellation. Meanwhile the server tripped over itself three times trying to
+write to a connection that was already closed. Every place now describes the
+real mechanism, and the server quietly stops writing once the page has gone. An
+architecture note about the stream parser holding back a line ending, which had
+been untrue since #187, is fixed too. The other three streaming routes have the
+same server-side habit; that is filed as #208.
