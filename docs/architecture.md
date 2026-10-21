@@ -103,8 +103,11 @@ for (const frame of framer.push(decoder.decode())) onFrame(frame); // decoder fl
 for (const frame of framer.flush()) onFrame(frame);                // framer flush
 ```
 
-The framer flush resolves a held-back lone `\r` terminator, which is what
-#114 was about. The decoder flush releases a trailing incomplete UTF-8 sequence
+The framer flush emits nothing: since #187 a trailing `\r` ends its line as
+soon as it arrives, so every completed frame already came out of `push`, and an
+unterminated tail is dropped on purpose. It stays in the teardown as the
+framer's end-of-stream hook (#114 was the held-back `\r` it used to release;
+#204 corrected this paragraph). The decoder flush releases a trailing incomplete UTF-8 sequence
 that `{ stream: true }` was holding for the rest of a codepoint that never
 arrived — as `U+FFFD` (#115).
 
@@ -245,8 +248,13 @@ distinct mechanism on top of the same SSE envelope (D-005, D-006).
 - **`app/tool-use/`** (#2) — same SSE envelope with additional
   `tool_use_*` event kinds. The client renders the tool call, the
   streaming JSON arguments, the result, and the resumed reasoning. A
-  visible Interrupt button calls `abort()` on the fetch and produces
-  a clean transcript ending in `message_stop: interrupted` (D-007).
+  visible Interrupt button calls `abort()` on the fetch (D-007). The
+  client classifies its own `AbortError` as `interrupted`, keeping the
+  transcript up to the last frame it received. The abort reaches the
+  route as a cancelled body, and the streamer stops at its next event
+  boundary. The streamer's own `message_stop` with
+  `stop_reason: "interrupted"` is dropped, because nobody is left to
+  read it (#204).
 - **`app/partial-json/`** (#3) — progressive rendering of a structured
   response as the model emits it. A dep-free in-repo state machine
   (`lib/partial-json.ts`, D-008) tolerates open strings, open

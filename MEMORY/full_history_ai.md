@@ -2200,4 +2200,21 @@ context_for_next_session:
   - "test/terminal-phase-affordances.test.ts is the first render test of a client's OUTPUT: vi.mock('react') spreads importOriginal and overrides only the hooks, so react-dom/server renders the returned element for real; seed useState by declaration-order slot"
   - "ToolCard's old '(node.args_complete ? \"\" : \"▍\")' sat inside the !args_complete branch, so the condition was constant-true"
 followups: []
+session: 2026-10-21T07:28Z
+issue: 204
+branch: session/2026-10-21-0725-issue-204
+focus: DOCS_SAID_INTERRUPT_DELIVERS_MESSAGE_STOP_INTERRUPTED_TO_THE_CLIENT_it_cannot_the_client_aborted_its_own_fetch_and_the_route_threw_3x_onto_the_cancelled_stream
+phase: shipped
+delta:
+  files_changed: 7
+  tests_added: 12
+  suite: "1088 -> 1100 passed (70 files, rebased on #207); lint (0 errors, 1 pre-existing warning), typecheck, build clean"
+decisions_made: []
+measured: "main ac8d498, in-process GET /api/tool-use, abort+cancel after tool_use_start: client 17 frames ending tool_use_start; controller throws = enqueue message_stop, enqueue error, close (all 'Controller is already closed'). After: same client frames, 0 throws. createSseFramer flush() returns [] unconditionally (architecture.md said it released a held-back \\r). Revert 11 of 12 red; green = 1 control (uninterrupted run ends end_turn). Route-only revert 3 red; finally-guard-only revert 1 red (close throw)."
+context_for_next_session:
+  - "test/readme-sse-envelope-contract.test.ts greps tool-use/partial-json routes for the literal `event: ${event.type}\\ndata:` template; a send(eventName, data) refactor turns it red, keep the template at the call site"
+  - "naming a web API in backticks in architecture.md needs EXTERNAL_SYMBOLS AND its exact-set pin widened (two edits in test/architecture-doc.test.ts)"
+  - "docs/tool-use-state-machine.md was a fifth false site the issue did not list; components/tool-use-client.tsx docblock is a sixth, left for #208 because #205 was editing it"
+  - "partial-json, stream-text, error-recovery routes reproduce the same triple throw on cancel: filed #208"
+followups: [208]
 ---
