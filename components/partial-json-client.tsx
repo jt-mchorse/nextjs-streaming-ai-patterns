@@ -156,6 +156,10 @@ export function PartialJsonClient(): React.ReactElement {
   }, []);
 
   const inFlight = phase === "connecting" || phase === "streaming";
+  // A run that has ended will not fill any more fields, so the itinerary must
+  // stop promising that it will: no pulsing skeletons, no "will replace" copy
+  // (#205). `idle` is not terminal -- nothing has been asked for yet.
+  const terminal = phase === "done" || phase === "interrupted" || phase === "error";
 
   return (
     <section className="space-y-4 rounded-lg border border-[var(--border)] bg-[var(--panel)] p-5">
@@ -191,7 +195,7 @@ export function PartialJsonClient(): React.ReactElement {
 
       {error ? <p className="text-sm text-red-500">{error}</p> : null}
 
-      <Itinerary value={parsed} isComplete={isComplete} />
+      <Itinerary value={parsed} isComplete={isComplete} terminal={terminal} />
     </section>
   );
 }
@@ -199,10 +203,18 @@ export function PartialJsonClient(): React.ReactElement {
 function Itinerary({
   value,
   isComplete,
+  terminal,
 }: {
   value: TripItinerary | null;
   isComplete: boolean;
+  /** The run has ended; unfilled fields will never arrive (#205). */
+  terminal: boolean;
 }): React.ReactElement {
+  // Unfilled slot: pulsing while the stream may still fill it, static once the
+  // run is over (#205).
+  const missing = (width: string) =>
+    terminal ? <NotReceived /> : <Skeleton width={width} />;
+
   const dest = value?.destination;
   const days = value?.trip_length_days;
   const summary = value?.summary;
@@ -213,25 +225,25 @@ function Itinerary({
     <div className="space-y-4">
       <header className="space-y-1">
         <h3 className="text-lg font-medium tracking-tight">
-          {dest ?? <Skeleton width="12rem" />}
+          {dest ?? missing("12rem")}
         </h3>
         <p className="text-xs text-[var(--muted)]">
           {typeof days === "number" ? (
             <>{pluralizeCount(days, "day")}</>
           ) : (
-            <Skeleton width="4rem" />
+            missing("4rem")
           )}
           {" · "}
           {typeof budget === "number" ? (
             <>~${budget} budget</>
           ) : (
-            <Skeleton width="6rem" />
+            missing("6rem")
           )}
         </p>
       </header>
 
       <p className="text-sm text-[var(--muted)]">
-        {summary ?? <Skeleton width="100%" />}
+        {summary ?? missing("100%")}
       </p>
 
       <ol className="space-y-3">
@@ -244,9 +256,9 @@ function Itinerary({
               Day {entry.day ?? idx + 1}
             </div>
             <div className="mt-1 grid gap-1 text-sm">
-              <Field label="Morning" value={entry.morning} />
-              <Field label="Afternoon" value={entry.afternoon} />
-              <Field label="Evening" value={entry.evening} />
+              <Field label="Morning" value={entry.morning} terminal={terminal} />
+              <Field label="Afternoon" value={entry.afternoon} terminal={terminal} />
+              <Field label="Evening" value={entry.evening} terminal={terminal} />
             </div>
           </li>
         ))}
@@ -254,20 +266,29 @@ function Itinerary({
 
       {!isComplete ? (
         <p className="text-xs text-[var(--muted)]">
-          Rendering best-effort partial parse — fields above will replace
-          their skeletons as the stream completes them.
+          {terminal
+            ? "Stream ended before the JSON completed — fields marked “not received” never arrived."
+            : "Rendering best-effort partial parse — fields above will replace their skeletons as the stream completes them."}
         </p>
       ) : null}
     </div>
   );
 }
 
-function Field({ label, value }: { label: string; value: string | undefined }): React.ReactElement {
+function Field({
+  label,
+  value,
+  terminal,
+}: {
+  label: string;
+  value: string | undefined;
+  terminal: boolean;
+}): React.ReactElement {
   return (
     <div className="grid grid-cols-[6rem_1fr] gap-2">
       <span className="text-xs text-[var(--muted)]">{label}</span>
       <span className="text-sm">
-        {value ?? <Skeleton width="80%" />}
+        {value ?? (terminal ? <NotReceived /> : <Skeleton width="80%" />)}
       </span>
     </div>
   );
@@ -281,4 +302,9 @@ function Skeleton({ width }: { width: string }): React.ReactElement {
       style={{ width }}
     />
   );
+}
+
+/** Static stand-in for a field the ended run never sent (#205). */
+function NotReceived(): React.ReactElement {
+  return <span className="text-xs italic text-[var(--muted)]">not received</span>;
 }

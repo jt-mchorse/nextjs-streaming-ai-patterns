@@ -248,6 +248,9 @@ export function ToolUseClient() {
     phase === "tool_called" ||
     phase === "tool_running" ||
     phase === "tool_completed";
+  // Once the run has ended, a tool card whose args never completed is not
+  // still streaming, so it must not keep the caret (#205).
+  const terminal = phase === "done" || phase === "interrupted" || phase === "error";
 
   return (
     <section className="space-y-4">
@@ -296,7 +299,7 @@ export function ToolUseClient() {
               {node.text}
             </div>
           ) : (
-            <ToolCard key={i} node={node} />
+            <ToolCard key={i} node={node} terminal={terminal} />
           ),
         )}
       </div>
@@ -304,7 +307,7 @@ export function ToolUseClient() {
   );
 }
 
-function ToolCard({ node }: { node: TimelineToolCall }) {
+function ToolCard({ node, terminal }: { node: TimelineToolCall; terminal: boolean }) {
   return (
     <div
       className="rounded-md border border-[var(--accent)]/40 bg-[var(--accent-bg)] p-3 text-sm"
@@ -316,7 +319,7 @@ function ToolCard({ node }: { node: TimelineToolCall }) {
       <pre className="mt-2 whitespace-pre-wrap break-words font-mono text-xs leading-snug">
         {node.args_complete
           ? JSON.stringify(node.parsed_args, null, 2)
-          : node.partial_args + (node.args_complete ? "" : "▍")}
+          : node.partial_args + (terminal ? "" : "▍")}
       </pre>
       {node.result !== null ? (
         <div className="mt-2 border-t border-[var(--border)] pt-2">
