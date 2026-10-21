@@ -2006,3 +2006,24 @@ real mechanism, and the server quietly stops writing once the page has gone. An
 architecture note about the stream parser holding back a line ending, which had
 been untrue since #187, is fixed too. The other three streaming routes have the
 same server-side habit; that is filed as #208.
+
+## 2026-10-21 — Demo pages stop looking busy after a run is interrupted or fails (#205)
+
+After you pressed Interrupt, or a run failed, two demos kept looking as if they
+were still working. The trip-planner page left every missing field as a
+pulsing grey bar, with a note saying the fields would fill in as the stream
+finished. The tool-use page left a blinking cursor on a tool call whose
+arguments had stopped arriving. Neither part of the page knew the run was over.
+Now they do. Missing trip fields show a plain "not received", the note says the
+stream ended before the data was complete, and the cursor is gone. While a run
+is in progress the pages look the same as before.
+
+## 2026-10-21 — The text mock stream's seed no longer turns off its delays (#206)
+
+The mock text streamer has a "seed" option that is meant to make its random
+pauses between words repeatable. Instead, setting a seed removed the pauses
+completely, so the delay settings were accepted and then ignored. The other two
+mock streamers already kept their pauses when given a seed. Now the text
+streamer matches them: a seed gives the same pauses on every run, and a test
+that wants no pauses sets the delay to zero. The demo pages never pass a seed,
+so they behave the same as before.
