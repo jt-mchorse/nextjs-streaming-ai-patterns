@@ -1994,6 +1994,7 @@ arguments had stopped arriving. Neither part of the page knew the run was over.
 Now they do. Missing trip fields show a plain "not received", the note says the
 stream ended before the data was complete, and the cursor is gone. While a run
 is in progress the pages look the same as before.
+
 ## 2026-10-21 — The docs now describe what Interrupt really does (#204)
 
 The README and three other places said that pressing Interrupt on the tool-use
