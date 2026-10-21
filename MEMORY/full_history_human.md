@@ -1983,3 +1983,14 @@ replaced a complete answer with "Premature close". If the connection just stayed
 open, the request never finished. The server now stops reading at the final
 event and still runs the existing check that the answer really is complete. A
 connection that drops before that event is still reported as an error.
+
+## 2026-10-21 — Demo pages stop looking busy after a run is interrupted or fails (#205)
+
+After you pressed Interrupt, or a run failed, two demos kept looking as if they
+were still working. The trip-planner page left every missing field as a
+pulsing grey bar, with a note saying the fields would fill in as the stream
+finished. The tool-use page left a blinking cursor on a tool call whose
+arguments had stopped arriving. Neither part of the page knew the run was over.
+Now they do. Missing trip fields show a plain "not received", the note says the
+stream ended before the data was complete, and the cursor is gone. While a run
+is in progress the pages look the same as before.

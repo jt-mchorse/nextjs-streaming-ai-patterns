@@ -2182,3 +2182,22 @@ context_for_next_session:
   - "partial-json and tool-use routes are mock-only; lib/anthropic-stream.ts is the only SDK consumer, so no sibling live loop exists"
 followups: []
 ---
+
+---
+session: 2026-10-21T07:25Z
+issue: 205
+branch: session/2026-10-21-0725-issue-205
+focus: PARTIAL_JSON_SKELETONS_AND_TOOL_USE_CARET_KEPT_ANIMATING_AFTER_INTERRUPT_OR_ERROR_presentational_components_never_saw_the_phase
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 11
+  suite: "1077 -> 1088 passed (69 files); lint (0 errors, 1 pre-existing warning), typecheck, build clean"
+decisions_made: []
+measured: "main ac8d498, Playwright on next dev :3217: /partial-json interrupted at 600 ms, +3 s -> phase interrupted, 13 .animate-pulse, will-replace copy shown; /tool-use interrupted mid-args -> card '{\"city\":\"Austin\",\"▍'. After: 0 pulse, 'Stream ended before the JSON completed' copy, card without caret. Revert 5 of 11 red; green = 6 controls (streaming pulses x11, idle skeletons, complete done clean, tool_called/streaming_text caret, args-complete card no caret)."
+context_for_next_session:
+  - "terminal = done | interrupted | error is computed in both clients beside inFlight/isStreaming and passed down; idle is NOT terminal (pre-run skeleton preview kept)"
+  - "test/terminal-phase-affordances.test.ts is the first render test of a client's OUTPUT: vi.mock('react') spreads importOriginal and overrides only the hooks, so react-dom/server renders the returned element for real; seed useState by declaration-order slot"
+  - "ToolCard's old '(node.args_complete ? \"\" : \"▍\")' sat inside the !args_complete branch, so the condition was constant-true"
+followups: []
+---
