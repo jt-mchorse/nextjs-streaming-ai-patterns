@@ -136,9 +136,11 @@ function makePrng(seed: number): () => number {
  *
  * Abort behavior matches the other patterns: aborting `signal`
  * causes the generator to yield a final `message_stop` with
- * `stop_reason: "interrupted"` and return cleanly so the HTTP route
- * closes the SSE stream without a broken-pipe error visible to the
- * client.
+ * `stop_reason: "interrupted"` and return. A direct caller sees that
+ * terminator. Over HTTP the client never does: it aborted its own
+ * fetch, so the route's stream is already cancelled and the route drops
+ * the frame. The client's `interrupted` phase comes from classifying its
+ * own `AbortError` (#208).
  */
 export async function* mockJsonStream(
   options: MockJsonStreamOptions = {},

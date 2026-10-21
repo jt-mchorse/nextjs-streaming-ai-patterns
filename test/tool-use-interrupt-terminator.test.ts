@@ -138,6 +138,11 @@ describe("interrupt docs describe the real mechanism (#204)", () => {
     ["docs/architecture.md", "The framer flush resolves a held-back lone"],
     ["lib/mock-tool-stream.ts", "The HTTP route forwards this to the client"],
     ["app/api/tool-use/route.ts", "streamer which yields a final `message_stop` with"],
+    // Same false claim on the sibling surfaces, as of 591d1b4 (#208).
+    ["components/tool-use-client.tsx", "which yields a clean\n * `message_stop` with"],
+    ["components/partial-json-client.tsx", "`stop_reason: \"interrupted\"` arrives so the transcript is clean"],
+    ["app/api/partial-json/route.ts", "`stop_reason: \"interrupted\"`, and the route closes cleanly"],
+    ["lib/mock-json-stream.ts", "without a broken-pipe error visible to the\n * client"],
   ];
 
   it.each(BANNED)("%s no longer says: %s", (file, phrase) => {
@@ -152,6 +157,10 @@ describe("interrupt docs describe the real mechanism (#204)", () => {
     ["docs/tool-use-state-machine.md", "That terminator never reaches the client."],
     ["lib/mock-tool-stream.ts", "Over HTTP the client\n * never does"],
     ["app/api/tool-use/route.ts", "The client never receives a `message_stop: interrupted` frame"],
+    ["components/tool-use-client.tsx", "No `message_stop: interrupted` frame reaches this component"],
+    ["components/partial-json-client.tsx", "No `message_stop: interrupted` frame reaches this component"],
+    ["app/api/partial-json/route.ts", "The client never receives the streamer's `message_stop`"],
+    ["lib/mock-json-stream.ts", "Over HTTP the client never does"],
   ];
 
   it.each(REQUIRED)("%s says: %s", (file, phrase) => {

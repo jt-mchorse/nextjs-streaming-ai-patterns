@@ -2027,3 +2027,14 @@ mock streamers already kept their pauses when given a seed. Now the text
 streamer matches them: a seed gives the same pauses on every run, and a test
 that wants no pauses sets the delay to zero. The demo pages never pass a seed,
 so they behave the same as before.
+## 2026-10-21 — The other three streaming routes stop writing after the page has gone (#208)
+
+#204 fixed this for the tool-use demo. The partial-JSON, streaming-text and
+error-recovery demos had the same habit: when you pressed Stop, the server
+kept trying to write to a connection that was already closed and tripped over
+itself three times. You never saw it, because the page had already moved on.
+Now each route notices the page has left and stops writing. Uninterrupted runs
+behave exactly as before. Four code comments still said the page receives a
+final "interrupted" message when you press Stop. It never does: the page shows
+"interrupted" because it recognises its own cancellation. Those comments now say
+so, and a test keeps them from drifting back.
