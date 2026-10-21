@@ -2028,6 +2028,7 @@ mock streamers already kept their pauses when given a seed. Now the text
 streamer matches them: a seed gives the same pauses on every run, and a test
 that wants no pauses sets the delay to zero. The demo pages never pass a seed,
 so they behave the same as before.
+
 ## 2026-10-21 — The other three streaming routes stop writing after the page has gone (#208)
 
 #204 fixed this for the tool-use demo. The partial-JSON, streaming-text and

@@ -2239,6 +2239,9 @@ context_for_next_session:
   - "the accepts-baseDelayMs/jitterMs cases now take one first step and abort it, because collecting the fixture at 60 s per token would hang; checking done:true there would have tied a validation test to #206 (10 spurious reds in the first probe)"
   - "the delay schedule is read by spying globalThis.setTimeout, recording ms and firing at 0 ms; abortableSleep calls the global setTimeout"
 followups: []
+---
+
+---
 session: 2026-10-21T07:37Z
 issue: 208
 branch: session/2026-10-21-0734-issue-208
