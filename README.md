@@ -37,8 +37,10 @@ primitive all the way down.
 - **Tool-use UI with interruption** (#2) — the same SSE envelope with
   additional `tool_use_*` event kinds. The client renders the tool call,
   the streaming JSON arguments, the result, and the resumed reasoning. A
-  visible Interrupt button calls `abort()` on the fetch and produces a
-  clean transcript with a `message_stop: interrupted` terminator.
+  visible Interrupt button calls `abort()` on the fetch; the client
+  classifies its own `AbortError` as `interrupted`, keeping the
+  transcript up to the last frame it received, and the server stops at
+  its next event boundary.
 - **Partial JSON parsing** (#3) — progressive rendering of a structured
   response as the model emits it. A dep-free in-repo state machine (D-008)
   tolerates open strings, open arrays/objects, trailing commas, and

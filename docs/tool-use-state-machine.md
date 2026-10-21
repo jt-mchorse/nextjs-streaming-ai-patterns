@@ -60,11 +60,14 @@ layers:
    every yield boundary; on abort it yields a final
    `message_stop` with `stop_reason: "interrupted"` and returns.
    `sleep()` also honors the signal so the stream doesn't wait out
-   its remaining jitter.
+   its remaining jitter. That terminator never reaches the client.
+   By then the response body is cancelled, and the route drops it
+   rather than enqueueing onto a closed stream (#204).
 
 The result on the client: a *clean transcript* up through the last
 event that arrived before the abort, plus a terminal `interrupted`
-phase indicator. No partial frames, no broken-pipe errors, no
+phase indicator. The phase comes from the client's own `AbortError`
+(step 1), not from a frame. No partial frames, no broken-pipe errors, no
 `Promise rejection` console noise.
 
 ## Why a state machine (and not just `boolean isStreaming`)

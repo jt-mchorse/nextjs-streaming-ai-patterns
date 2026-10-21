@@ -239,6 +239,8 @@ const EXTERNAL_SYMBOLS: ReadonlyArray<string> = [
   "nextUrl", // NextRequest extension, absent on a plain Request (#91, #126)
   "arrayContaining", // vitest/jest asymmetric matcher -- named by D-015 to say
   // which mechanism notices a file *leaving* the derived population (#134)
+  "AbortError", // DOMException name an aborted fetch rejects with -- the source of
+  // the tool-use client's `interrupted` phase, not a frame (#204)
 ] as const;
 
 // Return-object / result field names the doc legitimately references that are
@@ -399,6 +401,11 @@ describe("docs/architecture.md names only symbols that exist (#76 / portfolio-op
       // `repoFiles` / `sourceFiles`, which are repo declarations and are
       // deliberately not listed here.
       "arrayContaining",
+      // Widened in #204, consciously: the doc now says the tool-use client's
+      // `interrupted` phase comes from the `AbortError` its own aborted fetch
+      // rejects with, not from a `message_stop` frame. A DOMException name is
+      // web-platform surface, not a repo declaration.
+      "AbortError",
     ]);
   });
 

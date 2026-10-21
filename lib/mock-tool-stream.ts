@@ -119,9 +119,10 @@ function tokenize(text: string): string[] {
  * The `signal` propagation is the same shape `AbortController` provides
  * to `fetch`: aborting the controller causes the generator to yield a
  * terminal `message_stop` with `stop_reason: "interrupted"` and then
- * return. The HTTP route forwards this to the client so the interrupt
- * button produces a clean transcript instead of a half-written
- * connection error.
+ * return. A direct caller sees that terminator. Over HTTP the client
+ * never does: it aborted its own fetch, so the route's stream is already
+ * cancelled and the route drops the frame. The client's `interrupted`
+ * phase comes from classifying its own `AbortError` (#204).
  */
 export async function* mockToolStream(
   options: MockToolStreamOptions = {},
