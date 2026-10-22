@@ -2052,3 +2052,16 @@ state-machine notes also promised a spinner while a tool runs, but the page has
 never shown one; it shows the phase label and a "running…" button. All three
 now say what the code does, and a new test fails if any of them drifts again.
 The demos behave exactly as before.
+
+## 2026-10-22 — The partial-JSON parser no longer stalls on a long run of spaces (#214)
+
+When a model's half-finished JSON had a long stretch of spaces, line breaks or
+commas in the middle, each parse took far longer than it should. On a stretch of
+40,000 characters a single parse took one to three and a half seconds, and the
+page re-parses the whole buffer on every chunk. The cause was the small pattern
+that strips trailing spaces and commas before the parser closes the open
+brackets. It re-scanned the long stretch from every starting position. A simple
+loop that walks back from the end now does the same job in a few milliseconds,
+with exactly the same results. Tests check that it matches the old pattern on
+tens of thousands of inputs, that it only looks at the trailing characters, and
+that a 100,000-character stretch parses well under a second.
