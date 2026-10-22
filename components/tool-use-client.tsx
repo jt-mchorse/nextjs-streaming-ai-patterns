@@ -25,7 +25,8 @@ import {
  * `docs/tool-use-state-machine.md`). Transitions:
  *
  *   idle             → connecting              (user clicks Run)
- *   connecting       → streaming_text          (first text_delta or tool_use_start)
+ *   connecting       → streaming_text          (first text_delta)
+ *   connecting       → tool_called             (tool_use_start, no text first; #215)
  *   streaming_text   → tool_called             (tool_use_start)
  *   tool_called      → tool_running            (tool_use_stop)
  *   tool_running     → tool_completed          (tool_result)
