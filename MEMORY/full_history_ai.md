@@ -2260,3 +2260,21 @@ context_for_next_session:
   - "did not lift the cancelled/send guard into a shared helper: three frame shapes, and the envelope grep lock pins the template at the call site"
 followups: []
 ---
+
+---
+session: 2026-10-22T07:24Z
+issue: 215
+branch: session/2026-10-22-0724-issue-215
+focus: PROSE_DRIFT_architecture_md_said_seed_skips_mock_jitter_untrue_since_206_plus_tool_use_client_header_connecting_to_streaming_text_on_tool_use_start_plus_state_machine_doc_spinner_never_rendered
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 9
+  suite: "1122 -> 1131 passed (72 files); lint (0 errors, 1 pre-existing warning), typecheck, build clean"
+decisions_made: []
+measured: "main 3d76724, first 10 tokens of mockTextStream: {} 514 ms, {seed:1} 498 ms, {seed:42} 482 ms, so seeding skips nothing. Prose-only revert of the 3 files: 5 of 9 red; green = 4 controls/anti-vacuity (seeded stream with baseDelayMs 15 waits >= 45 ms for 4 tokens, tool_use_start handler sets tool_called, both transition parsers non-empty and include connecting|tool_use_start, tool_running row found)."
+context_for_next_session:
+  - "test/doc-prose-drift-215.test.ts parses the tool-use-client.tsx header `from → to (events)` rows and the state-machine doc `from ──event──▶ to` lines and requires agreement for the non-terminal events only (text_delta, tool_use_start, tool_use_stop, tool_result); header→doc direction only, since the header omits the tool_use_delta self-loop and tool_completed → done"
+  - "the spinner lock is conditional: it fires only while the client source has no animate-spin/spinner, so writing 'No spinner' in the row trips it too"
+followups: []
+---

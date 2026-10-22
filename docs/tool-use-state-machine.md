@@ -13,7 +13,7 @@ and gives reviewers something concrete to push back against.
 | `connecting`     | `fetch('/api/tool-use')` in flight; awaiting first byte.              |
 | `streaming_text` | Receiving `text_delta` events; before-tool-call text.                 |
 | `tool_called`    | `tool_use_start` arrived; the tool's args are streaming in.          |
-| `tool_running`   | `tool_use_stop` arrived; "tool is executing" — UI shows spinner state. |
+| `tool_running`   | `tool_use_stop` arrived; "tool is executing". The UI shows only the `phase:` readout and the Run button's "running…" label (#215). |
 | `tool_completed` | `tool_result` arrived; UI shows the tool result alongside the call.   |
 | `done`           | Terminal. `message_stop` with `stop_reason: "end_turn"`.              |
 | `interrupted`    | Terminal. Either `message_stop` with `stop_reason: "interrupted"`, or the local `AbortController.abort()` resolved the fetch with an `AbortError`. |

@@ -2040,3 +2040,15 @@ behave exactly as before. Four code comments still said the page receives a
 final "interrupted" message when you press Stop. It never does: the page shows
 "interrupted" because it recognises its own cancellation. Those comments now say
 so, and a test keeps them from drifting back.
+
+## 2026-10-22 — Three descriptions brought back in line with the code (#215)
+
+The architecture notes said the mock text stream skips its random pauses when
+it is given a seed. That stopped being true with #206: a seed now makes the
+pauses repeatable without removing them. A comment at the top of the tool-use
+demo said a stream that begins with a tool call goes first to "streaming text".
+The code and the state-machine notes both go straight to "tool called". The
+state-machine notes also promised a spinner while a tool runs, but the page has
+never shown one; it shows the phase label and a "running…" button. All three
+now say what the code does, and a new test fails if any of them drifts again.
+The demos behave exactly as before.

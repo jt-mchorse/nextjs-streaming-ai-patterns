@@ -192,7 +192,9 @@ is the canonical Next 15 streaming endpoint. The Client Component is
 `ANTHROPIC_API_KEY` is set, it calls `Anthropic.messages.stream(...)`
 and yields `text_delta` events. If unset, it yields from
 `lib/mock-stream.ts`'s deterministic fixture with realistic per-token
-jitter (skipped when seeded for tests).
+jitter. A `seed` makes that jitter reproducible; it does not skip the delay
+(#206, #215). Pass `baseDelayMs: 0, jitterMs: 0` for an instant stream, as
+the other two mock streamers do.
 
 The three mock streamers share one delay guard, in `lib/stream-delay.ts`.
 `setTimeout` clamps any delay over `2**31 - 1` to 1 ms, so a deliberately slow
