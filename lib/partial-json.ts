@@ -413,13 +413,41 @@ function frameSnapshot(
   if (!innermost) return null;
 
   let prefix = buffer.slice(0, innermost.lastSafeEnd);
-  prefix = prefix.replace(/[ \t\n\r,]+$/, "");
+  prefix = trimTrailingSeparators(prefix);
   for (let k = trimmed.length - 1; k >= 0; k--) {
     const f = trimmed[k];
     if (!f) continue;
     prefix += f.kind === "array" ? "]" : "}";
   }
   return prefix.length > 0 ? prefix : null;
+}
+
+/**
+ * Drop the trailing run of JSON whitespace and `,` from a repaired prefix, so
+ * the closers `frameSnapshot` appends land right after the last committed value
+ * (`{"a":1, ` -> `{"a":1` -> `{"a":1}`).
+ *
+ * A backward loop, not `/[ \t\n\r,]+$/` (#214). Same output, but the regex is
+ * quadratic on a long run of those characters in the *middle* of the prefix:
+ * the engine starts a match at every position in the run, scans to its end,
+ * and fails because more text follows. A 40k interior run of spaces, newlines,
+ * or commas inside a committed string cost 1.3-3.6 s per parse, and the client
+ * re-parses the whole buffer on every chunk. Walking back from the end visits
+ * only the trailing run plus one character.
+ *
+ * The set is `isJsonWhitespace` plus `,` -- the same four characters #181
+ * narrowed the scanner to, so a non-JSON space (U+00A0, ...) is kept here too.
+ *
+ * Exposed for tests so the equivalence with the old regex can be pinned directly.
+ */
+export function trimTrailingSeparators(s: string): string {
+  let end = s.length;
+  while (end > 0) {
+    const c = s[end - 1];
+    if (c !== "," && !isJsonWhitespace(c)) break;
+    end -= 1;
+  }
+  return end === s.length ? s : s.slice(0, end);
 }
 
 /**

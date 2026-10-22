@@ -2278,3 +2278,22 @@ context_for_next_session:
   - "the spinner lock is conditional: it fires only while the client source has no animate-spin/spinner, so writing 'No spinner' in the row trips it too"
 followups: []
 ---
+
+---
+session: 2026-10-22T07:24Z
+issue: 214
+branch: session/2026-10-22-0724-issue-214
+focus: PARTIAL_JSON_FRAMESNAPSHOT_TRAILING_TRIM_REGEX_WAS_QUADRATIC_ON_A_LONG_INTERIOR_RUN_OF_SPACES_NEWLINES_COMMAS_replaced_with_a_backward_loop
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 29
+  suite: "1122 -> 1151 passed (72 files); lint (0 errors, 1 pre-existing warning), typecheck, build clean"
+decisions_made: []
+measured: "main 3d76724, npx tsx, 40k interior run: spaces 1310 ms, newlines 2274 ms, commas inside a committed string 3574 ms, complete doc 0 ms. After: 3 / 2 / 1 / 0 ms, same values. Source-only revert 28 of 29 red (25 by the missing export, 3 linear-time guards at 7863/7796/9433 ms on a 100k run); green = 1 control (complete doc fast path). Wrong fix (exported helper whose body is still the regex): 4 red (visit-count guard + 3 linear-time guards), 24 equivalence + control green as expected."
+context_for_next_session:
+  - "lib/partial-json.ts now exports trimTrailingSeparators (exposed for tests, same precedent as mock-json-stream.ts); its set is isJsonWhitespace + ',' so #181's narrow whitespace still holds"
+  - "the visit-count guard wraps a String object in a Proxy and counts numeric-key reads; its lower bound is the anti-vacuity arm (a regex body reads 0 characters)"
+  - "stripTrailingCommas' forward look-ahead past whitespace was read and is linear (each comma scans only to the next non-whitespace character); not part of #214"
+followups: []
+---
