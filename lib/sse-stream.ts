@@ -148,6 +148,10 @@ export function parseSseFrame(frame: string): SseFrame {
  * never matches, the loop falls out on `done`, and the component lands on its
  * normal completion path with an empty pane.
  *
+ * (`error-recovery-client` has since moved onto `pumpSseFramesToTerminal`, which
+ * can express both of its needs: a rejected read propagates to its `catch`, and
+ * its handler ends the run by returning `true` (#220).)
+ *
  * Splitting the framer out — rather than copying the normalization into the two
  * components a third and fourth time — is what makes a fifth client impossible
  * to get wrong. `test/sse-framing-parity.test.ts` locks that no file under
@@ -229,7 +233,7 @@ export function createSseFramer(): SseFramer {
  *
  * A thin read loop over `createSseFramer`, which owns every wire-format rule.
  * Use this when your read loop has nothing to say; use the framer directly when
- * it does (see `error-recovery-client`, which classifies each read's failure).
+ * it does (see `streaming-text-client`, which checks a flag between reads).
  */
 export async function pumpSseFrames(
   reader: ReadableStreamDefaultReader<Uint8Array>,
@@ -344,7 +348,9 @@ export const STREAM_TEXT_ENDED_WITHOUT_DONE =
  * undici's "terminated" when the socket closes mid-body -- still rejected into
  * the caller's catch and overwrote `done` with `error`: a finished answer under
  * a red error. The pump now returns on the terminal frame and cancels the
- * reader, which is what `error-recovery-client` already did on `done`.
+ * reader. This used to say that was what `error-recovery-client` already did on
+ * `done`; it only stopped reading, and never cancelled, so its body stayed open
+ * until the server closed it. It now reads through this pump (#220).
  *
  * Rejections before the terminal frame propagate unchanged, so an abort still lands on `interrupted`
  * through the caller's `isAbortError` classification (#60). Not #97: that is

@@ -203,11 +203,24 @@ describe("streaming clients that pump SSE", () => {
     /pumpSseFrames/.test(stripComments(readFileSync(resolve(ROOT, p), "utf8"))),
   );
 
-  it("are exactly the two this issue is about (non-zero control)", () => {
+  // `error-recovery-client` joined in #220. Its non-terminal end is a resume,
+  // not an error, so the two `it.each` below stay scoped to the typed clients;
+  // its own shape is pinned after them.
+  it("are the two this issue is about, plus error-recovery (non-zero control)", () => {
     expect(pumping.map((p) => relative(ROOT, resolve(ROOT, p))).sort()).toEqual([
+      "components/error-recovery-client.tsx",
       "components/partial-json-client.tsx",
       "components/tool-use-client.tsx",
     ]);
+  });
+
+  it("error-recovery uses the terminal pump, never the raw one (#220)", () => {
+    // The raw pump never stops early, so it would never cancel on `done`.
+    const src = stripComments(
+      readFileSync(resolve(ROOT, "components/error-recovery-client.tsx"), "utf8"),
+    );
+    expect(src).not.toMatch(/\bpumpSseFrames\s*\(/);
+    expect(src).toMatch(/await\s+pumpSseFramesToTerminal\(reader,\s*handleFrame\)/);
   });
 
   it.each(["components/partial-json-client.tsx", "components/tool-use-client.tsx"])(

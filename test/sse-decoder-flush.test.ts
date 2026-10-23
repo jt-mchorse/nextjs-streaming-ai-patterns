@@ -230,9 +230,9 @@ describe("every SSE read path flushes its decoder", () => {
     }
     // Anti-vacuous, and specific: a scan that matched nothing would satisfy the
     // assertion below while checking nothing, and the whole point of #115 is
-    // that there are exactly three of these and one is easy to forget.
+    // that there were exactly three of these and one is easy to forget. Two
+    // since `error-recovery-client` moved onto the shared pump (#220).
     expect(streaming.sort()).toEqual([
-      "components/error-recovery-client.tsx",
       "components/streaming-text-client.tsx",
       "lib/sse-stream.ts",
     ]);

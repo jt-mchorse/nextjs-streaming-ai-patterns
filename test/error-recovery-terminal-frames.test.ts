@@ -178,7 +178,9 @@ describe("error-recovery terminal frames with unreadable data (#193)", () => {
 });
 
 // The one client of four that already stopped reading on `done` (#196): the
-// other three were brought to its shape. Controls, so it stays there.
+// other three were brought to its shape. Controls, so it stays there. It did
+// not cancel its reader, though; `error-recovery-cancel-on-terminal.test.ts`
+// pins that (#220).
 describe("error-recovery after done (#196)", () => {
   it.each(["close", "reject"] as const)("done then %s is done, with no resume", async (end) => {
     const r = await drive([HELLO, DONE], end);
