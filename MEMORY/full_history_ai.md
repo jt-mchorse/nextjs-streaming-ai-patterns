@@ -2297,3 +2297,21 @@ context_for_next_session:
   - "stripTrailingCommas' forward look-ahead past whitespace was read and is linear (each comma scans only to the next non-whitespace character); not part of #214"
 followups: []
 ---
+
+---
+session: 2026-10-23T07:26Z
+issue: 218
+branch: session/2026-10-23-0730-issue-218
+focus: STREAMING_TEXT_CLIENT_RENDERED_ERROR_OR_TEXT_NEVER_BOTH_so_an_error_after_tokens_replaced_the_streamed_words_with_a_message_saying_the_text_above_may_be_incomplete
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 6
+  suite: "1160 -> 1166 passed (74 files, also on Node 20.9); lint (0 errors, 1 pre-existing warning), typecheck, build clean"
+decisions_made: []
+measured: "main 8896820, real component rendered via renderToStaticMarkup: frames then EOF and frames then event: error both rendered only `stream error: ...`, no streamed words. Source-only revert: 2 of 6 red (EOF, error frame); green = 3 controls (error before any frame, empty body, finished answer) + the no-cursor check, which is the 1 red against the neighbouring wrong fix (keep text, old cursor condition)."
+context_for_next_session:
+  - "test/streaming-text-error-keeps-text.test.ts is the repo's first rendered-markup test: pass 1 runs the effect with a store-backed useState mock, pass 2 calls the component with effects off and renders it with the real React stubbed as the global the JSX transform calls"
+  - "the error check keeps the old truthiness (`Boolean(errorMessage)`), so an empty error message still falls through to the text branch as before"
+followups: []
+---

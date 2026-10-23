@@ -2065,3 +2065,14 @@ loop that walks back from the end now does the same job in a few milliseconds,
 with exactly the same results. Tests check that it matches the old pattern on
 tens of thousands of inputs, that it only looks at the trailing characters, and
 that a 100,000-character stretch parses well under a second.
+
+## 2026-10-23 — A stream error no longer wipes the text that already arrived (#218)
+
+When the streaming-text demo hit an error after some words had already streamed
+in, those words vanished and only the error line was left. That happened when
+the connection was cut, or when a live answer stopped at its token limit. The
+error for a cut stream even says "the text above may be incomplete", but no text
+was left above it. The page now keeps the streamed words and shows the error
+underneath them. When the error comes before any words arrive, it shows just the
+error, as before. A new test renders the component and checks both cases, plus a
+normal finished answer.
