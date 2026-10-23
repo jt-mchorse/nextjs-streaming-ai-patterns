@@ -270,7 +270,7 @@ export function ToolUseClient() {
           onClick={interrupt}
           disabled={!isStreaming}
           data-testid="interrupt-button"
-          className="rounded-md border border-[var(--border)] px-3 py-1.5 text-sm font-medium text-[var(--fg)] disabled:opacity-50"
+          className="rounded-md border border-[var(--border)] px-3 py-1.5 text-sm font-medium text-[var(--foreground)] disabled:opacity-50"
         >
           Interrupt
         </button>

@@ -2315,3 +2315,22 @@ context_for_next_session:
   - "the error check keeps the old truthiness (`Boolean(errorMessage)`), so an empty error message still falls through to the text branch as before"
 followups: []
 ---
+
+---
+session: 2026-10-23T07:26Z
+issue: 219
+branch: session/2026-10-23-0730-issue-219
+focus: TOOL_USE_CLIENT_USED_FIVE_CSS_CUSTOM_PROPERTIES_GLOBALS_CSS_NEVER_DEFINED_err_err_bg_card_accent_bg_fg_so_the_error_banner_rendered_body_white_on_black
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 5
+  suite: "1160 -> 1165 passed (74 files); lint (0 errors, 1 pre-existing warning), typecheck, build clean"
+decisions_made: []
+measured: "main 8896820, Chromium via Playwright on next dev :3320, /api/tool-use intercepted with text_delta, tool_use_start, event: error. error-banner before: color rgb(237,237,237), bg rgba(0,0,0,0), border rgb(237,237,237) = body colour, all five getPropertyValue ''. After: color rgb(248,113,113), bg rgba(239,68,68,0.1), border rgb(248,113,113). Source-only revert (globals.css + tool-use-client.tsx): 2 of 5 red (lock reporting exactly --accent-bg --card --err --err-bg --fg; --err-is-red); green = 3 controls (scan reaches tool-use-client.tsx, parser sees the 6 base tokens, planted undefined token reported). Component-only revert: 1 red (--fg)."
+context_for_next_session:
+  - "--fg was fixed at the use site (-> --foreground) rather than defined as an alias; --card aliases --panel, --err is red-400 #f87171, --err-bg is red-500 at 10%, --accent-bg is --accent at 8%"
+  - "test/css-custom-properties-defined.test.ts walks readSourceFiles() (comments stripped) plus app/globals.css; a var(--x, fallback) still counts as a use"
+  - "no Playwright spec suite exists or runs in CI; the computed-colour check was a one-off and is not committed"
+followups: []
+---

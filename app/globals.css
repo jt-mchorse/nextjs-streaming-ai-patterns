@@ -7,6 +7,14 @@
   --muted: #71717a;
   --panel: #18181b;
   --border: #27272a;
+  /* Tokens the tool-use client (#219) styles with. They were used but
+     never defined, so the error banner computed to body white-on-black
+     and read as just another text card. Red matches the text-red-400 the
+     other clients render errors in; the tints sit on --background. */
+  --err: #f87171;
+  --err-bg: rgba(239, 68, 68, 0.1);
+  --card: var(--panel);
+  --accent-bg: rgba(56, 189, 248, 0.08);
 }
 
 html,
