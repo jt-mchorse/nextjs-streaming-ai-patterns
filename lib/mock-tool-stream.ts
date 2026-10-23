@@ -19,7 +19,7 @@
  * client component honest.
  */
 
-import { abortableSleep as sleep, validateDelayOptions } from "@/lib/stream-delay";
+import { abortableSleep as sleep, validateDelayOptions, validateSeed } from "@/lib/stream-delay";
 
 export type ToolStreamEvent =
   | { type: "text_delta"; text: string }
@@ -84,6 +84,9 @@ function validateOptions(options: MockToolStreamOptions): void {
     baseDefault: DEFAULT_BASE_DELAY_MS,
     jitterDefault: DEFAULT_JITTER_MS,
   });
+  // `seed` is checked here too, so a seed that `>>> 0` would alias onto
+  // another seed's schedule throws like a bad delay does (#221).
+  validateSeed(options.seed, "MockToolStreamOptions");
 }
 
 function makePrng(seed: number): () => number {

@@ -5,7 +5,7 @@
 // streaming-render pattern a realistic input shape (per-token chunks with
 // natural-feeling jitter) so the UI under test is exercised end-to-end.
 
-import { abortableSleep as sleep, validateDelayOptions } from "@/lib/stream-delay";
+import { abortableSleep as sleep, validateDelayOptions, validateSeed } from "@/lib/stream-delay";
 
 export interface MockStreamOptions {
   /** Per-token delay in ms. Default 30. */
@@ -72,6 +72,9 @@ function validateOptions(options: MockStreamOptions): void {
     baseDefault: DEFAULT_BASE_DELAY_MS,
     jitterDefault: DEFAULT_JITTER_MS,
   });
+  // `seed` is checked here too, so a seed that `>>> 0` would alias onto
+  // another seed's schedule throws like a bad delay does (#221).
+  validateSeed(options.seed, "MockStreamOptions");
 }
 
 function makePrng(seed: number): () => number {
