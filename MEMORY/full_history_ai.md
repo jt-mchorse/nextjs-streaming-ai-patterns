@@ -2334,3 +2334,22 @@ context_for_next_session:
   - "no Playwright spec suite exists or runs in CI; the computed-colour check was a one-off and is not committed"
 followups: []
 ---
+
+---
+session: 2026-10-23T07:26Z
+issue: 220
+branch: session/2026-10-23-0730-issue-220
+focus: ERROR_RECOVERY_CLIENT_NEVER_CANCELLED_ITS_READER_ON_DONE_OR_ERROR_though_sse_stream_ts_and_196_cited_it_as_the_exemplar_moved_onto_pumpSseFramesToTerminal
+phase: shipped
+delta:
+  files_changed: 7
+  tests_added: 7
+  suite: "1159 -> 1166 passed (74 files); lint (0 errors, 1 pre-existing warning), typecheck, build clean"
+decisions_made: []
+measured: "main 8896820, ErrorRecoveryClient with mocked hooks against a body that sends frames then holds open: text+done -> body cancel 0 times; text+done in one chunk -> 0; text+error then held-open resume -> 0, 0. After: 1 / 1 / 1, 1. Source-only revert of components/error-recovery-client.tsx: 5 red (3 behavioural + 2 sse-stream-terminal population/shape locks), 35 green incl. 3 new controls (done then close, EOF without terminal resumes as 'connection closed mid-stream', rejecting read resumes as 'connection error: terminated') and all 15 error-recovery-terminal-frames tests."
+context_for_next_session:
+  - "error-recovery-client now reads through pumpSseFramesToTerminal; handleFrames(frames[]) became handleFrame(frame). The pump's two ways to fail map onto the client's two drop reasons: a read that rejects -> catch -> 'connection error: ...'; resolves false -> 'connection closed mid-stream'. Both reconnect."
+  - "the catch now also wraps the frame handler, so a throw from it would reconnect instead of escaping unhandled; since #193 the handler has no throwing path"
+  - "population locks changed: sse-decoder-flush and sse-framing-parity now list only streaming-text-client + lib/sse-stream.ts as framer/decoder owners; sse-stream-terminal's pump-user list adds error-recovery-client plus a lock that it never calls the raw pumpSseFrames. Sibling PRs for #218 (streaming-text-client) may touch the same locks; expect a rebase conflict there"
+followups: []
+---

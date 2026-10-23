@@ -2089,3 +2089,18 @@ already use for errors, and the button that asked for "fg" now uses the text
 colour the stylesheet already had. In a real browser the banner now shows red
 text on a faint red background. A new test fails if any page or component uses
 a colour name the stylesheet does not define.
+
+## 2026-10-23 — The error-recovery demo now lets go of the connection when the stream ends (#220)
+
+The other demos had been brought in line with the error-recovery demo on the
+grounds that it already released its connection once the server said "done".
+It did not. It stopped reading at that point, but it never told the browser
+it was finished with the response, so the connection stayed open until the
+server closed it. The shipped server closes straight away, so visitors never
+noticed. A server that kept the connection open would have kept it open for as
+long as the page stayed up. The demo now reads through the same shared helper
+the other demos use, and that helper releases the connection on "done" and on
+an error that triggers a reconnect. Reconnecting after a dropped connection or
+a stream that ends early works exactly as before. The comments that called this
+demo the example to follow now say what it actually did, and new tests check
+the connection is released.
