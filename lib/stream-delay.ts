@@ -100,6 +100,35 @@ export function validateDelayOptions(options: DelayOptions, defaults: DelayDefau
   }
 }
 
+/** Largest `seed` the PRNG can tell apart: it reads the seed as `seed >>> 0`. */
+export const MAX_SEED = 2 ** 32 - 1;
+
+/**
+ * Validate a mock streamer's `seed`, the one numeric option the delay guard
+ * above never covered (#221).
+ *
+ * Each streamer's Mulberry32 PRNG starts from `seed >>> 0`, which coerces
+ * rather than refusing: `NaN`, `Infinity` and `2**32` all become `0`, `1.9`
+ * becomes `1`, and `-1` becomes `4294967295`. A seed is documented to pick the
+ * schedule, so distinct seeds silently sharing one is the same silent-coercion
+ * hazard `baseDelayMs`/`jitterMs` already throw on (#26, #102). Measured on
+ * `mockTextStream({ baseDelayMs: 0, jitterMs: 1000 })`: seeds 0, `NaN`, `2**32`
+ * and `Infinity` all scheduled `266,223,146,467`.
+ *
+ * So `seed` must be an integer in `[0, 2**32 - 1]`, the exact domain on which
+ * `>>> 0` is the identity. An omitted seed means "use `Math.random`" and stays
+ * legal.
+ */
+export function validateSeed(seed: number | undefined, label: string): void {
+  if (seed === undefined) return;
+  if (!Number.isInteger(seed) || seed < 0 || seed > MAX_SEED) {
+    throw new RangeError(
+      `${label}.seed must be an integer in [0, ${MAX_SEED}] (2**32 - 1); the PRNG reads it as ` +
+        `seed >>> 0, so any other value silently aliases another seed's schedule; got ${seed}`,
+    );
+  }
+}
+
 /**
  * `setTimeout`-based sleep that resolves early when `signal` aborts.
  *
