@@ -2076,3 +2076,16 @@ was left above it. The page now keeps the streamed words and shows the error
 underneath them. When the error comes before any words arrive, it shows just the
 error, as before. A new test renders the component and checks both cases, plus a
 normal finished answer.
+
+## 2026-10-23 — The tool-use error banner is red again (#219)
+
+When the tool-use demo hit an error, its error banner was supposed to be red, but it
+came out white on black, exactly like an ordinary text card. The page asked for
+five named colours (error red, a faint red background, the card background, a
+faint blue tint for the tool card, and the normal text colour) that the shared
+stylesheet never defined, and the browser quietly ignored all five. The
+stylesheet now defines the four that were missing, using the red the other demos
+already use for errors, and the button that asked for "fg" now uses the text
+colour the stylesheet already had. In a real browser the banner now shows red
+text on a faint red background. A new test fails if any page or component uses
+a colour name the stylesheet does not define.
