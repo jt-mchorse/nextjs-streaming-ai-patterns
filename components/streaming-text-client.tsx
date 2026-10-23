@@ -150,15 +150,23 @@ export function StreamingTextClient({ prompt }: StreamingTextClientProps) {
     }
   }, [prompt]);
 
+  // An error keeps the text that already streamed, with the error line below
+  // it (#218). This used to render one or the other, so a run that ended in
+  // error after tokens -- every live answer cut at `max_tokens` since #167 --
+  // replaced the words the user had watched arrive with a message that says
+  // "the text above may be incomplete". The other SSE clients already keep
+  // their content on error. Nothing streamed: just the error, as before.
+  const failed = status === "error" && Boolean(errorMessage);
   return (
     <div className="rounded-lg border border-[var(--border)] bg-[var(--panel)] p-6 text-base leading-relaxed">
-      {status === "error" && errorMessage ? (
-        <p className="text-red-400">stream error: {errorMessage}</p>
-      ) : (
+      {(!failed || text !== "") && (
         <p className="whitespace-pre-wrap text-[var(--foreground)]">
           {text}
-          {status !== "done" && <span className="token-blink" />}
+          {status !== "done" && !failed && <span className="token-blink" />}
         </p>
+      )}
+      {failed && (
+        <p className={`text-red-400${text !== "" ? " mt-3" : ""}`}>stream error: {errorMessage}</p>
       )}
     </div>
   );
