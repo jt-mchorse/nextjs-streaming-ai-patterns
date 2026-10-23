@@ -6,7 +6,7 @@ import { resumeTokenPosition } from "@/lib/checkpoint-stream";
 import { pluralizeCount } from "@/lib/plural";
 import { phaseOnFirstChunk, type RecoveryPhase } from "@/lib/recovery-phase";
 import { isResumedPillVisible, resumedPillRemainingMs } from "@/lib/resume-pill";
-import { createSseFramer, parseSseFrame, sseJsonObject } from "@/lib/sse-stream";
+import { parseSseFrame, pumpSseFramesToTerminal, sseJsonObject } from "@/lib/sse-stream";
 
 type Phase = RecoveryPhase;
 
@@ -111,113 +111,90 @@ export function ErrorRecoveryClient() {
     let firstChunkSeen = false;
 
     const reader = resp.body.getReader();
-    const decoder = new TextDecoder();
-    // Framing rules come from the shared framer (#106). This loop previously
-    // split on `"\n\n"` itself — the pre-#95 shape — so a CRLF- or CR-framed
-    // body yielded zero frames and fell through to "connection closed
-    // mid-stream", triggering an endless resume cycle against a stream that was
-    // arriving fine. The read loop stays local: it has to classify each
-    // individual `reader.read()` failure as a network drop (reconnect) rather
-    // than an SSE `error` frame, and it returns early from inside frame
-    // handling on `done`/`error`, neither of which `pumpSseFrames` can express.
-    const framer = createSseFramer();
+    // Framing rules come from the shared framer (#106), read through the shared
+    // pump (#220). This client used to run its own loop over the framer, and
+    // `pumpSseFramesToTerminal` was written to the shape that loop was said to
+    // have: stop on the terminal frame and cancel the reader (#196). The loop
+    // only stopped; it never cancelled, so after `done` (or an `error` frame
+    // that triggers a resume) the response body stayed open until the server
+    // closed it. The pump's two ways to fail map onto the two drop reasons the
+    // loop classified: a `reader.read()` that rejects before the terminal frame
+    // propagates (a network drop), and a body that ends without one resolves
+    // `false` (EOF mid-stream). Both reconnect.
 
     /**
-     * Handle a batch of complete frames; `true` means the run is over and the
-     * caller must stop reading.
+     * Handle one complete frame; `true` means the run is over and the pump
+     * must stop reading.
      *
-     * One path for both the frames `push` returns and the frames `flush`
-     * returns (#114). Extracted rather than looping twice, because the
-     * `done`/`error` branches below `return` out of the whole run — a second
-     * bare loop over `flush()` would drop exactly those, which is the bug this
-     * fixes in a new place.
+     * The pump delivers the frames `push` returns and the frames its
+     * end-of-stream flush returns through this one path (#114), so the
+     * `done`/`error` branches below end the run wherever their frame lands.
      */
-    function handleFrames(frames: readonly string[]): boolean {
-      for (const frame of frames) {
-        if (frame.trim().length === 0) continue;
-        const parsed = parseFrame(frame);
-        if (!parsed) continue;
-        if (parsed.event === "done") {
-          setPhase("done");
-          return true;
+    function handleFrame(frame: string): boolean {
+      if (frame.trim().length === 0) return false;
+      const parsed = parseFrame(frame);
+      if (!parsed) return false;
+      if (parsed.event === "done") {
+        setPhase("done");
+        return true;
+      }
+      if (parsed.event === "error") {
+        const data = parsed.data ?? {};
+        setRecoveryReason(
+          typeof data.reason === "string" ? data.reason : "unknown server-side error",
+        );
+        // Resume from the server-reported drop position, not the last
+        // checkpoint. The drop can land past the last checkpoint (checkpoints
+        // fire every CHECKPOINT_EVERY tokens; the drop is independent), and
+        // those in-between tokens are already rendered — resuming from the
+        // checkpoint would replay and duplicate them at the drop seam (#58).
+        lastCheckpoint.current = resumeTokenPosition(
+          lastCheckpoint.current,
+          typeof data.last_token === "number" ? data.last_token : undefined,
+        );
+        scheduleResume();
+        return true;
+      }
+      // Default — text or checkpoint event. `parseFrame` only returns a
+      // non-terminal frame whose data is a JSON object (#193).
+      if (parsed.data === null) return false;
+      const ev = parsed.data as unknown as
+        | { kind: "text"; index: number; text: string }
+        | { kind: "checkpoint"; last_token: number };
+      if (ev.kind === "text") {
+        if (!firstChunkSeen) {
+          firstChunkSeen = true;
+          // Functional updater so this reads the *live* phase, not `run`'s
+          // stale render-0 closure (always "idle"). On a resume the live
+          // phase is "recovering" and advances to "streaming" (#64).
+          setPhase(phaseOnFirstChunk);
         }
-        if (parsed.event === "error") {
-          const data = parsed.data ?? {};
-          setRecoveryReason(
-            typeof data.reason === "string" ? data.reason : "unknown server-side error",
-          );
-          // Resume from the server-reported drop position, not the last
-          // checkpoint. The drop can land past the last checkpoint (checkpoints
-          // fire every CHECKPOINT_EVERY tokens; the drop is independent), and
-          // those in-between tokens are already rendered — resuming from the
-          // checkpoint would replay and duplicate them at the drop seam (#58).
-          lastCheckpoint.current = resumeTokenPosition(
-            lastCheckpoint.current,
-            typeof data.last_token === "number" ? data.last_token : undefined,
-          );
-          scheduleResume();
-          return true;
-        }
-        // Default — text or checkpoint event. `parseFrame` only returns a
-        // non-terminal frame whose data is a JSON object (#193).
-        if (parsed.data === null) continue;
-        const ev = parsed.data as unknown as
-          | { kind: "text"; index: number; text: string }
-          | { kind: "checkpoint"; last_token: number };
-        if (ev.kind === "text") {
-          if (!firstChunkSeen) {
-            firstChunkSeen = true;
-            // Functional updater so this reads the *live* phase, not `run`'s
-            // stale render-0 closure (always "idle"). On a resume the live
-            // phase is "recovering" and advances to "streaming" (#64).
-            setPhase(phaseOnFirstChunk);
-          }
-          lastRendered.current = ev.index;
-          setText((t) => t + ev.text);
-        } else if (ev.kind === "checkpoint") {
-          lastCheckpoint.current = ev.last_token;
-        }
+        lastRendered.current = ev.index;
+        setText((t) => t + ev.text);
+      } else if (ev.kind === "checkpoint") {
+        lastCheckpoint.current = ev.last_token;
       }
       return false;
     }
 
-    while (true) {
-      let read;
-      try {
-        read = await reader.read();
-      } catch (err) {
-        if (aborted.current) return;
-        // Network drop without an SSE error frame — reconnect.
-        setRecoveryReason(
-          `connection error: ${err instanceof Error ? err.message : String(err)}`,
-        );
-        scheduleResume();
-        return;
-      }
-      if (read.done) {
-        // Flush BEFORE concluding the stream ended badly (#114). Since #187
-        // the framer ends a line at a trailing `\r` as soon as it sees it, so
-        // `push` has already returned every frame the body completed —
-        // including a CR-framed body's last frame, the `done` event — and
-        // `flush()` emits nothing (#198). Before #187 the framer held that
-        // `\r` back and only `flush()` released the `done` frame; without
-        // this call a stream that completed correctly fell through to the
-        // branch below and resumed forever (the #95/#106 symptom). The calls
-        // stay because they are the framer contract's end-of-stream steps and
-        // cost nothing: the decoder flush (before the framer, #115, D-013 —
-        // see `pumpSseFrames`) only releases bytes from a body that ended
-        // mid-codepoint, i.e. an unterminated tail the framer drops.
-        if (handleFrames(framer.push(decoder.decode()))) return;
-        if (handleFrames(framer.flush())) return;
-        // Stream ended without `done` or `error` event — treat as
-        // unexpected EOF and reconnect.
-        setRecoveryReason("connection closed mid-stream");
-        scheduleResume();
-        return;
-      }
-      if (handleFrames(framer.push(decoder.decode(read.value, { stream: true }))))
-        return;
+    let terminal: boolean;
+    try {
+      terminal = await pumpSseFramesToTerminal(reader, handleFrame);
+    } catch (err) {
+      if (aborted.current) return;
+      // Network drop without an SSE error frame — reconnect.
+      setRecoveryReason(
+        `connection error: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      scheduleResume();
+      return;
     }
+    if (terminal) return;
+    // Stream ended without `done` or `error` event — treat as unexpected EOF
+    // and reconnect. The pump has already flushed the decoder and the framer
+    // (#114, #115, #198), so a terminal frame the body completed was delivered.
+    setRecoveryReason("connection closed mid-stream");
+    scheduleResume();
   }
 
   function scheduleResume(): void {

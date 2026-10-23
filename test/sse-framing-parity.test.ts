@@ -328,9 +328,9 @@ describe("SSE framing parity", () => {
     // flushing is a real offender and should be reported here too. The result
     // is the same three paths `sse-decoder-flush.test.ts` names, which is what
     // one shared population buys — the two locks can no longer disagree about
-    // which files exist.
+    // which files exist. Two paths since `error-recovery-client` moved onto
+    // the shared pump and stopped building a framer of its own (#220).
     expect(creators).toEqual([
-      "components/error-recovery-client.tsx",
       "components/streaming-text-client.tsx",
       "lib/sse-stream.ts",
     ]);
