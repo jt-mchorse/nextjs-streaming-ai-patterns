@@ -2353,3 +2353,21 @@ context_for_next_session:
   - "population locks changed: sse-decoder-flush and sse-framing-parity now list only streaming-text-client + lib/sse-stream.ts as framer/decoder owners; sse-stream-terminal's pump-user list adds error-recovery-client plus a lock that it never calls the raw pumpSseFrames. Sibling PRs for #218 (streaming-text-client) may touch the same locks; expect a rebase conflict there"
 followups: []
 ---
+
+---
+session: 2026-10-23T07:47Z
+issue: 221
+branch: session/2026-10-23-0750-issue-221
+focus: MOCK_STREAMERS_NEVER_VALIDATED_SEED_so_seed_>>>_0_aliased_NaN_Infinity_2**32_onto_0_1.9_onto_1_and_-1_onto_4294967295
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 33
+  suite: "1177 -> 1210 passed (77 files); lint (0 errors, 1 pre-existing warning), typecheck, build clean"
+decisions_made: []
+measured: "main afb59fe, Node 20.9, setTimeout spy on mockTextStream({baseDelayMs:0, jitterMs:1000, seed}): seeds 0/NaN/2**32/Infinity -> 266,223,146,467; 1/1.9 -> 627,2,527,981,968; -1/4294967295 -> 896,189,715,944,845. After: the aliasing seeds throw RangeError '<Label>.seed must be an integer in [0, 4294967295]'. Source-only revert of lib/stream-delay.ts + the three mock streamers: 18 red (6 bad seeds x 3 streamers), 15 green controls (omitted seed, 0, 1, 4294967295 accepted; those three give pairwise-distinct schedules; x 3)."
+context_for_next_session:
+  - "validateSeed(seed, label) + MAX_SEED live in lib/stream-delay.ts beside validateDelayOptions, not inside it: validateDelayOptions is typed DelayOptions and the stream-delay-defaults structural lock is shaped around it. Each streamer's validateOptions calls both."
+  - "makePrng is still duplicated three times (mock-stream, mock-json-stream, mock-tool-stream); merging it was deferred as an unrelated refactor"
+followups: []
+---

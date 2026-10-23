@@ -2104,3 +2104,17 @@ an error that triggers a reconnect. Reconnecting after a dropped connection or
 a stream that ends early works exactly as before. The comments that called this
 demo the example to follow now say what it actually did, and new tests check
 the connection is released.
+
+## 2026-10-23 — Different seeds no longer quietly give the same stream timing (#221)
+
+The three mock streamers accept a seed so a test can get the same token timing
+every run. The seed was never checked. The timing generator quietly converts it
+to a whole number between 0 and about 4.3 billion, so values outside that range
+landed on a value inside it. "Not a number", infinity and 2 to the 32nd all
+produced the same timing as seed 0, 1.9 matched 1, and -1 matched the largest
+seed. The delay settings already refuse bad values with a clear error. The seed
+now does the same: it has to be a whole number from 0 to 4,294,967,295, and
+anything else gets an error that names the option. Only tests pass a seed, so
+the demos behave exactly as before. New tests check that all three streamers
+reject the bad seeds and that the edge values still work and still give
+different timings.
