@@ -39,6 +39,10 @@ export function StreamingTextClient({ prompt }: StreamingTextClientProps) {
     // The route always ends with `event: done`; a body that ends without it was
     // cut short (#142).
     let sawDone = false;
+    // An `event: error` frame's message. Recorded rather than thrown from the
+    // frame handler, so the loop ends the same way it does on `done` and
+    // cancels the reader; thrown after the loop (#226).
+    let errorFrame: string | null = null;
 
     (async () => {
       setStatus("streaming");
@@ -75,6 +79,11 @@ export function StreamingTextClient({ prompt }: StreamingTextClientProps) {
         // "terminated" -- reached the catch below. Each turned a finished
         // answer into a different one or into an error. `error-recovery-client`
         // already returned on `done`; #191 did the same for the pump clients.
+        //
+        // `event: error` is terminal too, and ends the loop the same way. It
+        // used to throw out of `handleFrame`, which jumped past the cancel
+        // below, so the connection stayed open until the server closed it
+        // (#226, the shape #220 fixed in `error-recovery-client`).
         while (true) {
           const { value, done } = await reader.read();
           if (done) break;
@@ -93,9 +102,10 @@ export function StreamingTextClient({ prompt }: StreamingTextClientProps) {
         // `test/sse-framing-parity.test.ts` is what keeps the third one from
         // being forgotten, which is the shape #114 was. Skipped once `done`
         // was seen: nothing after it counts (#196).
-        if (!sawDone && !handleFrames(framer.push(decoder.decode()))) {
+        if (!sawDone && errorFrame === null && !handleFrames(framer.push(decoder.decode()))) {
           handleFrames(framer.flush());
         }
+        if (errorFrame !== null) throw new Error(errorFrame);
         // A proxy timeout, a server crash mid-stream or an empty 200 body all
         // end the read cleanly. This used to set `done` regardless, so a cut
         // stream rendered as a finished answer -- the cursor gone, no error
@@ -115,12 +125,12 @@ export function StreamingTextClient({ prompt }: StreamingTextClientProps) {
       controller.abort();
     };
 
-    /** Handle frames in order; `true` once `event: done` is seen, after
-     *  which the rest are not handled (#196). */
+    /** Handle frames in order; `true` once `event: done` or `event: error`
+     *  is seen, after which the rest are not handled (#196, #226). */
     function handleFrames(frames: readonly string[]): boolean {
       for (const frame of frames) {
         handleFrame(frame);
-        if (sawDone) return true;
+        if (sawDone || errorFrame !== null) return true;
       }
       return false;
     }
@@ -136,7 +146,8 @@ export function StreamingTextClient({ prompt }: StreamingTextClientProps) {
         return;
       }
       if (eventName === "error") {
-        throw new Error(errorFrameMessage(data));
+        errorFrame = errorFrameMessage(data);
+        return;
       }
       if (!data) return;
       try {
