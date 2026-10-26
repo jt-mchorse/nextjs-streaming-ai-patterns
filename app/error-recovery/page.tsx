@@ -4,12 +4,14 @@ import { SourcePane } from "@/components/source-pane";
 export const dynamic = "force-dynamic";
 
 /**
- * /error-recovery — mid-stream drop + automatic resume from the last
- * server-side checkpoint. The route handler is deterministic: every
- * first request drops at a fixed token; every resume request streams
- * to completion. The client component records the most-recent
- * checkpoint, reconnects with it in the query string, and renders a
- * "resumed at token N" pill for ~2.5 s so the recovery is observable.
+ * /error-recovery — mid-stream drop + automatic resume from the drop
+ * position. The route handler is deterministic: every first request
+ * drops at a fixed token; every resume request streams to completion.
+ * The client component resumes from the furthest position it knows was
+ * delivered: the drop's `last_token` if the error frame carries one,
+ * else the last checkpoint or rendered token (#58, #80). It passes that
+ * position in the query string and renders a "resumed at token N" pill
+ * for ~2.5 s so the recovery is observable.
  */
 export default function ErrorRecoveryPage() {
   return (
@@ -23,9 +25,12 @@ export default function ErrorRecoveryPage() {
           <em>always</em> drops the first request and <em>always</em> completes
           the resume is easy to demo. The protocol underneath is the
           interesting part: the server emits a checkpoint every five
-          tokens carrying the most-recent token index, the client
-          records it, and on disconnect the client reconnects with{" "}
-          <code>?checkpoint=N</code>. The accumulating text never
+          tokens carrying the most-recent token index, and the drop
+          reports the token it stopped at. On disconnect the client
+          reconnects with <code>?checkpoint=N</code>, where N is the
+          furthest token it knows was delivered: the drop position if
+          the server reported one, else the latest checkpoint or rendered
+          token. The accumulating text never
           resets — chunks before the drop stay rendered, new chunks
           append in place, a small &ldquo;resumed&rdquo; pill blinks.
         </p>

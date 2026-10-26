@@ -2389,3 +2389,22 @@ context_for_next_session:
   - "the client still runs its own read loop (cancelled check between reads); not moved onto pumpSseFramesToTerminal, so the framer/decoder population locks are unchanged"
 followups: []
 ---
+
+---
+session: 2026-10-26T07:25Z
+issue: 227
+branch: session/2026-10-26-0725-issue-227
+focus: ERROR_RECOVERY_PROSE_SAID_THE_CLIENT_RESUMES_FROM_THE_MOST_RECENT_CHECKPOINT_at_seven_passages_but_since_58_80_it_resumes_from_the_drop_position
+phase: shipped
+delta:
+  files_changed: 8
+  tests_added: 24
+  suite: "1216 -> 1240 passed (79 files); lint (0 errors, 1 pre-existing warning), typecheck, build clean"
+decisions_made: []
+measured: "main 2467d9c, in-process GET /api/error-recovery?checkpoint=0: checkpoints [5, 10], then event: error {reason: 'stream dropped after 12 text tokens (simulated)', last_token: 12}; resumeTokenPosition(10, 12) = 12. Source-only revert of the six prose files: 15 red (7 old-claim + 7 drop-position arms in test/doc-prose-drift-227.test.ts, plus the updated page-copy-rendering intro pin), 29 green (7 anti-vacuity + 3 fact controls, rest of page-copy-rendering)."
+context_for_next_session:
+  - "sites reworded: app/page.tsx card, app/error-recovery/page.tsx docstring AND visible intro <p>, lib/checkpoint-stream.ts header, README #5 bullet, docs/architecture.md #5 bullet, ErrorRecoveryClient docstring. Wording: 'furthest position it knows was delivered: the drop's last_token if the error frame carries one, else the last checkpoint or rendered token'"
+  - "the lock's norm() strips leading [\\s*/] per line rather than a `//`-specific regex: test/strip-comments.test.ts rejects any `.replace(` whose regex contains an escaped double slash outside the two rule-defining files, and the stripComments truncation census counts a `\"//\"` string literal as a truncated line"
+  - "lib/checkpoint-stream.ts FIXTURE (the streamed demo text) still says the client 'reconnects with the index'; left alone because it is demo content and rewording shifts the token stream the drop tests rely on"
+followups: []
+---

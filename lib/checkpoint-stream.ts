@@ -4,8 +4,11 @@
 // The streamer yields one event per call to `next()`. Each event is
 // either a `text` chunk or a `checkpoint` event. Checkpoints arrive
 // every CHECKPOINT_EVERY tokens and carry the index of the *last*
-// emitted text token — so a client that records the most-recent
-// checkpoint knows exactly where to resume after a drop.
+// emitted text token. A checkpoint is a fallback resume point, not the
+// resume point: the drop can land between checkpoints, so the client
+// resumes from the furthest position it knows was delivered -- the
+// drop's `last_token` if the error frame carries one, else the last
+// checkpoint or rendered token. See `resumeTokenPosition` (#58, #80).
 //
 // `dropAfter` is the session injection: when set, the generator
 // throws `CheckpointStreamDropped` once it has emitted that many
