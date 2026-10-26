@@ -107,7 +107,7 @@ describe("page copy renders as written (#165)", () => {
   it("the error-recovery intro reads as a sentence", () => {
     const html = render("/error-recovery");
     expect(html).toContain("a route handler that <em>always</em> drops the first request");
-    expect(html).toContain("reconnects with <code>?checkpoint=N</code>.");
+    expect(html).toContain("reconnects with <code>?checkpoint=N</code>, where N is");
   });
 
   it("the checks see the shapes they exist for", () => {

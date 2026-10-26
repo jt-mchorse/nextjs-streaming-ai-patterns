@@ -16,9 +16,11 @@ interface ResumeEvent {
 }
 
 /**
- * Reads /api/error-recovery as an SSE stream, accumulates `checkpoint`
- * events as the most-recent resume point, and automatically reconnects
- * if the stream closes with an `error` event.
+ * Reads /api/error-recovery as an SSE stream and automatically reconnects
+ * if the stream closes with an `error` event. It resumes from the furthest
+ * position it knows was delivered: the drop's `last_token` if the error
+ * frame carries one, else the last `checkpoint` event or rendered token
+ * (#58, #80). Checkpoints are the fallback, not the resume point.
  *
  * The recovery is visible to the user:
  * - A small "resumed at token N" pill renders for 2.5 s

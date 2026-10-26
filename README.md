@@ -56,10 +56,12 @@ primitive all the way down.
   reproducible by construction, so the UX is testable, not aspirational.
 - **Error recovery mid-stream** (#5) — checkpoint protocol layered over
   SSE. The route handler emits a `kind: "checkpoint"` event every few
-  tokens; the client records the most recent checkpoint; on a deliberate
-  drop the client reconnects with `?checkpoint=N` and accumulating text never
-  resets. Checkpoints are token-position integers (D-011), so the server
-  has no per-session state and the drop point is deterministic.
+  tokens; on a deliberate drop the client reconnects with `?checkpoint=N`,
+  where N is the furthest position it knows was delivered: the drop's
+  `last_token` if the error frame carries one, else the last checkpoint or
+  rendered token (#58, #80). Accumulating text never resets. Checkpoints
+  are token-position integers (D-011), so the server has no per-session
+  state and the drop point is deterministic.
 
 The homepage (`/`) is the index — five cards, one per pattern, each
 linking to its page. The same `PATTERNS` array drives the cards and is

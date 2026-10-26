@@ -272,10 +272,13 @@ distinct mechanism on top of the same SSE envelope (D-005, D-006).
   border-flash animation. The rollback path is reproducible by construction.
 - **`app/error-recovery/`** (#5) — checkpoint protocol layered over
   SSE (`lib/checkpoint-stream.ts`, D-011). The route handler emits a
-  `kind: "checkpoint"` event every few tokens; the client records the
-  most recent checkpoint; on a deliberate drop the client reconnects
-  with `?checkpoint=N` and accumulating text never resets. Checkpoints are
-  token-position integers, so the server keeps no per-session state.
+  `kind: "checkpoint"` event every few tokens; on a deliberate drop the
+  client reconnects with `?checkpoint=N`, where N is the furthest
+  position it knows was delivered: the drop's `last_token` if the error
+  frame carries one, else the last checkpoint or rendered token
+  (`resumeTokenPosition`, #58, #80). Accumulating text never resets.
+  Checkpoints are token-position integers, so the server keeps no
+  per-session state.
 
 A captured Playwright demo tour driving all five pages is in
 `scripts/capture_demo.ts` (D-012); the binary commit is the
