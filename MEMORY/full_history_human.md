@@ -2118,3 +2118,16 @@ anything else gets an error that names the option. Only tests pass a seed, so
 the demos behave exactly as before. New tests check that all three streamers
 reject the bad seeds and that the edge values still work and still give
 different timings.
+
+## 2026-10-26 — The streaming text demo now lets go of the connection when the server reports an error (#226)
+
+The streaming text demo already released its connection once the server said
+"done". When the server sent an error instead, the demo showed the error but
+never told the browser it was finished with the response, so the connection
+stayed open until the server closed it. The cause was that an error stopped the
+reading by jumping straight to the error display, skipping the step that
+releases the connection. Now an error ends the reading the same way "done"
+does, the connection is released, and then the error is shown exactly as
+before. The shipped server closes right after an error, so visitors never
+noticed. New tests check the connection is released for an error, for an error
+arriving together with text, and for an error whose message cannot be read.

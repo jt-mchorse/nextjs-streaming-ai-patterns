@@ -2371,3 +2371,21 @@ context_for_next_session:
   - "makePrng is still duplicated three times (mock-stream, mock-json-stream, mock-tool-stream); merging it was deferred as an unrelated refactor"
 followups: []
 ---
+
+---
+session: 2026-10-26T07:21Z
+issue: 226
+branch: session/2026-10-26-0721-issue-226
+focus: STREAMING_TEXT_CLIENT_THREW_ON_AN_EVENT_ERROR_FRAME_which_skipped_the_reader_cancel_the_done_branch_runs_so_the_body_stayed_open
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 6
+  suite: "1210 -> 1216 passed (78 files); lint (0 errors, 1 pre-existing warning), typecheck, build clean"
+decisions_made: []
+measured: "main ae760ac, StreamingTextClient with mocked hooks against a body that sends frames then holds open: text+done -> done, body cancel 1; text+error -> error, cancel 0; text+error in one chunk -> 0; unreadable error payload -> 0. After: 1 / 1 / 1 with status error and message 'upstream 529' / 'stream error'. Source-only revert of components/streaming-text-client.tsx: 3 red (the three error rows), 3 green controls (done held open, error then close keeps its message, text after error in the same read not rendered)."
+context_for_next_session:
+  - "handleFrame records the error-frame message in `errorFrame` and returns; handleFrames treats sawDone || errorFrame !== null as terminal; the loop cancels the reader and breaks; the post-loop decoder flush is skipped once errorFrame is set, then `throw new Error(errorFrame)` lands in the existing catch"
+  - "the client still runs its own read loop (cancelled check between reads); not moved onto pumpSseFramesToTerminal, so the framer/decoder population locks are unchanged"
+followups: []
+---
