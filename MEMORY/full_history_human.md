@@ -2131,3 +2131,18 @@ does, the connection is released, and then the error is shown exactly as
 before. The shipped server closes right after an error, so visitors never
 noticed. New tests check the connection is released for an error, for an error
 arriving together with text, and for an error whose message cannot be read.
+
+## 2026-10-26 — The error-recovery descriptions now say where the demo really resumes (#227)
+
+The error-recovery demo resumes a dropped stream from the exact point where the
+connection dropped, when the server reports it. Otherwise it resumes from the
+last checkpoint or the last word it showed. That changed some time ago on
+purpose, because restarting from the last checkpoint repeated the few words
+between the checkpoint and the drop. The homepage card, the demo page's intro
+text, the README, the architecture notes and three code comments still said
+the demo "records the most recent checkpoint and reconnects with it". In the
+demo the stream drops at word 12, the last checkpoint is word 10, and the demo
+resumes at 12. Every one of those descriptions now says so. A new test fails if
+any of them goes back to the old claim, and it also checks that the demo
+really does resume past the checkpoint, so the text and the behaviour have to
+agree.
