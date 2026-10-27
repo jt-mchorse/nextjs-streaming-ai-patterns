@@ -2408,3 +2408,23 @@ context_for_next_session:
   - "lib/checkpoint-stream.ts FIXTURE (the streamed demo text) still says the client 'reconnects with the index'; left alone because it is demo content and rewording shifts the token stream the drop tests rely on"
 followups: []
 ---
+
+---
+session: 2026-10-27T07:39Z
+issue: 230
+branch: session/2026-10-27-0739-issue-230
+focus: STREAMCHECKPOINTS_HAD_NO_PER_TOKEN_DELAY_so_error_recovery_sent_its_pre_drop_burst_and_resumed_answer_each_within_a_millisecond
+phase: shipped
+delta:
+  files_changed: 18
+  tests_added: 42
+  suite: "1240 -> 1282 passed (80 files); lint (0 errors, 1 pre-existing warning), typecheck, build clean"
+decisions_made: []
+measured: "main 2da5ddd, in-process reader.read() timing on the route body: ?checkpoint=0 15 reads span 0 ms, ?checkpoint=12 151 reads span 0 ms, tool-use control 45 reads span 2040 ms. After: 548 ms / 5677 ms / 2005 ms. Chromium vs mock next dev :3230, MutationObserver on error-recovery-output: 123 paints, 346 -> 6838 ms (issue saw 2 on main). Source-only revert of lib/{checkpoint-stream,stream-delay,mock-stream,mock-json-stream,mock-tool-stream}.ts + docs/architecture.md: 34 red, 125 green across the 5 touched table/new test files; the 9 green streamCheckpoints-row arms are controls (zero delay instant, omitted/0/1/2**32-1 seeds accepted, ordinary and 2**31-1 delays accepted, empty config accepted, 0 abort listeners with no sleeps)."
+context_for_next_session:
+  - "StreamOptions gained baseDelayMs/jitterMs/seed (default 30/30, label 'StreamOptions'); the sleep runs before each text yield, after the startAfter skip, so skipped resume tokens and checkpoints are not paced; signal is re-checked after the sleep"
+  - "makePrng now lives once in lib/stream-delay.ts (all four streamers import it); test/checkpoint-stream-pacing.test.ts locks that no lib streamer declares its own"
+  - "route tests that want frames not timing use a vi.mock('@/lib/checkpoint-stream') wrapper forcing baseDelayMs/jitterMs 0 (error-recovery-route, -checkpoint-domain, sse-route-cancellation, doc-prose-drift-227); direct callers spread FAST. A new test file that calls GET /api/error-recovery without it takes ~6 s per drop->resume round trip"
+  - "full drop->resume in the browser ends ~6.8 s after navigation; scripts/capture_demo.ts holds /error-recovery for 8 s, so a bigger default delay would need that hold raised"
+followups: []
+---

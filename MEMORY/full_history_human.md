@@ -2146,3 +2146,18 @@ resumes at 12. Every one of those descriptions now says so. A new test fails if
 any of them goes back to the old claim, and it also checks that the demo
 really does resume past the checkpoint, so the text and the behaviour have to
 agree.
+
+## 2026-10-27 — The error-recovery demo now streams word by word (#230)
+
+The error-recovery demo is meant to show half an answer appearing, the
+connection dropping, and the rest of the answer arriving after a resume. In
+practice the first twelve words appeared at once, and after a quarter-second
+pause the whole rest of the answer appeared at once, because the server sent
+each part within about a millisecond. The other demos all wait about 30 to 60
+milliseconds between words, and this one now does the same, using the same
+settings and the same checks. The full drop-and-resume now plays out over
+about seven seconds in the browser, which still fits inside the eight seconds
+the demo-video script spends on that page. The tests that only care about
+what is sent, not when, switch the delay off so the suite stays fast. New
+tests check the delay is there, that it can be set and seeded, and that
+stopping the stream during a pause ends it straight away.
