@@ -12,12 +12,14 @@
  * plausibly why nothing bounded delays from above — if you believe large values
  * are slow, you don't think to cap them.
  *
- * `checkpoint-stream.ts` is deliberately not covered here. Its `validateOptions`
- * guards `startAfter` / `dropAfter`, which are integer indices into an event
- * sequence, not delays, so they never reach `setTimeout`.
+ * `checkpoint-stream.ts` was left out while it had no delay: `startAfter` /
+ * `dropAfter` are integer indices into an event sequence and never reach
+ * `setTimeout`. Since #230 it paces each text event through the same
+ * `baseDelayMs` / `jitterMs` and the same shared guard, so it is a row here.
  */
 import { describe, expect, it } from "vitest";
 
+import { streamCheckpoints } from "@/lib/checkpoint-stream";
 import { mockJsonStream } from "@/lib/mock-json-stream";
 import { mockTextStream } from "@/lib/mock-stream";
 import { mockToolStream } from "@/lib/mock-tool-stream";
@@ -28,6 +30,7 @@ const STREAMS = [
   ["mockTextStream", "MockStreamOptions", (o: object) => mockTextStream(o)],
   ["mockJsonStream", "MockJsonStreamOptions", (o: object) => mockJsonStream(o)],
   ["mockToolStream", "MockToolStreamOptions", (o: object) => mockToolStream(o)],
+  ["streamCheckpoints", "StreamOptions", (o: object) => streamCheckpoints(o)],
 ] as const;
 
 /**

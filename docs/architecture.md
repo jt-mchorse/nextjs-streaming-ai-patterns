@@ -196,7 +196,8 @@ jitter. A `seed` makes that jitter reproducible; it does not skip the delay
 (#206, #215). Pass `baseDelayMs: 0, jitterMs: 0` for an instant stream, as
 the other two mock streamers do.
 
-The three mock streamers share one delay guard, in `lib/stream-delay.ts`.
+The three mock streamers and `streamCheckpoints` share one delay guard, in
+`lib/stream-delay.ts`.
 `setTimeout` clamps any delay over `2**31 - 1` to 1 ms, so a deliberately slow
 stream silently becomes an instantaneous one with only a `TimeoutOverflowWarning`
 on stderr (#102) — and the operand it clamps is `baseDelayMs + floor(rand() *
@@ -206,8 +207,11 @@ defaulted it to a real delay, so the guard checked a smaller number than the one
 that reached the timer and approved exactly the config that overflows (#110).
 Each module now names its defaults once, and passes the same constants to the
 guard and to the generator, so the two cannot disagree by construction.
-`checkpoint-stream.ts` is deliberately not a caller: its options are integer
-indices into an event sequence and never reach `setTimeout`.
+`checkpoint-stream.ts` was not a caller until #230, because it had no delay at
+all, so `/api/error-recovery` sent its pre-drop burst and its resumed answer
+each within about a millisecond. It now paces each text event with the same
+`baseDelayMs` / `jitterMs` / `seed` (default 30 / 30), the same guard, and the
+same seeded PRNG.
 
 Both branches yield the same `{ text: string }` shape, so the route
 handler never branches on mode. Each pattern page's header surfaces

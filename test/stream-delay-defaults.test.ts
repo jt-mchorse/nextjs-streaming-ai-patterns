@@ -37,6 +37,7 @@ import { readFileSync } from "node:fs";
 import { sourceFiles, stripComments } from "./support/source-files";
 import { join } from "node:path";
 
+import { streamCheckpoints } from "@/lib/checkpoint-stream";
 import { mockJsonStream } from "@/lib/mock-json-stream";
 import { mockTextStream } from "@/lib/mock-stream";
 import { mockToolStream } from "@/lib/mock-tool-stream";
@@ -52,6 +53,7 @@ const STREAMS = [
   ["mockTextStream", "mock-stream.ts", 30, 30, (o: object) => mockTextStream(o)],
   ["mockJsonStream", "mock-json-stream.ts", 80, 40, (o: object) => mockJsonStream(o)],
   ["mockToolStream", "mock-tool-stream.ts", 30, 30, (o: object) => mockToolStream(o)],
+  ["streamCheckpoints", "checkpoint-stream.ts", 30, 30, (o: object) => streamCheckpoints(o)],
 ] as const;
 
 /**

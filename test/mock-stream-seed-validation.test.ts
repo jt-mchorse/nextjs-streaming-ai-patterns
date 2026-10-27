@@ -6,10 +6,12 @@
  * `baseDelayMs`/`jitterMs` throw a named `RangeError` on bad values (#26,
  * #102); `seed` now does the same, via the shared `validateSeed`.
  *
- * Table-driven over all three streamers, like `mock-stream-timeout-clamp`.
+ * Table-driven over every paced streamer, like `mock-stream-timeout-clamp`.
+ * `streamCheckpoints` joined the table when it gained a seed (#230).
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { streamCheckpoints } from "@/lib/checkpoint-stream";
 import { mockJsonStream } from "@/lib/mock-json-stream";
 import { mockTextStream } from "@/lib/mock-stream";
 import { mockToolStream } from "@/lib/mock-tool-stream";
@@ -18,6 +20,7 @@ const STREAMS = [
   ["mockTextStream", "MockStreamOptions", (o: object) => mockTextStream(o)],
   ["mockJsonStream", "MockJsonStreamOptions", (o: object) => mockJsonStream(o)],
   ["mockToolStream", "MockToolStreamOptions", (o: object) => mockToolStream(o)],
+  ["streamCheckpoints", "StreamOptions", (o: object) => streamCheckpoints(o)],
 ] as const;
 
 // Every value here was accepted before #221 and aliased another seed.

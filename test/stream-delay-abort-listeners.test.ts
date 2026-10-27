@@ -19,6 +19,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { streamCheckpoints } from "@/lib/checkpoint-stream";
 import { mockJsonStream } from "@/lib/mock-json-stream";
 import { mockTextStream } from "@/lib/mock-stream";
 import { mockToolStream } from "@/lib/mock-tool-stream";
@@ -34,6 +35,10 @@ const STREAMERS = [
   ["mockTextStream", (signal: AbortSignal) => mockTextStream({ signal, baseDelayMs: 1, jitterMs: 0 })],
   ["mockJsonStream", (signal: AbortSignal) => mockJsonStream({ signal, baseDelayMs: 1, jitterMs: 0 })],
   ["mockToolStream", (signal: AbortSignal) => mockToolStream({ signal, baseDelayMs: 1, jitterMs: 0 })],
+  [
+    "streamCheckpoints",
+    (signal: AbortSignal) => streamCheckpoints({ signal, baseDelayMs: 1, jitterMs: 0 }),
+  ],
 ] as const;
 
 describe("mock streamers leave no abort listener behind (#179)", () => {
@@ -81,7 +86,12 @@ describe("abortableSleep (#179)", () => {
   });
 
   it("is the only sleep: no mock streamer keeps a private copy", () => {
-    for (const file of ["lib/mock-stream.ts", "lib/mock-json-stream.ts", "lib/mock-tool-stream.ts"]) {
+    for (const file of [
+      "lib/mock-stream.ts",
+      "lib/mock-json-stream.ts",
+      "lib/mock-tool-stream.ts",
+      "lib/checkpoint-stream.ts",
+    ]) {
       const src = readFileSync(join(ROOT, file), "utf8");
       expect(src, file).not.toMatch(/function\s+sleep\s*\(/);
       expect(src, file).toMatch(/import \{[^}]*\babortableSleep\b[^}]*\} from "@\/lib\/stream-delay"/);

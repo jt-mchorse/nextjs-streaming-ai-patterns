@@ -1,4 +1,17 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// Zero delay for every `streamCheckpoints` the route (and this file) runs. Since
+// #230 it paces each text event like the sibling mock streamers, which would
+// make a full drop→resume round trip take ~6 s here; these tests are about the
+// frames, not their timing. Same wrapper shape as the sibling route tests.
+vi.mock("@/lib/checkpoint-stream", async (importOriginal) => {
+  const real = await importOriginal<typeof import("../lib/checkpoint-stream")>();
+  return {
+    ...real,
+    streamCheckpoints: (opts: Parameters<typeof real.streamCheckpoints>[0] = {}) =>
+      real.streamCheckpoints({ ...opts, baseDelayMs: 0, jitterMs: 0 }),
+  };
+});
 
 import { GET } from "../app/api/error-recovery/route";
 import { resumeTokenPosition, streamCheckpoints } from "../lib/checkpoint-stream";

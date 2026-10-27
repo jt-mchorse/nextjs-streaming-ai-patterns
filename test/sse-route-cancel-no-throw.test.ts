@@ -73,7 +73,7 @@ vi.mock("@/lib/checkpoint-stream", async (importOriginal) => {
   return {
     ...real,
     streamCheckpoints: (opts: Parameters<typeof real.streamCheckpoints>[0] = {}) =>
-      tracked(real.streamCheckpoints(opts)),
+      tracked(real.streamCheckpoints({ ...opts, baseDelayMs: 1, jitterMs: 0 })),
   };
 });
 

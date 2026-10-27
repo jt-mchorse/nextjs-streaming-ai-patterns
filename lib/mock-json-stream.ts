@@ -18,7 +18,12 @@
  * render at multiple intermediate states.
  */
 
-import { abortableSleep as sleep, validateDelayOptions, validateSeed } from "@/lib/stream-delay";
+import {
+  abortableSleep as sleep,
+  makePrng,
+  validateDelayOptions,
+  validateSeed,
+} from "@/lib/stream-delay";
 
 export type JsonStreamEvent =
   | { type: "json_delta"; delta: string }
@@ -121,17 +126,6 @@ function validateOptions(options: MockJsonStreamOptions): void {
   // `seed` is checked here too, so a seed that `>>> 0` would alias onto
   // another seed's schedule throws like a bad delay does (#221).
   validateSeed(options.seed, "MockJsonStreamOptions");
-}
-
-function makePrng(seed: number): () => number {
-  let s = seed >>> 0;
-  return () => {
-    s = (s + 0x6d2b79f5) >>> 0;
-    let t = s;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
 }
 
 /**
