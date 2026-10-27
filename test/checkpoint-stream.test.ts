@@ -11,6 +11,11 @@ import {
   type TextEvent,
 } from "../lib/checkpoint-stream";
 
+// Zero delay. Since #230 the streamer paces each text event like the sibling
+// mock streamers (30 ms + up to 30 ms jitter), so a test that wants the event
+// sequence rather than the timing passes this, as #206's `FAST` does.
+const FAST = { baseDelayMs: 0, jitterMs: 0 } as const;
+
 async function collect<T>(g: AsyncGenerator<T>): Promise<T[]> {
   const out: T[] = [];
   for await (const x of g) out.push(x);
@@ -19,13 +24,13 @@ async function collect<T>(g: AsyncGenerator<T>): Promise<T[]> {
 
 describe("streamCheckpoints — clean run", () => {
   it("emits exactly TOTAL_TOKENS text events when streamed to completion", async () => {
-    const events = await collect(streamCheckpoints());
+    const events = await collect(streamCheckpoints(FAST));
     const text = events.filter((e): e is TextEvent => e.kind === "text");
     expect(text.length).toBe(TOTAL_TOKENS);
   });
 
   it("emits a checkpoint every CHECKPOINT_EVERY text tokens", async () => {
-    const events = await collect(streamCheckpoints());
+    const events = await collect(streamCheckpoints(FAST));
     const checkpoints = events.filter(
       (e): e is CheckpointEvent => e.kind === "checkpoint",
     );
@@ -44,7 +49,7 @@ describe("streamCheckpoints — clean run", () => {
   });
 
   it("text events carry 1-indexed strictly-increasing index", async () => {
-    const events = await collect(streamCheckpoints());
+    const events = await collect(streamCheckpoints(FAST));
     const text = events.filter((e): e is TextEvent => e.kind === "text");
     text.forEach((e, i) => {
       expect(e.index).toBe(i + 1);
@@ -52,7 +57,7 @@ describe("streamCheckpoints — clean run", () => {
   });
 
   it("reassembling text yields the full fixture (modulo skipped tokens)", async () => {
-    const events = await collect(streamCheckpoints());
+    const events = await collect(streamCheckpoints(FAST));
     const reassembled = events
       .filter((e): e is TextEvent => e.kind === "text")
       .map((e) => e.text)
@@ -67,7 +72,7 @@ describe("streamCheckpoints — drop simulation", () => {
   it("throws CheckpointStreamDropped after emitting dropAfter text tokens", async () => {
     let emittedBeforeDrop = 0;
     try {
-      for await (const e of streamCheckpoints({ dropAfter: 7 })) {
+      for await (const e of streamCheckpoints({ ...FAST, dropAfter: 7 })) {
         if (e.kind === "text") emittedBeforeDrop += 1;
       }
       throw new Error("did not throw");
@@ -84,7 +89,7 @@ describe("streamCheckpoints — drop simulation", () => {
   it("emits at least one checkpoint before the drop when dropAfter > CHECKPOINT_EVERY", async () => {
     const events: StreamEvent[] = [];
     try {
-      for await (const e of streamCheckpoints({ dropAfter: 7 })) {
+      for await (const e of streamCheckpoints({ ...FAST, dropAfter: 7 })) {
         events.push(e);
       }
     } catch {
@@ -108,7 +113,7 @@ describe("streamCheckpoints — drop simulation", () => {
       const events: StreamEvent[] = [];
       let threw = false;
       try {
-        for await (const e of streamCheckpoints({ dropAfter })) {
+        for await (const e of streamCheckpoints({ ...FAST, dropAfter })) {
           events.push(e);
         }
       } catch (err) {
@@ -137,7 +142,7 @@ describe("streamCheckpoints — drop simulation", () => {
   it("does not invent a checkpoint at a non-boundary drop (dropAfter: 7 ordering unchanged)", async () => {
     const events: StreamEvent[] = [];
     try {
-      for await (const e of streamCheckpoints({ dropAfter: 7 })) {
+      for await (const e of streamCheckpoints({ ...FAST, dropAfter: 7 })) {
         events.push(e);
       }
     } catch {
@@ -155,7 +160,7 @@ describe("streamCheckpoints — drop simulation", () => {
 describe("streamCheckpoints — resume", () => {
   it("startAfter skips the first N text tokens and resumes index numbering at N+1", async () => {
     const startAfter = 5;
-    const events = await collect(streamCheckpoints({ startAfter }));
+    const events = await collect(streamCheckpoints({ ...FAST, startAfter }));
     const text = events.filter((e): e is TextEvent => e.kind === "text");
     expect(text.length).toBe(TOTAL_TOKENS - startAfter);
     expect(text[0].index).toBe(startAfter + 1);
@@ -167,7 +172,7 @@ describe("streamCheckpoints — resume", () => {
     const dropAfter = 3;
     const textIndices: number[] = [];
     try {
-      for await (const e of streamCheckpoints({ startAfter, dropAfter })) {
+      for await (const e of streamCheckpoints({ ...FAST, startAfter, dropAfter })) {
         if (e.kind === "text") textIndices.push(e.index);
       }
     } catch (err) {
@@ -178,7 +183,7 @@ describe("streamCheckpoints — resume", () => {
   });
 
   it("startAfter beyond TOTAL_TOKENS yields no text events and no checkpoints", async () => {
-    const events = await collect(streamCheckpoints({ startAfter: 9999 }));
+    const events = await collect(streamCheckpoints({ ...FAST, startAfter: 9999 }));
     expect(events.length).toBe(0);
   });
 });
@@ -190,7 +195,7 @@ describe("streamCheckpoints — resume", () => {
 // operator probably meant "no drop" but got "immediate drop".
 describe("streamCheckpoints — StreamOptions validation (issue #24)", () => {
   async function expectThrows(options: ConstructorParameters<typeof Object>[0]): Promise<unknown> {
-    return collect(streamCheckpoints(options as never)).then(
+    return collect(streamCheckpoints({ ...FAST, ...(options as object) } as never)).then(
       () => null,
       (e: unknown) => e,
     );
@@ -208,7 +213,7 @@ describe("streamCheckpoints — StreamOptions validation (issue #24)", () => {
   });
 
   it("accepts startAfter = 0 (start fresh; matches the documented default)", async () => {
-    const events = await collect(streamCheckpoints({ startAfter: 0 }));
+    const events = await collect(streamCheckpoints({ ...FAST, startAfter: 0 }));
     // Same shape as the default (omitted) call: TOTAL_TOKENS text events.
     const texts = events.filter((e): e is TextEvent => e.kind === "text");
     expect(texts.length).toBe(TOTAL_TOKENS);
@@ -230,7 +235,7 @@ describe("streamCheckpoints — StreamOptions validation (issue #24)", () => {
     let dropped = false;
     let textCount = 0;
     try {
-      for await (const e of streamCheckpoints({ dropAfter: 1 })) {
+      for await (const e of streamCheckpoints({ ...FAST, dropAfter: 1 })) {
         if (e.kind === "text") textCount += 1;
       }
     } catch (err) {
@@ -245,7 +250,7 @@ describe("streamCheckpoints — StreamOptions validation (issue #24)", () => {
     // If validation drifted inside the for-loop, the generator would yield
     // the first text event before throwing. The expect-throws-immediately
     // contract is what makes the demo route handler's error path predictable.
-    const gen = streamCheckpoints({ dropAfter: 0 });
+    const gen = streamCheckpoints({ ...FAST, dropAfter: 0 });
     await expect(gen.next()).rejects.toBeInstanceOf(RangeError);
   });
 });
@@ -298,7 +303,7 @@ describe("raw-drop resume position (issue #80)", () => {
     let lastCheckpoint = startAfter;
     let lastRendered = startAfter;
     let count = 0;
-    for await (const ev of streamCheckpoints({ startAfter })) {
+    for await (const ev of streamCheckpoints({ ...FAST, startAfter })) {
       if (ev.kind === "text") {
         rendered += ev.text;
         lastRendered = ev.index;
@@ -313,7 +318,7 @@ describe("raw-drop resume position (issue #80)", () => {
 
   async function resumeAppend(prior: string, startAfter: number): Promise<string> {
     let out = prior;
-    for await (const ev of streamCheckpoints({ startAfter })) {
+    for await (const ev of streamCheckpoints({ ...FAST, startAfter })) {
       if (ev.kind === "text") out += ev.text;
     }
     return out;
@@ -321,7 +326,7 @@ describe("raw-drop resume position (issue #80)", () => {
 
   async function cleanStream(): Promise<string> {
     let out = "";
-    for await (const ev of streamCheckpoints()) if (ev.kind === "text") out += ev.text;
+    for await (const ev of streamCheckpoints(FAST)) if (ev.kind === "text") out += ev.text;
     return out;
   }
 

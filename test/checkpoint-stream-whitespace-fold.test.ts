@@ -29,6 +29,11 @@ import {
   type StreamOptions,
 } from "../lib/checkpoint-stream";
 
+// Zero delay. Since #230 the streamer paces each text event like the sibling
+// mock streamers (30 ms + up to 30 ms jitter), so a test that wants the event
+// sequence rather than the timing passes this, as #206's `FAST` does.
+const FAST = { baseDelayMs: 0, jitterMs: 0 } as const;
+
 const SOURCE = readFileSync(resolve(__dirname, "../lib/checkpoint-stream.ts"), "utf8");
 
 /** The fixture the generator streams, read from the source it lives in. */
@@ -57,7 +62,7 @@ function docAbove(signature: string): string {
 async function texts(options: StreamOptions = {}): Promise<{ texts: string[]; droppedAt: number | null }> {
   const out: string[] = [];
   try {
-    for await (const e of streamCheckpoints(options)) if (e.kind === "text") out.push(e.text);
+    for await (const e of streamCheckpoints({ ...FAST, ...options })) if (e.kind === "text") out.push(e.text);
   } catch (err) {
     if (!(err instanceof CheckpointStreamDropped)) throw err;
     return { texts: out, droppedAt: err.emitted };

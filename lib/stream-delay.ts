@@ -163,3 +163,24 @@ export async function abortableSleep(ms: number, signal?: AbortSignal): Promise<
     signal?.addEventListener("abort", onAbort, { once: true });
   });
 }
+
+/**
+ * Mulberry32 -- small, fast, deterministic-given-seed. The jitter PRNG a mock
+ * streamer uses when its `seed` is set.
+ *
+ * One copy, for the reason the two guards above are shared (#110). Each of the
+ * three mock streamers had a byte-identical copy; `streamCheckpoints` gained a
+ * seed with #230, and a fourth copy is how one of them would come to differ.
+ * It reads the seed as `seed >>> 0`, which is why `validateSeed` bounds the
+ * seed to `[0, MAX_SEED]`.
+ */
+export function makePrng(seed: number): () => number {
+  let s = seed >>> 0;
+  return () => {
+    s = (s + 0x6d2b79f5) >>> 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}

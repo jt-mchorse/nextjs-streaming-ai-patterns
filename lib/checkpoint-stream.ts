@@ -15,8 +15,32 @@
 // text tokens. The route handler catches this and closes the
 // connection mid-response so the recovery path on the client side
 // has something to recover from.
+//
+// Each text event is paced like the three sibling mock streamers: a
+// `baseDelayMs + jitter` sleep before it (#230). Without it the whole
+// pre-drop burst, and then the whole resumed answer, arrived within a
+// millisecond, so the page never showed a token arriving.
+
+import {
+  abortableSleep as sleep,
+  makePrng,
+  validateDelayOptions,
+  validateSeed,
+} from "@/lib/stream-delay";
 
 export const CHECKPOINT_EVERY = 5;
+
+/**
+ * Per-token delay applied when `baseDelayMs` is omitted. The same 30 ms
+ * `mockTextStream` and `mockToolStream` use.
+ *
+ * Read by the generator below AND passed to `validateDelayOptions`, so the
+ * guard models the value that actually reaches `setTimeout` (#110).
+ */
+const DEFAULT_BASE_DELAY_MS = 30;
+
+/** Jitter applied when `jitterMs` is omitted. Same two-readers rule (#110). */
+const DEFAULT_JITTER_MS = 30;
 
 const FIXTURE = `A mid-stream error is the single ugliest failure mode for a chat UI: the user has watched
 half an answer materialize, the connection drops, and suddenly the entire response disappears
@@ -68,6 +92,16 @@ export interface StreamOptions {
    * instead of running it to completion.
    */
   readonly signal?: AbortSignal;
+  /**
+   * Delay before each text event, in ms. Default 30, as in the sibling mock
+   * streamers (#230). Pass `baseDelayMs: 0, jitterMs: 0` for an instant
+   * stream, the shape tests use.
+   */
+  readonly baseDelayMs?: number;
+  /** Random jitter added to each delay, in ms. Default 30. */
+  readonly jitterMs?: number;
+  /** Seed for the jitter PRNG; when set the delay schedule is deterministic. */
+  readonly seed?: number;
 }
 
 /**
@@ -120,6 +154,15 @@ function validateOptions(options: StreamOptions): void {
       );
     }
   }
+  // The delay fields and the seed go through the same shared guards as the
+  // sibling mock streamers (#110, #221), so a delay `setTimeout` would clamp
+  // to ~1 ms, or a seed `>>> 0` would alias, throws here too (#230).
+  validateDelayOptions(options, {
+    label: "StreamOptions",
+    baseDefault: DEFAULT_BASE_DELAY_MS,
+    jitterDefault: DEFAULT_JITTER_MS,
+  });
+  validateSeed(options.seed, "StreamOptions");
 }
 
 /**
@@ -164,6 +207,9 @@ export async function* streamCheckpoints(
   const startAfter = options.startAfter ?? 0;
   const dropAfter = options.dropAfter;
   const signal = options.signal;
+  const baseDelayMs = options.baseDelayMs ?? DEFAULT_BASE_DELAY_MS;
+  const jitterMs = options.jitterMs ?? DEFAULT_JITTER_MS;
+  const rand = options.seed !== undefined ? makePrng(options.seed) : Math.random;
 
   let emittedThisRun = 0;
   let textIndex = 0;
@@ -187,6 +233,15 @@ export async function* streamCheckpoints(
     if (textIndex <= startAfter) {
       pendingPrefix = ""; // tokens before the resume point are skipped silently
       continue;
+    }
+
+    // Pace the text event like the sibling streamers (#230). Skipped tokens
+    // above are not paced: a resume should not wait out the tokens it is
+    // skipping. `sleep` resolves (not rejects) on abort, so re-check after it
+    // rather than emitting a token for a consumer that has gone.
+    await sleep(baseDelayMs + Math.floor(rand() * jitterMs), signal);
+    if (signal?.aborted) {
+      return;
     }
 
     yield {
