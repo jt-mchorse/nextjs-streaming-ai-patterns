@@ -218,7 +218,9 @@ export function ErrorRecoveryClient() {
   }
 
   // Render alone cannot hide the pill: nothing re-renders when its window
-  // closes, and the resumed stream is usually done well inside it (#152).
+  // closes, and a resumed stream that ends inside it leaves no later render to
+  // do so (#152). Since #231's pacing a resume runs about 5.7 s, past the
+  // 2.5 s window, but the clear must not depend on the stream's length (#232).
   // Schedule the clear; a newer resume replaces `lastResume`, and the cleanup
   // cancels the older timer, so each pill gets its own full window.
   useEffect(() => {

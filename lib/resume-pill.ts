@@ -4,10 +4,13 @@
  *
  * The pill used to be decided only during render, as
  * `Date.now() - lastResume.when < 2_500`, and nothing scheduled a render when
- * the window closed. The resumed stream finishes in under a second, so the
- * last render happened inside the window and the pill stayed on screen for
- * good: measured on a mock-mode `next dev`, still showing 10 s after "done".
- * The component now schedules the clear with this function's result.
+ * the window closed. The resumed stream then finished in under a second, so
+ * the last render happened inside the window and the pill stayed on screen
+ * for good: measured on a mock-mode `next dev`, still showing 10 s after
+ * "done". Since #231 paces the stream, a resume takes about 5.7 s and later
+ * renders would usually clear it, but any stream that ends inside the window
+ * still would not, so the component schedules the clear with this function's
+ * result (#232).
  */
 export const RESUMED_PILL_MS = 2_500;
 
