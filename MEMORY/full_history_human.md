@@ -2161,3 +2161,11 @@ the demo-video script spends on that page. The tests that only care about
 what is sent, not when, switch the delay off so the suite stays fast. New
 tests check the delay is there, that it can be set and seeded, and that
 stopping the stream during a pause ends it straight away.
+
+## 2026-10-28 — Two stale timing comments corrected (#232)
+
+Two comments in the error-recovery demo said the resumed stream finishes
+inside the 2.5-second window that shows the "resumed" badge. Since the stream
+was slowed to a realistic pace, a resume takes about 5.7 seconds. The comments
+now say so and keep the reason the badge is cleared on a timer. A bug hunt over
+the streaming parsers found nothing else. PR #233.

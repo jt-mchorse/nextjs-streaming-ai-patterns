@@ -2428,3 +2428,20 @@ context_for_next_session:
   - "full drop->resume in the browser ends ~6.8 s after navigation; scripts/capture_demo.ts holds /error-recovery for 8 s, so a bigger default delay would need that hold raised"
 followups: []
 ---
+
+---
+session: 2026-10-28T08:06Z
+issue: 232
+branch: session/2026-10-28-0806-issue-232
+focus: TWO_COMMENTS_SAID_THE_RESUMED_STREAM_FINISHES_INSIDE_THE_2_5S_PILL_WINDOW_SINCE_231S_PACING_IT_TAKES_ABOUT_5_7S
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 0
+  suite: "comments only"
+decisions_made: []
+measured: "hunt agent, origin/main 9870cb8, mock next dev + Playwright 25 ms polling: resumed ~850 ms, pill gone ~3350 ms, done ~6600 ms (x2). Reworded both comments; the scheduled clear stays because a stream ending inside the window still leaves no later render. Issue #232, PR #233."
+context_for_next_session:
+  - "HUNT_FOUND_NO_CORRECTNESS_BUG_HERE_SSE_SPLIT_TABLE_PARTIAL_JSON_FUZZ_AND_200K_NEVER_THROWS_ALL_CLEAN_repo_looks_saturated"
+followups: []
+---
