@@ -39,9 +39,9 @@ const FIXTURE = `Streaming the model's response token-by-token instead of waitin
 message is the single biggest perceived-latency win in a chat UI.
 
 The pattern works because rendering can start the moment the first token arrives.
-React 19's Server Components flush HTML in chunks as the async generator yields,
-and the browser repaints incrementally. No client-side JavaScript is required
-just to display the streaming text — only to animate the cursor.
+A route handler forwards each delta as a Server-Sent Event the moment the model
+yields it, and a small Client Component appends it to the page, so the browser
+repaints incrementally instead of waiting for the end of the message.
 
 If the model takes 2.5 seconds to produce 80 tokens, a non-streaming UI shows
 nothing for 2.5 seconds and then a wall of text. A streaming UI shows the first
