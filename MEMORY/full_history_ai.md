@@ -2445,3 +2445,22 @@ context_for_next_session:
   - "HUNT_FOUND_NO_CORRECTNESS_BUG_HERE_SSE_SPLIT_TABLE_PARTIAL_JSON_FUZZ_AND_200K_NEVER_THROWS_ALL_CLEAN_repo_looks_saturated"
 followups: []
 ---
+
+---
+session: 2026-10-30T07:21Z
+issue: 234
+branch: session/2026-10-30-0716-issue-234
+focus: THE_MOCK_TEXT_FIXTURE_STREAMED_A_ZERO_JS_RSC_CLAIM_THAT_DOCS_ARCHITECTURE_MD_REJECTS_NOW_DESCRIBES_ROUTE_HANDLER_PLUS_CLIENT_COMPONENT
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 3
+  suite: "1282 -> 1285 passed (80 -> 81 files); lint, typecheck, build clean"
+decisions_made: []
+measured: "hunt agent, origin/main e9dbbe0, keyless next start + curl /api/stream-text: streamed 'Server Components flush ... No client-side JavaScript is required'. New test 3 of 3 red on the unfixed fixture, 3 green after. PR #235."
+context_for_next_session:
+  - "MOCK_FIXTURE_IS_PAGE_CONTENT_test_mock-fixture-describes-the-page_pins_it_to_the_architecture_doc_claim"
+  - "NOT_CHANGED_first_token_at_80ms_is_the_fixtures_hypothetical_model_not_the_mocks_pacing"
+  - "HUNT_AGAIN_FOUND_NO_CORRECTNESS_BUG_repo_saturated"
+followups: []
+---

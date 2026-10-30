@@ -2169,3 +2169,13 @@ inside the 2.5-second window that shows the "resumed" badge. Since the stream
 was slowed to a realistic pace, a resume takes about 5.7 seconds. The comments
 now say so and keep the reason the badge is cleared on a timer. A bug hunt over
 the streaming parsers found nothing else. PR #233.
+
+## 2026-10-30 — The demo text no longer contradicts the page (#234)
+
+Without an API key, the streaming-text page streams a canned paragraph. That
+paragraph claimed React Server Components stream the text with no browser
+JavaScript at all. The architecture doc explains at length that this pattern
+does not exist in React 19 and Next 15, and the page itself is built the
+other way. The paragraph now describes what the page really does: a route
+handler sends each piece as it arrives and a small client component adds it
+to the page. A new test keeps the demo text in line with the doc. PR #235.
